@@ -155,7 +155,7 @@ def find_binary_dists():
             m = re.match(r'^([A-Za-z].*)-([0-9].*?)\.linux-x86_64\.tar\.gz$', filename)
             if m:
                 pathname = os.path.join(binary_index, filename)
-                key = (m.group(1), m.group(2))
+                key = (m.group(1).lower(), m.group(2))
                 if VERBOSE:
                     message("Matched %s in %s\n", key, filename)
                 distributions[key] = pathname
@@ -175,7 +175,7 @@ def build_binary_dists(dependencies):
     message("Building binary distributions ..\n")
     for name, version, directory in dependencies:
         # Check if a binary distribution already exists.
-        filename = existing_binary_dists.get((name, version))
+        filename = existing_binary_dists.get((name.lower(), version))
         if filename:
             if VERBOSE:
                 message("Existing binary distribution for %s (%s) found at %s\n", name, version, filename)
@@ -215,7 +215,6 @@ def install_dependencies(dependencies):
     existing_binary_dists = find_binary_dists()
     message("Installing from binary distributions ..\n")
     for name, version, directory in dependencies:
-        # FIXME Make this case insensitive!
         filename = existing_binary_dists.get((name, version))
         if not filename:
             message("Error: No binary distribution of %s (%s) available!\n", name, version)
