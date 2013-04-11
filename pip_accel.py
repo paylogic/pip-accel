@@ -166,8 +166,7 @@ def find_binary_dists():
             # version string. Examples created with "python setup.py bdist":
             #  - chardet 2.1.1 => chardet-2.1.1.linux-x86_64.tar.gz
             #  - MySQL-python 1.2.3 => MySQL-python-1.2.3.linux-x86_64.tar.gz
-            # FIXME Extend this to support at least 32-bit and other Unixen?
-            m = re.match(r'^([A-Za-z].*)-([0-9].*?)\.linux-x86_64\.tar\.gz$', filename)
+            m = re.match(r'^([A-Za-z].*)-([0-9].*?)\.[^.]+\.tar\.gz$', filename)
             if m:
                 pathname = os.path.join(binary_index, filename)
                 key = (m.group(1).lower(), m.group(2))

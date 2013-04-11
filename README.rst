@@ -16,9 +16,9 @@ Limitations (bugs)
 
 Currently the ``pip-accel`` command has some rough edges:
 
-- It's only been tested on 64 bit Linux and in fact it currently won't work anywhere else; this is at the top of my to-do list to make ``pip-accel`` useful outside my little ecosystem;
+- Installation using `pip install --editable` is not supported yet, although support for this is planned (and shouldn't be too hard);
 
-- Installation using `pip install --editable` is not supported yet, although support for this is planned (and shouldn't be too hard).
+- It has only been tested on Linux.
 
 How fast is it?
 ---------------
