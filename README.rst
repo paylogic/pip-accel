@@ -11,6 +11,15 @@ The ``pip-accel`` program is a wrapper for `pip <http://www.pip-installer.org/>`
 
 The ``pip-accel`` command supports all subcommands and options supported by ``pip``, however it is of course only useful for the ``pip install`` subcommand.
 
+Limitations (bugs)
+------------------
+
+Currently the ``pip-accel`` command has some rough edges:
+
+- It's only been tested on 64 bit Linux and in fact it currently won't work anywhere else; this is at the top of my to-do list to make ``pip-accel`` useful outside my little ecosystem;
+
+- Installation using `pip install --editable` is not supported yet, although support for this is planned (and shouldn't be too hard).
+
 How fast is it?
 ---------------
 
