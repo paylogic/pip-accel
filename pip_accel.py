@@ -84,6 +84,15 @@ def unpack_source_dists(original_arguments):
     """
     Check whether we have local source distributions available for all
     dependencies and find the names and versions of all dependencies.
+    Returns a tuple of two values:
+
+    - The first value is True if all dependencies are available as local source
+      distributions, False otherwise.
+
+    - When the first value is True, the second value is a list of tuples,
+      otherwise the second value is None. Each tuple contains three values,
+      in this order: (package-name, package-version, directory). The third
+      value points to an existing directory containing the unpacked sources.
     """
     unpack_timer = Timer()
     message("Unpacking local source distributions ..\n")
@@ -136,19 +145,22 @@ def download_source_dists(original_arguments):
                              use_remote_index=True)
     if status:
         message("Finished downloading source distributions in %s.\n", download_timer)
-    # If pip failed, notify the user.
-    if not status:
+    else:
         interactive_message("Warning: Failed to download one or more source distributions")
 
 def find_binary_dists():
     """
-    Find cached binary distributions.
+    Find cached binary distributions. Returns a dictionary with (package-name,
+    package-version) tuples as keys and pathnames of binary archives as values.
     """
     message("Scanning binary distribution index ..\n")
     distributions = {}
     for filename in sorted(os.listdir(binary_index), key=str.lower):
         if filename.endswith('.tar.gz'):
-            # Created with: python setup.py bdist
+            # The filename format of binary distributions is very awkward: Both
+            # the package name and the version string can contain hyphens, but
+            # the hyphen is also used to delimit the package name from the
+            # version string. Examples created with "python setup.py bdist":
             #  - chardet 2.1.1 => chardet-2.1.1.linux-x86_64.tar.gz
             #  - MySQL-python 1.2.3 => MySQL-python-1.2.3.linux-x86_64.tar.gz
             # FIXME Extend this to support at least 32-bit and other Unixen?
@@ -169,7 +181,9 @@ def find_binary_dists():
 
 def build_binary_dists(dependencies):
     """
-    Convert source distributions to binary distributions.
+    Convert source distributions to binary distributions. Returns a boolean:
+    True if we succeeded in building a binary distribution, False if we failed
+    (probably because of missing binary dependencies like system libraries).
     """
     existing_binary_dists = find_binary_dists()
     message("Building binary distributions ..\n")
@@ -209,7 +223,9 @@ def build_binary_dists(dependencies):
 
 def install_dependencies(dependencies):
     """
-    Manually install all dependencies from binary distributions.
+    Manually install all dependencies from binary distributions. Returns a
+    boolean: True if we successfully installed all dependencies from binary
+    distribution archives, False otherwise.
     """
     install_timer = Timer()
     existing_binary_dists = find_binary_dists()
@@ -254,7 +270,11 @@ def find_bdist_contents(archive):
     """
     Transform the absolute pathnames embedded in a binary distribution into
     relative filenames that can be prefixed by /usr, /usr/local or the path to
-    a virtual environment.
+    a virtual environment. Returns a list of tuples with three values each:
+    (original-path, relative-path, file-mode). The first value is the pathname
+    from the tar archive, the second value is the transformed pathname and the
+    third value contains the integer mode that the file should get (executable
+    bits and other file permissions).
     """
     contents = []
     while True:
@@ -288,7 +308,9 @@ def interactive_message(text):
 
 def run_pip(arguments, local_index, use_remote_index):
     """
-    Execute a modified `pip install` command.
+    Execute a modified `pip install` command. Returns two values: A boolean
+    (True if pip exited with status 0, False otherwise) and a list of lines of
+    output from pip (empty if it failed).
     """
     command_line = []
     for i, arg in enumerate(arguments):
@@ -312,11 +334,12 @@ def run_pip(arguments, local_index, use_remote_index):
         update_source_dists_index()
         return True, output
     else:
-        return False, None
+        return False, []
 
 def update_source_dists_index():
     """
-    Link newly downloaded source distributions into the local index directory.
+    Link newly downloaded source distributions into the local index directory
+    using symbolic links.
     """
     for download_name in os.listdir(download_cache):
         download_path = os.path.join(download_cache, download_name)
@@ -336,7 +359,7 @@ def add_extension(download_path, archive_path):
     Make sure all cached source distributions have the right file extension,
     because not all distribution sites provide URLs with proper filenames in
     them while we really need the proper filenames to build the local source
-    index.
+    index. Returns the (possibly modified) pathname of the source archive.
 
     Previously this used the "file" executable, now it checks the magic file
     headers itself. I could have used any of the numerous libmagic bindings on
