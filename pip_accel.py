@@ -12,11 +12,11 @@ Usage: pip-accel [ARGUMENTS TO PIP]
 The pip-accel program is a wrapper for pip, the Python package manager. It
 accelerates the usage of pip to initialize Python virtual environments given
 one or more requirements files. The pip-accel command supports all subcommands
-and options supported by pip, however it is of course only useful for the "pip
-install" subcommand.
+and options supported by pip, however it is only useful for the "pip install"
+subcommand.
 
-For more information please refer to the GitHub project page:
-https://github.com/paylogic/pip-accel
+For more information please refer to the GitHub project page
+at https://github.com/paylogic/pip-accel
 """
 
 import os
@@ -54,12 +54,15 @@ def main():
     """
     Main logic of the pip-accel command.
     """
-    main_timer = Timer()
-    original_arguments = sys.argv[1:]
+    arguments = sys.argv[1:]
+    if not arguments:
+        message("%s\n", __doc__.strip(), prefix=False)
+        sys.exit(0)
     # If no install subcommand is given we pass the command line straight
     # to pip without any changes and exit immediately afterwards.
-    if 'install' not in original_arguments:
-        sys.exit(os.spawnvp(os.P_WAIT, 'pip', ['pip'] + original_arguments))
+    if 'install' not in arguments:
+        sys.exit(os.spawnvp(os.P_WAIT, 'pip', ['pip'] + arguments))
+    main_timer = Timer()
     # Create all required directories on the fly.
     for directory in [download_cache, source_index, binary_index]:
         if not os.path.isdir(directory):
@@ -67,9 +70,9 @@ def main():
     # Execute "pip install" in a loop in order to retry after intermittent
     # error responses from servers (which can happen quite frequently).
     for i in xrange(1, MAX_RETRIES):
-        have_source_dists, dependencies = unpack_source_dists(original_arguments)
+        have_source_dists, dependencies = unpack_source_dists(arguments)
         if not have_source_dists:
-            download_source_dists(original_arguments)
+            download_source_dists(arguments)
         elif not dependencies:
             message("No dependencies found in pip's output, probably there's nothing to do.\n")
             return
