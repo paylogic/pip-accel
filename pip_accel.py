@@ -333,7 +333,15 @@ def update_source_dists_index():
 
 def add_extension(download_path, archive_path):
     """
-    Make sure all cached source distributions have the right file extension.
+    Make sure all cached source distributions have the right file extension,
+    because not all distribution sites provide URLs with proper filenames in
+    them while we really need the proper filenames to build the local source
+    index.
+
+    Previously this used the "file" executable, now it checks the magic file
+    headers itself. I could have used any of the numerous libmagic bindings on
+    PyPi, but that would add a binary dependency to pip-accel and I don't want
+    that :-).
     """
     handle = open(download_path)
     header = handle.read(2)
