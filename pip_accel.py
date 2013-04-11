@@ -12,11 +12,11 @@ Usage: pip-accel [ARGUMENTS TO PIP]
 The pip-accel program is a wrapper for pip, the Python package manager. It
 accelerates the usage of pip to initialize Python virtual environments given
 one or more requirements files. The pip-accel command supports all subcommands
-and options supported by pip, however it is of course only useful for the "pip
-install" subcommand.
+and options supported by pip, however it is only useful for the "pip install"
+subcommand.
 
-For more information please refer to the GitHub project page:
-https://github.com/paylogic/pip-accel
+For more information please refer to the GitHub project page
+at https://github.com/paylogic/pip-accel
 """
 
 import os
@@ -54,12 +54,15 @@ def main():
     """
     Main logic of the pip-accel command.
     """
-    main_timer = Timer()
-    original_arguments = sys.argv[1:]
+    arguments = sys.argv[1:]
+    if not arguments:
+        message("%s\n", __doc__.strip(), prefix=False)
+        sys.exit(0)
     # If no install subcommand is given we pass the command line straight
     # to pip without any changes and exit immediately afterwards.
-    if 'install' not in original_arguments:
-        sys.exit(os.spawnvp(os.P_WAIT, 'pip', ['pip'] + original_arguments))
+    if 'install' not in arguments:
+        sys.exit(os.spawnvp(os.P_WAIT, 'pip', ['pip'] + arguments))
+    main_timer = Timer()
     # Create all required directories on the fly.
     for directory in [download_cache, source_index, binary_index]:
         if not os.path.isdir(directory):
@@ -67,9 +70,9 @@ def main():
     # Execute "pip install" in a loop in order to retry after intermittent
     # error responses from servers (which can happen quite frequently).
     for i in xrange(1, MAX_RETRIES):
-        have_source_dists, dependencies = unpack_source_dists(original_arguments)
+        have_source_dists, dependencies = unpack_source_dists(arguments)
         if not have_source_dists:
-            download_source_dists(original_arguments)
+            download_source_dists(arguments)
         elif not dependencies:
             message("No dependencies found in pip's output, probably there's nothing to do.\n")
             return
@@ -84,6 +87,15 @@ def unpack_source_dists(original_arguments):
     """
     Check whether we have local source distributions available for all
     dependencies and find the names and versions of all dependencies.
+    Returns a tuple of two values:
+
+    - The first value is True if all dependencies are available as local source
+      distributions, False otherwise.
+
+    - When the first value is True, the second value is a list of tuples,
+      otherwise the second value is None. Each tuple contains three values,
+      in this order: (package-name, package-version, directory). The third
+      value points to an existing directory containing the unpacked sources.
     """
     unpack_timer = Timer()
     message("Unpacking local source distributions ..\n")
@@ -136,26 +148,28 @@ def download_source_dists(original_arguments):
                              use_remote_index=True)
     if status:
         message("Finished downloading source distributions in %s.\n", download_timer)
-    # If pip failed, notify the user.
-    if not status:
+    else:
         interactive_message("Warning: Failed to download one or more source distributions")
 
 def find_binary_dists():
     """
-    Find cached binary distributions.
+    Find cached binary distributions. Returns a dictionary with (package-name,
+    package-version) tuples as keys and pathnames of binary archives as values.
     """
     message("Scanning binary distribution index ..\n")
     distributions = {}
     for filename in sorted(os.listdir(binary_index), key=str.lower):
         if filename.endswith('.tar.gz'):
-            # Created with: python setup.py bdist
+            # The filename format of binary distributions is very awkward: Both
+            # the package name and the version string can contain hyphens, but
+            # the hyphen is also used to delimit the package name from the
+            # version string. Examples created with "python setup.py bdist":
             #  - chardet 2.1.1 => chardet-2.1.1.linux-x86_64.tar.gz
             #  - MySQL-python 1.2.3 => MySQL-python-1.2.3.linux-x86_64.tar.gz
-            # FIXME Extend this to support at least 32-bit and other Unixen?
-            m = re.match(r'^([A-Za-z].*)-([0-9].*?)\.linux-x86_64\.tar\.gz$', filename)
+            m = re.match(r'^([A-Za-z].*)-([0-9].*?)\.[^.]+\.tar\.gz$', filename)
             if m:
                 pathname = os.path.join(binary_index, filename)
-                key = (m.group(1), m.group(2))
+                key = (m.group(1).lower(), m.group(2))
                 if VERBOSE:
                     message("Matched %s in %s\n", key, filename)
                 distributions[key] = pathname
@@ -169,13 +183,15 @@ def find_binary_dists():
 
 def build_binary_dists(dependencies):
     """
-    Convert source distributions to binary distributions.
+    Convert source distributions to binary distributions. Returns a boolean:
+    True if we succeeded in building a binary distribution, False if we failed
+    (probably because of missing binary dependencies like system libraries).
     """
     existing_binary_dists = find_binary_dists()
     message("Building binary distributions ..\n")
     for name, version, directory in dependencies:
         # Check if a binary distribution already exists.
-        filename = existing_binary_dists.get((name, version))
+        filename = existing_binary_dists.get((name.lower(), version))
         if filename:
             if VERBOSE:
                 message("Existing binary distribution for %s (%s) found at %s\n", name, version, filename)
@@ -209,13 +225,14 @@ def build_binary_dists(dependencies):
 
 def install_dependencies(dependencies):
     """
-    Manually install all dependencies from binary distributions.
+    Manually install all dependencies from binary distributions. Returns a
+    boolean: True if we successfully installed all dependencies from binary
+    distribution archives, False otherwise.
     """
     install_timer = Timer()
     existing_binary_dists = find_binary_dists()
     message("Installing from binary distributions ..\n")
     for name, version, directory in dependencies:
-        # FIXME Make this case insensitive!
         filename = existing_binary_dists.get((name, version))
         if not filename:
             message("Error: No binary distribution of %s (%s) available!\n", name, version)
@@ -255,7 +272,11 @@ def find_bdist_contents(archive):
     """
     Transform the absolute pathnames embedded in a binary distribution into
     relative filenames that can be prefixed by /usr, /usr/local or the path to
-    a virtual environment.
+    a virtual environment. Returns a list of tuples with three values each:
+    (original-path, relative-path, file-mode). The first value is the pathname
+    from the tar archive, the second value is the transformed pathname and the
+    third value contains the integer mode that the file should get (executable
+    bits and other file permissions).
     """
     contents = []
     while True:
@@ -289,7 +310,9 @@ def interactive_message(text):
 
 def run_pip(arguments, local_index, use_remote_index):
     """
-    Execute a modified `pip install` command.
+    Execute a modified `pip install` command. Returns two values: A boolean
+    (True if pip exited with status 0, False otherwise) and a list of lines of
+    output from pip (empty if it failed).
     """
     command_line = []
     for i, arg in enumerate(arguments):
@@ -304,7 +327,7 @@ def run_pip(arguments, local_index, use_remote_index):
     else:
         command_line += ['pip'] + arguments
     message("Executing command: %s\n", ' '.join(command_line))
-    pip = os.popen('bash -c "%s"' % ' '.join(command_line))
+    pip = os.popen(' '.join(command_line))
     output = []
     for line in pip:
         message("  %s\n", line.rstrip(), prefix=False)
@@ -313,11 +336,12 @@ def run_pip(arguments, local_index, use_remote_index):
         update_source_dists_index()
         return True, output
     else:
-        return False, None
+        return False, []
 
 def update_source_dists_index():
     """
-    Link newly downloaded source distributions into the local index directory.
+    Link newly downloaded source distributions into the local index directory
+    using symbolic links.
     """
     for download_name in os.listdir(download_cache):
         download_path = os.path.join(download_cache, download_name)
@@ -334,7 +358,15 @@ def update_source_dists_index():
 
 def add_extension(download_path, archive_path):
     """
-    Make sure all cached source distributions have the right file extension.
+    Make sure all cached source distributions have the right file extension,
+    because not all distribution sites provide URLs with proper filenames in
+    them while we really need the proper filenames to build the local source
+    index. Returns the (possibly modified) pathname of the source archive.
+
+    Previously this used the "file" executable, now it checks the magic file
+    headers itself. I could have used any of the numerous libmagic bindings on
+    PyPi, but that would add a binary dependency to pip-accel and I don't want
+    that :-).
     """
     handle = open(download_path)
     header = handle.read(2)
