@@ -92,6 +92,7 @@ def unpack_source_dists(original_arguments):
     instance_arguments = [a for a in original_arguments]
     instance_arguments.append('--no-install')
     # Execute pip to unpack the source distributions.
+    # FIXME This doesn't support "pip install --editable" yet!
     status, output = run_pip(['-v', '-v'] + instance_arguments,
                              local_index=source_index,
                              use_remote_index=False)
@@ -135,8 +136,6 @@ def download_source_dists(original_arguments):
                              use_remote_index=True)
     if status:
         message("Finished downloading source distributions in %s.\n", download_timer)
-    # Always update the source index after downloading source distributions.
-    update_source_dists_index()
     # If pip failed, notify the user.
     if not status:
         interactive_message("Warning: Failed to download one or more source distributions")
@@ -152,6 +151,7 @@ def find_binary_dists():
             # Created with: python setup.py bdist
             #  - chardet 2.1.1 => chardet-2.1.1.linux-x86_64.tar.gz
             #  - MySQL-python 1.2.3 => MySQL-python-1.2.3.linux-x86_64.tar.gz
+            # FIXME Extend this to support at least 32-bit and other Unixen?
             m = re.match(r'^([A-Za-z].*)-([0-9].*?)\.linux-x86_64\.tar\.gz$', filename)
             if m:
                 pathname = os.path.join(binary_index, filename)
@@ -215,6 +215,7 @@ def install_dependencies(dependencies):
     existing_binary_dists = find_binary_dists()
     message("Installing from binary distributions ..\n")
     for name, version, directory in dependencies:
+        # FIXME Make this case insensitive!
         filename = existing_binary_dists.get((name, version))
         if not filename:
             message("Error: No binary distribution of %s (%s) available!\n", name, version)
@@ -335,16 +336,21 @@ def add_extension(download_path, archive_path):
     """
     Make sure all cached source distributions have the right file extension.
     """
-    handle = os.popen('file "%s"' % os.path.realpath(download_path))
-    output = handle.read()
+    handle = open(download_path)
+    header = handle.read(2)
     handle.close()
-    if 'gzip' in output:
+    if header.startwith('\x1f\x8b'):
+        # The gzip compression header is two bytes: 0x1F, 0x8B.
         if not archive_path.endswith(('.tgz', '.tar.gz')):
             archive_path += '.tar.gz'
-    elif 'bzip2' in output:
+    elif header.startswith('BZ'):
+        # The bzip2 compression header is two bytes: B, Z.
         if not archive_path.endswith('.bz2'):
             archive_path += '.bz2'
-    elif 'zip' in output:
+    elif header.startswith('PK'):
+        # According to Wikipedia, ZIP archives don't have an official magic
+        # number, but most of the time we'll find two bytes: P, K (for Phil
+        # Katz, creator of the format).
         if not archive_path.endswith('.zip'):
             archive_path += '.zip'
     return archive_path
