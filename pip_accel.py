@@ -339,7 +339,7 @@ def add_extension(download_path, archive_path):
     handle = open(download_path)
     header = handle.read(2)
     handle.close()
-    if header.startwith('\x1f\x8b'):
+    if header.startswith('\x1f\x8b'):
         # The gzip compression header is two bytes: 0x1F, 0x8B.
         if not archive_path.endswith(('.tgz', '.tar.gz')):
             archive_path += '.tar.gz'
