@@ -304,7 +304,7 @@ def run_pip(arguments, local_index, use_remote_index):
     else:
         command_line += ['pip'] + arguments
     message("Executing command: %s\n", ' '.join(command_line))
-    pip = os.popen('bash -c "%s"' % ' '.join(command_line))
+    pip = os.popen(' '.join(command_line))
     output = []
     for line in pip:
         message("  %s\n", line.rstrip(), prefix=False)
