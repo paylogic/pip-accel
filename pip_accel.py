@@ -21,6 +21,7 @@ at https://github.com/paylogic/pip-accel
 
 import os
 import os.path
+import pkg_resources
 import re
 import shutil
 import sys
@@ -104,7 +105,6 @@ def unpack_source_dists(original_arguments):
     instance_arguments = [a for a in original_arguments]
     instance_arguments.append('--no-install')
     # Execute pip to unpack the source distributions.
-    # FIXME This doesn't support "pip install --editable" yet!
     status, output = run_pip(['-v', '-v'] + instance_arguments,
                              local_index=source_index,
                              use_remote_index=False)
@@ -115,14 +115,18 @@ def unpack_source_dists(original_arguments):
     message("Unpacked local source distributions in %s.\n", unpack_timer)
     # If pip succeeded, parse its output to find the pinned dependencies.
     dependencies = []
-    pattern = re.compile(r'^\s*Source in (.+?) has version (.+?), which satisfies requirement')
+    # Interesting output of a normal "pip install something":
+    #   Source in /some/directory has version 1.2.3, which satisfies requirement something
+    # Interesting output of a "pip install --editable /another/directory":
+    #   Source in /some/directory has version 2.3.4, which satisfies requirement foobar==2.3.4 from file:///another/directory
+    pattern = re.compile(r'^\s*Source in (.+?) has version (.+?), which satisfies requirement ([^ ]+)')
     for line in output:
         m = pattern.match(line)
         if m:
             directory = m.group(1)
-            name = os.path.basename(directory)
             version = m.group(2)
-            dependencies.append((name, version, directory))
+            requirement = pkg_resources.Requirement.parse(m.group(3))
+            dependencies.append((requirement.project_name, version, directory))
     message("Found %i dependenc%s in pip's output%s\n",
             len(dependencies),
             len(dependencies) == 1 and 'y' or 'ies',
