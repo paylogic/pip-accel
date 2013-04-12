@@ -3,7 +3,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: April 11, 2013
+# Last Change: April 12, 2013
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -78,7 +78,7 @@ def main():
             return
         else:
             if build_binary_dists(dependencies) and install_dependencies(dependencies):
-                message("Done! Took %s to install %i packages.\n", main_timer, len(dependencies))
+                message("Done! Took %s to install %i package%s.\n", main_timer, len(dependencies), len(dependencies) != 1 and 's' or '')
             return
     message("External command failed %i times, aborting!\n" % MAX_RETRIES)
     sys.exit(1)
