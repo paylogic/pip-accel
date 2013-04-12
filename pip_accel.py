@@ -237,7 +237,7 @@ def install_dependencies(dependencies):
     existing_binary_dists = find_binary_dists()
     message("Installing from binary distributions ..\n")
     for name, version, directory in dependencies:
-        filename = existing_binary_dists.get((name, version))
+        filename = existing_binary_dists.get((name.lower(), version))
         if not filename:
             message("Error: No binary distribution of %s (%s) available!\n", name, version)
             return False
