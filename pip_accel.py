@@ -3,7 +3,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: April 12, 2013
+# Last Change: April 13, 2013
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -44,8 +44,8 @@ MAX_RETRIES = 10
 # running the pip-accel command (root goes to /var/lib, otherwise ~/.pip-accel).
 if os.getuid() == 0:
     download_cache = '/root/.pip/download-cache'
-    source_index = '/var/lib/pip-accel/sources'
-    binary_index = '/var/lib/pip-accel/binaries'
+    source_index = '/var/cache/pip-accel/sources'
+    binary_index = '/var/cache/pip-accel/binaries'
 else:
     download_cache = os.path.expanduser(os.environ.get('PIP_DOWNLOAD_CACHE', '~/.pip/download-cache'))
     source_index = os.path.expanduser('~/.pip-accel/sources')
