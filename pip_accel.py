@@ -124,11 +124,11 @@ def unpack_source_dists(arguments):
 
 def parse_requirements(pip_output):
     """
-    Parse the output of "pip install -v -v --no-install" to find the pinned
+    Parse the output of `pip install -v -v --no-install` to find the pinned
     requirements reported by pip.
 
-    This function expects one argument: a list containing all lines of output
-    reported by "pip install -v -v --no-install".
+    Expects one argument: a list containing all lines of output reported by
+    `pip install -v -v --no-install`.
 
     Returns a list of tuples where each tuple contains three values in this
     order: (package-name, package-version, directory). The third value points
@@ -153,18 +153,17 @@ def parse_requirements(pip_output):
         debug(" - %s (%s)\n", name, version)
     return requirements
 
-def download_source_dists(original_arguments):
+def download_source_dists(arguments):
     """
     Download missing source distributions.
+
+    Expects one argument: a list containing all lines of output reported by
+    `pip install -v -v --no-install`.
     """
     download_timer = Timer()
     message("Downloading source distributions ..\n")
-    # Create a shallow copy of the original argument
-    # list that includes the --no-install option.
-    instance_arguments = [a for a in original_arguments]
-    instance_arguments.append('--no-install')
     # Execute pip to download missing source distributions.
-    output = run_pip(instance_arguments,
+    output = run_pip(['--no-install'] + arguments,
                      use_remote_index=True)
     if output is not None:
         message("Finished downloading source distributions in %s.\n", download_timer)
