@@ -3,7 +3,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: April 15, 2013
+# Last Change: April 16, 2013
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -321,10 +321,10 @@ def find_bdist_contents(archive):
             break
         original_path = member.name
         member_is_file = member.isfile()
-        for substring in ['lib', 'bin', 'man']:
-            tokens = original_path.split('/%s/' % substring)
+        for substring in ['bin', 'lib', 'man', 'share']:
+            tokens = original_path.split('/%s/' % substring, 1)
             if len(tokens) >= 2:
-                relative_path = os.path.join(substring, tokens[-1])
+                relative_path = os.path.join(substring, tokens[1])
                 if relative_path != original_path and member_is_file:
                     contents.append((original_path, relative_path, member.mode))
                     break

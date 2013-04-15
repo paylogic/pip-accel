@@ -3,8 +3,10 @@
 # Tests for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: April 15, 2013
+# Last Change: April 16, 2013
 # URL: https://github.com/paylogic/pip-accel
+#
+# TODO Test successful installation of iPython, because it used to break! (nested /lib/ directory)
 
 import os
 import shutil
