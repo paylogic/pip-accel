@@ -76,8 +76,8 @@ def main():
     # Execute "pip install" in a loop in order to retry after intermittent
     # error responses from servers (which can happen quite frequently).
     for i in xrange(1, MAX_RETRIES):
-        have_source_dists, requirements = unpack_source_dists(arguments)
-        if not have_source_dists:
+        requirements = unpack_source_dists(arguments)
+        if requirements is None:
             download_source_dists(arguments)
         elif not requirements:
             message("No requirements found in pip's output, probably there's nothing to do.\n")
@@ -89,47 +89,43 @@ def main():
     message("External command failed %i times, aborting!\n" % MAX_RETRIES)
     sys.exit(1)
 
-def unpack_source_dists(original_arguments):
+def unpack_source_dists(arguments):
     """
-    Check whether we have local source distributions available for all
-    requirements and find the names and versions of all requirements.
-    Returns a tuple of two values:
-
-    - The first value is True if all requirements are available as local source
-      distributions, False otherwise.
-
-    - When the first value is True, the second value is a list of tuples,
-      otherwise the second value is None. Each tuple contains three values,
-      in this order: (package-name, package-version, directory). The third
-      value points to an existing directory containing the unpacked sources.
-    """
-    unpack_timer = Timer()
-    message("Unpacking local source distributions ..\n")
-    # Create a shallow copy of the original argument
-    # list that includes the --no-install option.
-    instance_arguments = [a for a in original_arguments]
-    instance_arguments.append('--no-install')
-    # Execute pip to unpack the source distributions.
-    output = run_pip(['-v', '-v'] + instance_arguments,
-                     use_remote_index=False)
-    # If pip failed, notify the user.
-    if output is None:
-        interactive_message("Warning: We probably don't have all source distributions yet")
-        return False, None
-    message("Unpacked local source distributions in %s.\n", unpack_timer)
-    # If pip succeeded, parse its output to find the pinned requirements.
-    return True, parse_requirements(output)
-
-def parse_requirements(pip_output):
-    """
-    Parse the output of "pip install -v -v --no-install" to find the pinned
-    requirements reported by pip. By using the "pip install --no-install"
+    Check whether there are local source distributions available for all
+    requirements, unpack the source distribution archives and find the names
+    and versions of the requirements. By using the "pip install --no-install"
     command we avoid reimplementing the following pip features:
 
      - Parsing of "requirements.txt" (including recursive parsing)
      - Resolution of possibly conflicting pinned requirements
      - Unpacking source distributions in multiple formats
      - Finding the name & version of a given source distribution
+
+    Expects a list of strings with the command line arguments to be passed to
+    `pip` as the first and only argument.
+
+    Returns the list of tuples also returned by and documented under the
+    parse_requirements() function, unless `pip` fails in which case None is
+    returned instead.
+    """
+    unpack_timer = Timer()
+    message("Unpacking local source distributions ..\n")
+    # Execute pip to unpack the source distributions.
+    output = run_pip(['-v', '-v', '--no-install'] + arguments,
+                     use_remote_index=False)
+    if output is not None:
+        # If pip succeeded, parse its output to find the pinned requirements.
+        message("Unpacked local source distributions in %s.\n", unpack_timer)
+        return parse_requirements(output)
+    else:
+        # If pip failed, notify the user.
+        interactive_message("Warning: We probably don't have all source distributions yet")
+        return None
+
+def parse_requirements(pip_output):
+    """
+    Parse the output of "pip install -v -v --no-install" to find the pinned
+    requirements reported by pip.
 
     This function expects one argument: a list containing all lines of output
     reported by "pip install -v -v --no-install".
