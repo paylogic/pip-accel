@@ -105,10 +105,10 @@ def unpack_source_dists(original_arguments):
     instance_arguments = [a for a in original_arguments]
     instance_arguments.append('--no-install')
     # Execute pip to unpack the source distributions.
-    status, output = run_pip(['-v', '-v'] + instance_arguments,
-                             use_remote_index=False)
+    output = run_pip(['-v', '-v'] + instance_arguments,
+                     use_remote_index=False)
     # If pip failed, notify the user.
-    if not status:
+    if output is None:
         interactive_message("Warning: We probably don't have all source distributions yet")
         return False, None
     message("Unpacked local source distributions in %s.\n", unpack_timer)
@@ -144,9 +144,9 @@ def download_source_dists(original_arguments):
     instance_arguments = [a for a in original_arguments]
     instance_arguments.append('--no-install')
     # Execute pip to download missing source distributions.
-    status, output = run_pip(instance_arguments,
-                             use_remote_index=True)
-    if status:
+    output = run_pip(instance_arguments,
+                     use_remote_index=True)
+    if output is not None:
         message("Finished downloading source distributions in %s.\n", download_timer)
     else:
         interactive_message("Warning: Failed to download one or more source distributions")
@@ -310,9 +310,14 @@ def interactive_message(text):
 
 def run_pip(arguments, use_remote_index):
     """
-    Execute a modified `pip install` command. Returns two values: A boolean
-    (True if pip exited with status 0, False otherwise) and a list of lines of
-    output from pip (empty if it failed).
+    Execute a modified `pip install` command.
+
+    Expects two arguments:
+     - A list of strings containing the arguments that will be passed to `pip`
+     - A boolean indicating whether `pip` may contact pypi.python.org
+
+    Returns a list of strings with the lines of output from `pip` on success,
+    None otherwise (`pip` exited with a nonzero exit status).
     """
     command_line = []
     for i, arg in enumerate(arguments):
@@ -334,9 +339,10 @@ def run_pip(arguments, use_remote_index):
         output.append(line)
     if pip.close() is None:
         update_source_dists_index()
-        return True, output
+        return output
     else:
-        return False, []
+        # Explicit is better than implicit.
+        return None
 
 def update_source_dists_index():
     """
