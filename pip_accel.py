@@ -111,7 +111,7 @@ def unpack_source_dists(arguments):
     unpack_timer = Timer()
     message("Unpacking local source distributions ..\n")
     # Execute pip to unpack the source distributions.
-    output = run_pip(['-v', '-v', '--no-install'] + arguments,
+    output = run_pip(arguments + ['-v', '-v', '--no-install'],
                      use_remote_index=False)
     if output is not None:
         # If pip succeeded, parse its output to find the pinned requirements.
@@ -163,7 +163,7 @@ def download_source_dists(arguments):
     download_timer = Timer()
     message("Downloading source distributions ..\n")
     # Execute pip to download missing source distributions.
-    output = run_pip(['--no-install'] + arguments,
+    output = run_pip(arguments + ['--no-install'],
                      use_remote_index=True)
     if output is not None:
         message("Finished downloading source distributions in %s.\n", download_timer)
