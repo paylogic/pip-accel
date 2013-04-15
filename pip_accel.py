@@ -40,16 +40,24 @@ VERBOSE = '-v' in sys.argv
 # due to connectivity issues with PyPi and/or linked distribution websites.
 MAX_RETRIES = 10
 
-# Select the location of the download cache and other files based on the user
-# running the pip-accel command (root goes to /var/lib, otherwise ~/.pip-accel).
+# Select the default location of the download cache and other files based on
+# the user running the pip-accel command (root goes to /var/cache/pip-accel,
+# otherwise ~/.pip-accel).
 if os.getuid() == 0:
     download_cache = '/root/.pip/download-cache'
     source_index = '/var/cache/pip-accel/sources'
     binary_index = '/var/cache/pip-accel/binaries'
 else:
-    download_cache = os.path.expanduser(os.environ.get('PIP_DOWNLOAD_CACHE', '~/.pip/download-cache'))
+    download_cache = os.path.expanduser('~/.pip/download-cache')
     source_index = os.path.expanduser('~/.pip-accel/sources')
     binary_index = os.path.expanduser('~/.pip-accel/binaries')
+
+# Enable overriding the default locations with environment variables.
+if 'PIP_DOWNLOAD_CACHE' in os.environ:
+    download_cache = os.path.expanduser(os.environ['PIP_DOWNLOAD_CACHE'])
+if 'PIP_ACCEL_CACHE' in os.environ:
+    source_index = os.path.join(os.path.expanduser(os.environ['PIP_ACCEL_CACHE']), 'sources')
+    binary_index = os.path.join(os.path.expanduser(os.environ['PIP_ACCEL_CACHE']), 'binaries')
 
 def main():
     """
@@ -64,10 +72,7 @@ def main():
     if 'install' not in arguments:
         sys.exit(os.spawnvp(os.P_WAIT, 'pip', ['pip'] + arguments))
     main_timer = Timer()
-    # Create all required directories on the fly.
-    for directory in [download_cache, source_index, binary_index]:
-        if not os.path.isdir(directory):
-            os.makedirs(directory)
+    initialize_directories()
     # Execute "pip install" in a loop in order to retry after intermittent
     # error responses from servers (which can happen quite frequently).
     for i in xrange(1, MAX_RETRIES):
@@ -221,7 +226,7 @@ def build_binary_dists(dependencies):
     message("Finished building binary distributions.\n")
     return True
 
-def install_dependencies(dependencies):
+def install_dependencies(dependencies, install_prefix=sys.prefix):
     """
     Manually install all dependencies from binary distributions. Returns a
     boolean: True if we successfully installed all dependencies from binary
@@ -235,7 +240,7 @@ def install_dependencies(dependencies):
         if not filename:
             message("Error: No binary distribution of %s (%s) available!\n", name, version)
             return False
-        install_binary_dist(filename)
+        install_binary_dist(filename, install_prefix=install_prefix)
     message("Finished installing all dependencies in %s.\n", install_timer)
     return True
 
@@ -296,17 +301,6 @@ def find_bdist_contents(archive):
             if member_is_file:
                 message("Warning: Ignoring unmatched file %s\n", original_path)
     return contents
-
-def interactive_message(text):
-    """
-    Show a message to the operator for 5 seconds.
-    """
-    i = 5
-    while i >= 1:
-        message("%s, retrying after %i second%s .. ", text, i, '' if i == 1 else 's')
-        time.sleep(1)
-        i -= 1
-    message("\n", prefix=False)
 
 def run_pip(arguments, use_remote_index):
     """
@@ -392,6 +386,27 @@ def add_extension(download_path, archive_path):
         if not archive_path.endswith('.zip'):
             archive_path += '.zip'
     return archive_path
+
+def initialize_directories():
+    """
+    Create the directories for the download cache, the source index and the
+    binary index if any of them don't exist yet.
+    """
+    # Create all required directories on the fly.
+    for directory in [download_cache, source_index, binary_index]:
+        if not os.path.isdir(directory):
+            os.makedirs(directory)
+
+def interactive_message(text):
+    """
+    Show a message to the operator for 5 seconds.
+    """
+    i = 5
+    while i >= 1:
+        message("%s, retrying after %i second%s .. ", text, i, '' if i == 1 else 's')
+        time.sleep(1)
+        i -= 1
+    message("\n", prefix=False)
 
 def debug(text, *args, **kw):
     """

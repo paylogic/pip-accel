@@ -9,11 +9,14 @@ readme_file = join(dirname(abspath(__file__)), 'README.rst')
 readme_text = open(readme_file, 'r').read()
 
 setup(name='pip-accel',
-      version='0.4.3',
+      version='0.5',
       description='Accelerator for pip, the Python package manager',
       long_description=readme_text,
       author='Peter Odding',
       author_email='peter.odding@paylogic.eu',
       url='https://github.com/paylogic/pip-accel',
       py_modules=['pip_accel'],
-      entry_points={'console_scripts': ['pip-accel = pip_accel:main']})
+      entry_points={'console_scripts': ['pip-accel = pip_accel:main']},
+      install_requires=['pip'],
+      tests_require=['virtualenv'],
+      test_suite='pip_accel_tests')
