@@ -118,25 +118,44 @@ def unpack_source_dists(original_arguments):
         return False, None
     message("Unpacked local source distributions in %s.\n", unpack_timer)
     # If pip succeeded, parse its output to find the pinned requirements.
+    return True, parse_requirements(output)
+
+def parse_requirements(pip_output):
+    """
+    Parse the output of "pip install -v -v --no-install" to find the pinned
+    requirements reported by pip. By using the "pip install --no-install"
+    command we avoid reimplementing the following pip features:
+
+     - Parsing of "requirements.txt" (including recursive parsing)
+     - Resolution of possibly conflicting pinned requirements
+     - Unpacking source distributions in multiple formats
+     - Finding the name & version of a given source distribution
+
+    This function expects one argument: a list containing all lines of output
+    reported by "pip install -v -v --no-install".
+
+    Returns a list of tuples where each tuple contains three values in this
+    order: (package-name, package-version, directory). The third value points
+    to an existing directory containing the unpacked sources.
+    """
     requirements = []
-    # Interesting output of a normal "pip install something":
+    # This is the relevant (verbose) output of a normal "pip install something" command:
     #   Source in /some/directory has version 1.2.3, which satisfies requirement something
-    # Interesting output of a "pip install --editable /another/directory":
+    # This is the relevant (verbose) output of a "pip install --editable /another/directory" command:
     #   Source in /some/directory has version 2.3.4, which satisfies requirement foobar==2.3.4 from file:///another/directory
     pattern = re.compile(r'^\s*Source in (.+?) has version (.+?), which satisfies requirement ([^ ]+)')
-    for line in output:
-        m = pattern.match(line)
-        if m:
-            directory = m.group(1)
-            version = m.group(2)
-            requirement = pkg_resources.Requirement.parse(m.group(3))
+    for line in pip_output:
+        match = pattern.match(line)
+        if match:
+            directory = match.group(1)
+            version = match.group(2)
+            requirement = pkg_resources.Requirement.parse(match.group(3))
             requirements.append((requirement.project_name, version, directory))
     message("Found %i requirement%s in pip's output.\n",
-            len(requirements),
-            '' if len(requirements) == 1 else 's')
+            len(requirements), '' if len(requirements) == 1 else 's')
     for name, version, directory in requirements:
         debug(" - %s (%s)\n", name, version)
-    return True, requirements
+    return requirements
 
 def download_source_dists(original_arguments):
     """
