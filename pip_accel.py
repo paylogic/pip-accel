@@ -79,7 +79,7 @@ def main():
             return
         else:
             if build_binary_dists(dependencies) and install_dependencies(dependencies):
-                message("Done! Took %s to install %i package%s.\n", main_timer, len(dependencies), len(dependencies) != 1 and 's' or '')
+                message("Done! Took %s to install %i package%s.\n", main_timer, len(dependencies), '' if len(dependencies) == 1 else 's')
             return
     message("External command failed %i times, aborting!\n" % MAX_RETRIES)
     sys.exit(1)
@@ -129,7 +129,7 @@ def unpack_source_dists(original_arguments):
             dependencies.append((requirement.project_name, version, directory))
     message("Found %i dependenc%s in pip's output.\n",
             len(dependencies),
-            len(dependencies) == 1 and 'y' or 'ies')
+            'y' if len(dependencies) == 1 else 'ies')
     for name, version, directory in dependencies:
         debug(" - %s (%s)\n", name, version)
     return True, dependencies
@@ -176,7 +176,8 @@ def find_binary_dists():
                 distributions[key] = pathname
                 continue
         message("Failed to match filename: %s\n", filename)
-    message("Found %i existing binary distributions%s\n", len(distributions), VERBOSE and ':' or '.')
+    message("Found %i existing binary distribution%s.\n",
+            len(distributions), '' if len(distributions) == 1 else 's')
     for (name, version), filename in distributions.iteritems():
         debug(" - %s (%s) in %s\n", name, version, filename)
     return distributions
@@ -304,7 +305,7 @@ def interactive_message(text):
     """
     i = 5
     while i >= 1:
-        message("%s, retrying after %i %s .. ", text, i, i == 1 and 'second' or 'seconds')
+        message("%s, retrying after %i second%s .. ", text, i, '' if i == 1 else 's')
         time.sleep(1)
         i -= 1
     message("\n", prefix=False)
