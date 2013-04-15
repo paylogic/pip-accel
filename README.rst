@@ -29,7 +29,7 @@ pip-accel  Second run                        34 seconds   8%
 Control flow of pip-accel
 -------------------------
 
-The way ``pip-accel`` works is not very intuitive but it is very effective. Below is an overview of the control flow. Once you take a look at the code you'll notice that the steps below are all embedded in a loop that retries a couple of times. This is mostly because of step 2 (downloading the source distributions).
+The way ``pip-accel`` works is not very intuitive but it is very effective. Below is an overview of the control flow. Once you take a look at the code you'll notice that the steps below are all embedded in a loop that retries several times. This is mostly because of step 2 (downloading the source distributions).
 
 1. Run ``pip install --no-index --no-install -r requirements.txt`` to unpack source distributions available in the local source index. This is the first step because ``pip-accel`` should accept ``requirements.txt`` files as input but it will manually install dependencies from cached binary distributions (without using ``pip`` or ``easy_install``):
 

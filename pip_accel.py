@@ -180,21 +180,13 @@ def find_binary_dists():
     message("Scanning binary distribution index ..\n")
     distributions = {}
     for filename in sorted(os.listdir(binary_index), key=str.lower):
-        if filename.endswith('.tar.gz'):
-            # The filename format of binary distributions is very awkward: Both
-            # the package name and the version string can contain hyphens, but
-            # the hyphen is also used to delimit the package name from the
-            # version string. Examples created with "python setup.py bdist":
-            #  - chardet 2.1.1 => chardet-2.1.1.linux-x86_64.tar.gz
-            #  - MySQL-python 1.2.3 => MySQL-python-1.2.3.linux-x86_64.tar.gz
-            m = re.match(r'^([A-Za-z].*)-([0-9].*?)\.[^.]+\.tar\.gz$', filename)
-            if m:
-                pathname = os.path.join(binary_index, filename)
-                key = (m.group(1).lower(), m.group(2))
-                debug("Matched %s in %s\n", key, filename)
-                distributions[key] = pathname
-                continue
-        message("Failed to match filename: %s\n", filename)
+        match = re.match(r'^(.+?):(.+?)\.tar\.gz$', filename)
+        if match:
+            key = (match.group(1).lower(), match.group(2))
+            debug("Matched %s in %s\n", key, filename)
+            distributions[key] = os.path.join(binary_index, filename)
+        else:
+            message("Failed to match filename: %s\n", filename)
     message("Found %i existing binary distribution%s.\n",
             len(distributions), '' if len(distributions) == 1 else 's')
     for (name, version), filename in distributions.iteritems():
@@ -236,13 +228,13 @@ def build_binary_dists(requirements):
                 return False
             # Move the generated distribution to the binary index.
             filenames = os.listdir(os.path.join(directory, 'dist'))
-            if not filenames:
-                message("Error: Build process did not result in a binary distribution!\n")
+            if len(filenames) != 1:
+                message("Error: Build process did not result in one binary distribution! (matches: %s)\n", filenames)
                 return False
-            for filename in filenames:
-                message("Copying binary distribution to cache: %s\n", filename)
-                shutil.move(os.path.join(directory, 'dist', filename),
-                        os.path.join(binary_index, filename))
+            cache_file = '%s:%s.tar.gz' % (name, version)
+            message("Copying binary distribution %s to cache as %s.\n", filenames[0], cache_file)
+            shutil.move(os.path.join(directory, 'dist', filenames[0]),
+                        os.path.join(binary_index, cache_file))
     message("Finished building binary distributions.\n")
     return True
 
