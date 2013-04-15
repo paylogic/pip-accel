@@ -3,7 +3,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: April 13, 2013
+# Last Change: April 15, 2013
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -127,13 +127,11 @@ def unpack_source_dists(original_arguments):
             version = m.group(2)
             requirement = pkg_resources.Requirement.parse(m.group(3))
             dependencies.append((requirement.project_name, version, directory))
-    message("Found %i dependenc%s in pip's output%s\n",
+    message("Found %i dependenc%s in pip's output.\n",
             len(dependencies),
-            len(dependencies) == 1 and 'y' or 'ies',
-            len(dependencies) >= 1 and VERBOSE and ':' or '.')
-    if dependencies and VERBOSE:
-        for name, version, directory in dependencies:
-            message(" - %s (%s)\n", name, version)
+            len(dependencies) == 1 and 'y' or 'ies')
+    for name, version, directory in dependencies:
+        debug(" - %s (%s)\n", name, version)
     return True, dependencies
 
 def download_source_dists(original_arguments):
@@ -174,15 +172,13 @@ def find_binary_dists():
             if m:
                 pathname = os.path.join(binary_index, filename)
                 key = (m.group(1).lower(), m.group(2))
-                if VERBOSE:
-                    message("Matched %s in %s\n", key, filename)
+                debug("Matched %s in %s\n", key, filename)
                 distributions[key] = pathname
                 continue
         message("Failed to match filename: %s\n", filename)
     message("Found %i existing binary distributions%s\n", len(distributions), VERBOSE and ':' or '.')
-    if VERBOSE:
-        for (name, version), filename in distributions.iteritems():
-            message(" - %s (%s) in %s\n", name, version, filename)
+    for (name, version), filename in distributions.iteritems():
+        debug(" - %s (%s) in %s\n", name, version, filename)
     return distributions
 
 def build_binary_dists(dependencies):
@@ -197,8 +193,7 @@ def build_binary_dists(dependencies):
         # Check if a binary distribution already exists.
         filename = existing_binary_dists.get((name.lower(), version))
         if filename:
-            if VERBOSE:
-                message("Existing binary distribution for %s (%s) found at %s\n", name, version, filename)
+            debug("Existing binary distribution for %s (%s) found at %s\n", name, version, filename)
             continue
         # Make sure the source distribution contains a setup script.
         setup_script = os.path.join(directory, 'setup.py')
@@ -259,8 +254,10 @@ def install_binary_dist(filename, install_prefix=sys.prefix):
         directory = os.path.dirname(install_path)
         if not os.path.isdir(directory):
             os.makedirs(directory)
+        # Don't bother calling debug() 5000 times while installing Django if
+        # it's a NOOP anyway.
         if VERBOSE:
-            message("Writing %s\n", install_path)
+            debug("Writing %s\n", install_path)
         file_handle = archive.extractfile(original_path)
         with open(install_path, 'w') as handle:
             contents = file_handle.read()
@@ -390,6 +387,14 @@ def add_extension(download_path, archive_path):
         if not archive_path.endswith('.zip'):
             archive_path += '.zip'
     return archive_path
+
+def debug(text, *args, **kw):
+    """
+    Print a formatted message to the console if
+    the operator requested verbose execution.
+    """
+    if VERBOSE:
+        message(text, *args, **kw)
 
 def message(text, *args, **kw):
     """
