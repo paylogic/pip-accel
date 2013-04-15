@@ -106,7 +106,6 @@ def unpack_source_dists(original_arguments):
     instance_arguments.append('--no-install')
     # Execute pip to unpack the source distributions.
     status, output = run_pip(['-v', '-v'] + instance_arguments,
-                             local_index=source_index,
                              use_remote_index=False)
     # If pip failed, notify the user.
     if not status:
@@ -146,7 +145,6 @@ def download_source_dists(original_arguments):
     instance_arguments.append('--no-install')
     # Execute pip to download missing source distributions.
     status, output = run_pip(instance_arguments,
-                             local_index=source_index,
                              use_remote_index=True)
     if status:
         message("Finished downloading source distributions in %s.\n", download_timer)
@@ -310,7 +308,7 @@ def interactive_message(text):
         i -= 1
     message("\n", prefix=False)
 
-def run_pip(arguments, local_index, use_remote_index):
+def run_pip(arguments, use_remote_index):
     """
     Execute a modified `pip install` command. Returns two values: A boolean
     (True if pip exited with status 0, False otherwise) and a list of lines of
@@ -321,7 +319,7 @@ def run_pip(arguments, local_index, use_remote_index):
         if arg == 'install':
             command_line += ['pip'] + arguments[:i+1] + [
                     '--download-cache=%s' % download_cache,
-                    '--find-links=file://%s' % local_index]
+                    '--find-links=file://%s' % source_index]
             if not use_remote_index:
                 command_line += ['--no-index']
             command_line += arguments[i+1:]
