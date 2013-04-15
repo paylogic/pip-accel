@@ -101,8 +101,8 @@ def unpack_source_dists(arguments):
      - Unpacking source distributions in multiple formats
      - Finding the name & version of a given source distribution
 
-    Expects a list of strings with the command line arguments to be passed to
-    `pip` as the first and only argument.
+    Expects one argument: a list of strings with the command line arguments to
+    be passed to the `pip` command.
 
     Returns the list of tuples also returned by and documented under the
     parse_requirements() function, unless `pip` fails in which case None is
@@ -127,8 +127,8 @@ def parse_requirements(pip_output):
     Parse the output of `pip install -v -v --no-install` to find the pinned
     requirements reported by pip.
 
-    Expects one argument: a list containing all lines of output reported by
-    `pip install -v -v --no-install`.
+    Expects one argument: a list containing all lines of output reported by a
+    `pip install -v -v --no-install ...` command.
 
     Returns a list of tuples where each tuple contains three values in this
     order: (package-name, package-version, directory). The third value points
@@ -248,8 +248,12 @@ def build_binary_dists(requirements):
 
 def install_requirements(requirements, install_prefix=sys.prefix):
     """
-    Manually install all requirements from binary distributions. Returns a
-    boolean: True if we successfully installed all requirements from binary
+    Manually install all requirements from binary distributions.
+
+    Expects a list of tuples in the format of the return value of the
+    parse_requirements() function.
+
+    Returns True if it succeeds in installing all requirements from binary
     distribution archives, False otherwise.
     """
     install_timer = Timer()
@@ -268,6 +272,9 @@ def install_binary_dist(filename, install_prefix=sys.prefix):
     """
     Install a binary distribution created with `python setup.py bdist` into the
     given prefix (a directory like /usr, /usr/local or a virtual environment).
+
+    Expects two arguments: The pathname of the tar archive and the pathname of
+    the installation prefix.
     """
     install_timer = Timer()
     python = os.path.join(install_prefix, 'bin', 'python')
@@ -297,11 +304,15 @@ def find_bdist_contents(archive):
     """
     Transform the absolute pathnames embedded in a binary distribution into
     relative filenames that can be prefixed by /usr, /usr/local or the path to
-    a virtual environment. Returns a list of tuples with three values each:
-    (original-path, relative-path, file-mode). The first value is the pathname
-    from the tar archive, the second value is the transformed pathname and the
-    third value contains the integer mode that the file should get (executable
-    bits and other file permissions).
+    a virtual environment.
+
+    Expects one argument: a tarfile object.
+
+    Returns a list of tuples with three values each: (original-path,
+    relative-path, file-mode). The first value is the pathname from the tar
+    archive, the second value is the transformed pathname and the third value
+    contains the integer mode that the file should get (executable bits and
+    other file permissions).
     """
     contents = []
     while True:
@@ -326,9 +337,9 @@ def run_pip(arguments, use_remote_index):
     """
     Execute a modified `pip install` command.
 
-    Expects two arguments:
-     - A list of strings containing the arguments that will be passed to `pip`
-     - A boolean indicating whether `pip` may contact pypi.python.org
+    Expects two arguments: A list of strings containing the arguments that will
+    be passed to `pip` followed by a boolean indicating whether `pip` may
+    contact http://pypi.python.org.
 
     Returns a list of strings with the lines of output from `pip` on success,
     None otherwise (`pip` exited with a nonzero exit status).
@@ -381,7 +392,14 @@ def add_extension(download_path, archive_path):
     Make sure all cached source distributions have the right file extension,
     because not all distribution sites provide URLs with proper filenames in
     them while we really need the proper filenames to build the local source
-    index. Returns the (possibly modified) pathname of the source archive.
+    index.
+
+    Expects two arguments: The pathname of the source distribution archive in
+    the download cache and the pathname of the distribution archive in the
+    source index directory.
+
+    Returns the (possibly modified) pathname of the distribution archive in the
+    source index directory.
 
     Previously this used the "file" executable, now it checks the magic file
     headers itself. I could have used any of the numerous libmagic bindings on
@@ -420,6 +438,8 @@ def initialize_directories():
 def interactive_message(text):
     """
     Show a message to the operator for 5 seconds.
+
+    Expects one argument: the text to present to the user.
     """
     i = 5
     while i >= 1:
@@ -430,15 +450,23 @@ def interactive_message(text):
 
 def debug(text, *args, **kw):
     """
-    Print a formatted message to the console if
-    the operator requested verbose execution.
+    Print a formatted message to the console if the operator requested verbose
+    execution.
+
+    Expects the same arguments as the message() function.
     """
     if VERBOSE:
         message(text, *args, **kw)
 
 def message(text, *args, **kw):
     """
-    Print a formatted message to the console.
+    Print a formatted message to the console. By default the prefix
+    `(pip-accel)` is added to the text.
+
+    Expects at least one argument: The text to print. If further positional
+    arguments are received the text will be formatted using those arguments and
+    the `%` operator. The prefix can be disabled by passing the keyword
+    argument `prefix=False`.
     """
     if kw.get('prefix', True):
         text = '(pip-accel) ' + text
