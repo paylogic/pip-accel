@@ -430,11 +430,9 @@ def interactive_message(text):
 
     Expects one argument: the text to present to the user.
     """
-    i = 5
-    while i >= 1:
+    for i in range(5, 0, -1):
         message("%s, retrying after %i second%s .. ", text, i, '' if i == 1 else 's')
         time.sleep(1)
-        i -= 1
     message("\n", prefix=False)
 
 def debug(text, *args, **kw):
