@@ -216,25 +216,25 @@ def build_binary_dists(requirements):
         setup_script = os.path.join(directory, 'setup.py')
         if not os.path.isfile(setup_script):
             message("Warning: Package %s (%s) is not a source distribution.\n", name, version)
-        else:
-            old_directory = os.getcwd()
-            # Build a binary distribution.
-            os.chdir(directory)
-            message("Building binary distribution of %s (%s) ..\n", name, version)
-            status = (os.system('python setup.py bdist') == 0)
-            os.chdir(old_directory)
-            if not status:
-                message("Failed to build binary distribution!\n")
-                return False
-            # Move the generated distribution to the binary index.
-            filenames = os.listdir(os.path.join(directory, 'dist'))
-            if len(filenames) != 1:
-                message("Error: Build process did not result in one binary distribution! (matches: %s)\n", filenames)
-                return False
-            cache_file = '%s:%s.tar.gz' % (name, version)
-            message("Copying binary distribution %s to cache as %s.\n", filenames[0], cache_file)
-            shutil.move(os.path.join(directory, 'dist', filenames[0]),
-                        os.path.join(binary_index, cache_file))
+            continue
+        old_directory = os.getcwd()
+        # Build a binary distribution.
+        os.chdir(directory)
+        message("Building binary distribution of %s (%s) ..\n", name, version)
+        status = (os.system('python setup.py bdist') == 0)
+        os.chdir(old_directory)
+        if not status:
+            message("Failed to build binary distribution!\n")
+            return False
+        # Move the generated distribution to the binary index.
+        filenames = os.listdir(os.path.join(directory, 'dist'))
+        if len(filenames) != 1:
+            message("Error: Build process did not result in one binary distribution! (matches: %s)\n", filenames)
+            return False
+        cache_file = '%s:%s.tar.gz' % (name, version)
+        message("Copying binary distribution %s to cache as %s.\n", filenames[0], cache_file)
+        shutil.move(os.path.join(directory, 'dist', filenames[0]),
+                    os.path.join(binary_index, cache_file))
     message("Finished building binary distributions.\n")
     return True
 
