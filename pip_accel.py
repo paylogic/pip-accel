@@ -307,10 +307,7 @@ def find_bdist_contents(archive):
     other file permissions).
     """
     contents = []
-    while True:
-        member = archive.next()
-        if not member:
-            break
+    for member in archive.getmembers():
         original_path = member.name
         member_is_file = member.isfile()
         for substring in ['bin', 'lib', 'man', 'share']:
@@ -319,7 +316,7 @@ def find_bdist_contents(archive):
                 relative_path = os.path.join(substring, tokens[1])
                 if relative_path != original_path and member_is_file:
                     contents.append((original_path, relative_path, member.mode))
-                    break
+                    break  # the inner for loop (note also the else below)
         else:
             if member_is_file:
                 message("Warning: Ignoring unmatched file %s\n", original_path)
