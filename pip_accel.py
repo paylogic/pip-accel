@@ -76,15 +76,15 @@ def main():
     # Execute "pip install" in a loop in order to retry after intermittent
     # error responses from servers (which can happen quite frequently).
     for i in xrange(1, MAX_RETRIES):
-        have_source_dists, dependencies = unpack_source_dists(arguments)
+        have_source_dists, requirements = unpack_source_dists(arguments)
         if not have_source_dists:
             download_source_dists(arguments)
-        elif not dependencies:
-            message("No dependencies found in pip's output, probably there's nothing to do.\n")
+        elif not requirements:
+            message("No requirements found in pip's output, probably there's nothing to do.\n")
             return
         else:
-            if build_binary_dists(dependencies) and install_dependencies(dependencies):
-                message("Done! Took %s to install %i package%s.\n", main_timer, len(dependencies), '' if len(dependencies) == 1 else 's')
+            if build_binary_dists(requirements) and install_requirements(requirements):
+                message("Done! Took %s to install %i package%s.\n", main_timer, len(requirements), '' if len(requirements) == 1 else 's')
             return
     message("External command failed %i times, aborting!\n" % MAX_RETRIES)
     sys.exit(1)
@@ -92,10 +92,10 @@ def main():
 def unpack_source_dists(original_arguments):
     """
     Check whether we have local source distributions available for all
-    dependencies and find the names and versions of all dependencies.
+    requirements and find the names and versions of all requirements.
     Returns a tuple of two values:
 
-    - The first value is True if all dependencies are available as local source
+    - The first value is True if all requirements are available as local source
       distributions, False otherwise.
 
     - When the first value is True, the second value is a list of tuples,
@@ -117,8 +117,8 @@ def unpack_source_dists(original_arguments):
         interactive_message("Warning: We probably don't have all source distributions yet")
         return False, None
     message("Unpacked local source distributions in %s.\n", unpack_timer)
-    # If pip succeeded, parse its output to find the pinned dependencies.
-    dependencies = []
+    # If pip succeeded, parse its output to find the pinned requirements.
+    requirements = []
     # Interesting output of a normal "pip install something":
     #   Source in /some/directory has version 1.2.3, which satisfies requirement something
     # Interesting output of a "pip install --editable /another/directory":
@@ -130,13 +130,13 @@ def unpack_source_dists(original_arguments):
             directory = m.group(1)
             version = m.group(2)
             requirement = pkg_resources.Requirement.parse(m.group(3))
-            dependencies.append((requirement.project_name, version, directory))
-    message("Found %i dependenc%s in pip's output.\n",
-            len(dependencies),
-            'y' if len(dependencies) == 1 else 'ies')
-    for name, version, directory in dependencies:
+            requirements.append((requirement.project_name, version, directory))
+    message("Found %i requirement%s in pip's output.\n",
+            len(requirements),
+            '' if len(requirements) == 1 else 's')
+    for name, version, directory in requirements:
         debug(" - %s (%s)\n", name, version)
-    return True, dependencies
+    return True, requirements
 
 def download_source_dists(original_arguments):
     """
@@ -185,7 +185,7 @@ def find_binary_dists():
         debug(" - %s (%s) in %s\n", name, version, filename)
     return distributions
 
-def build_binary_dists(dependencies):
+def build_binary_dists(requirements):
     """
     Convert source distributions to binary distributions. Returns a boolean:
     True if we succeeded in building a binary distribution, False if we failed
@@ -193,7 +193,7 @@ def build_binary_dists(dependencies):
     """
     existing_binary_dists = find_binary_dists()
     message("Building binary distributions ..\n")
-    for name, version, directory in dependencies:
+    for name, version, directory in requirements:
         # Check if a binary distribution already exists.
         filename = existing_binary_dists.get((name.lower(), version))
         if filename:
@@ -226,22 +226,22 @@ def build_binary_dists(dependencies):
     message("Finished building binary distributions.\n")
     return True
 
-def install_dependencies(dependencies, install_prefix=sys.prefix):
+def install_requirements(requirements, install_prefix=sys.prefix):
     """
-    Manually install all dependencies from binary distributions. Returns a
-    boolean: True if we successfully installed all dependencies from binary
+    Manually install all requirements from binary distributions. Returns a
+    boolean: True if we successfully installed all requirements from binary
     distribution archives, False otherwise.
     """
     install_timer = Timer()
     existing_binary_dists = find_binary_dists()
     message("Installing from binary distributions ..\n")
-    for name, version, directory in dependencies:
+    for name, version, directory in requirements:
         filename = existing_binary_dists.get((name.lower(), version))
         if not filename:
             message("Error: No binary distribution of %s (%s) available!\n", name, version)
             return False
         install_binary_dist(filename, install_prefix=install_prefix)
-    message("Finished installing all dependencies in %s.\n", install_timer)
+    message("Finished installing all requirements in %s.\n", install_timer)
     return True
 
 def install_binary_dist(filename, install_prefix=sys.prefix):

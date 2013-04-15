@@ -62,7 +62,7 @@ class PipAccelTestCase(unittest.TestCase):
         # running this test is not inside the virtual environment created to
         # run the tests...
         self.assertTrue(self.pip_accel.build_binary_dists(dependencies))
-        self.assertTrue(self.pip_accel.install_dependencies(dependencies, install_prefix=self.virtual_environment))
+        self.assertTrue(self.pip_accel.install_requirements(dependencies, install_prefix=self.virtual_environment))
         # Check that the virtualenv command was installed.
         self.assertTrue(os.path.isfile(os.path.join(self.virtual_environment, 'bin', 'virtualenv')))
 
