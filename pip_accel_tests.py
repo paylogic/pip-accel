@@ -46,23 +46,23 @@ class PipAccelTestCase(unittest.TestCase):
         # know is available from PyPi).
         arguments = ['install', 'virtualenv==1.8.4']
         # First we do a simple sanity check.
-        status, dependencies = self.pip_accel.unpack_source_dists(arguments)
-        self.assertFalse(status)
+        requirements = self.pip_accel.unpack_source_dists(arguments)
+        self.assertIsNone(requirements)
         # Download the source distribution from PyPi.
         self.pip_accel.download_source_dists(arguments)
         # Implicitly verify that the download was successful.
-        status, dependencies = self.pip_accel.unpack_source_dists(arguments)
-        self.assertEqual(status, True)
-        self.assertEqual(len(dependencies), 1)
-        self.assertEqual(dependencies[0][0], 'virtualenv')
-        self.assertEqual(dependencies[0][1], '1.8.4')
-        self.assertTrue(os.path.isdir(dependencies[0][2]))
+        requirements = self.pip_accel.unpack_source_dists(arguments)
+        self.assertIsInstance(requirements, list)
+        self.assertEqual(len(requirements), 1)
+        self.assertEqual(requirements[0][0], 'virtualenv')
+        self.assertEqual(requirements[0][1], '1.8.4')
+        self.assertTrue(os.path.isdir(requirements[0][2]))
         # Test the build and installation of the binary package. We have to
         # pass "install_prefix" explicitly here because the Python process
         # running this test is not inside the virtual environment created to
         # run the tests...
-        self.assertTrue(self.pip_accel.build_binary_dists(dependencies))
-        self.assertTrue(self.pip_accel.install_requirements(dependencies, install_prefix=self.virtual_environment))
+        self.assertTrue(self.pip_accel.build_binary_dists(requirements))
+        self.assertTrue(self.pip_accel.install_requirements(requirements, install_prefix=self.virtual_environment))
         # Check that the virtualenv command was installed.
         self.assertTrue(os.path.isfile(os.path.join(self.virtual_environment, 'bin', 'virtualenv')))
 
