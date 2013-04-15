@@ -268,6 +268,10 @@ def install_binary_dist(filename, install_prefix=sys.prefix):
     Expects two arguments: The pathname of the tar archive and the pathname of
     the installation prefix.
     """
+    # TODO This is quite slow for modules like Django. Speed it up using links?
+    # The plan: We can maintain a "seed" environment under $PIP_ACCEL_CACHE and
+    # use symbolic and/or hard links to populate other places based on the
+    # "seed" environment.
     install_timer = Timer()
     python = os.path.join(install_prefix, 'bin', 'python')
     message("Installing binary distribution %s to %s ..\n", filename, install_prefix)
