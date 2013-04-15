@@ -172,8 +172,10 @@ def download_source_dists(arguments):
 
 def find_binary_dists():
     """
-    Find cached binary distributions. Returns a dictionary with (package-name,
-    package-version) tuples as keys and pathnames of binary archives as values.
+    Find all previously cached binary distributions.
+
+    Returns a dictionary with (package-name, package-version) tuples as keys
+    and pathnames of binary archives as values.
     """
     message("Scanning binary distribution index ..\n")
     distributions = {}
@@ -201,9 +203,14 @@ def find_binary_dists():
 
 def build_binary_dists(requirements):
     """
-    Convert source distributions to binary distributions. Returns a boolean:
-    True if we succeeded in building a binary distribution, False if we failed
-    (probably because of missing binary dependencies like system libraries).
+    Convert source distributions to binary distributions.
+
+    Expects a list of tuples in the format of the return value of the
+    parse_requirements() function.
+
+    Returns True if it succeeds in building a binary distribution, False
+    otherwise (probably because of missing binary dependencies like system
+    libraries).
     """
     existing_binary_dists = find_binary_dists()
     message("Building binary distributions ..\n")
@@ -216,7 +223,7 @@ def build_binary_dists(requirements):
         # Make sure the source distribution contains a setup script.
         setup_script = os.path.join(directory, 'setup.py')
         if not os.path.isfile(setup_script):
-            message("Warning: Package %s (%s) is not a source distribution?!\n", name, version)
+            message("Warning: Package %s (%s) is not a source distribution.\n", name, version)
         else:
             old_directory = os.getcwd()
             # Build a binary distribution.
@@ -224,19 +231,18 @@ def build_binary_dists(requirements):
             message("Building binary distribution of %s (%s) ..\n", name, version)
             status = (os.system('python setup.py bdist') == 0)
             os.chdir(old_directory)
-            # Move the generated distribution to the binary index.
             if not status:
                 message("Failed to build binary distribution!\n")
                 return False
-            else:
-                filenames = os.listdir(os.path.join(directory, 'dist'))
-                if not filenames:
-                    message("Error: Build process did not result in a binary distribution!\n")
-                    return False
-                for filename in filenames:
-                    message("Copying binary distribution to cache: %s\n", filename)
-                    shutil.move(os.path.join(directory, 'dist', filename),
-                            os.path.join(binary_index, filename))
+            # Move the generated distribution to the binary index.
+            filenames = os.listdir(os.path.join(directory, 'dist'))
+            if not filenames:
+                message("Error: Build process did not result in a binary distribution!\n")
+                return False
+            for filename in filenames:
+                message("Copying binary distribution to cache: %s\n", filename)
+                shutil.move(os.path.join(directory, 'dist', filename),
+                        os.path.join(binary_index, filename))
     message("Finished building binary distributions.\n")
     return True
 
