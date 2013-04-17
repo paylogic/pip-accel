@@ -3,7 +3,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: April 16, 2013
+# Last Change: April 17, 2013
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -281,10 +281,7 @@ def install_binary_dist(filename, install_prefix=sys.prefix):
         directory = os.path.dirname(install_path)
         if not os.path.isdir(directory):
             os.makedirs(directory)
-        # Don't bother calling debug() 5000 times while installing Django if
-        # it's a NOOP anyway.
-        if VERBOSE:
-            debug("Writing %s\n", install_path)
+        debug("Writing %s\n", install_path)
         file_handle = archive.extractfile(original_path)
         with open(install_path, 'w') as handle:
             contents = file_handle.read()
