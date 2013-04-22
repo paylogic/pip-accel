@@ -40,24 +40,31 @@ VERBOSE = '-v' in sys.argv
 # due to connectivity issues with PyPi and/or linked distribution websites.
 MAX_RETRIES = 10
 
+# The version number of the binary distribution cache format in use. When we
+# break backwards compatibility we bump this number so that pip-accel knows it
+# should clear the cache before proceeding.
+CACHE_FORMAT_REVISION = 1
+
 # Select the default location of the download cache and other files based on
 # the user running the pip-accel command (root goes to /var/cache/pip-accel,
 # otherwise ~/.pip-accel).
 if os.getuid() == 0:
     download_cache = '/root/.pip/download-cache'
-    source_index = '/var/cache/pip-accel/sources'
-    binary_index = '/var/cache/pip-accel/binaries'
+    pip_accel_cache = '/var/cache/pip-accel'
 else:
     download_cache = os.path.expanduser('~/.pip/download-cache')
-    source_index = os.path.expanduser('~/.pip-accel/sources')
-    binary_index = os.path.expanduser('~/.pip-accel/binaries')
+    pip_accel_cache = os.path.expanduser('~/.pip-accel')
 
 # Enable overriding the default locations with environment variables.
 if 'PIP_DOWNLOAD_CACHE' in os.environ:
     download_cache = os.path.expanduser(os.environ['PIP_DOWNLOAD_CACHE'])
 if 'PIP_ACCEL_CACHE' in os.environ:
-    source_index = os.path.join(os.path.expanduser(os.environ['PIP_ACCEL_CACHE']), 'sources')
-    binary_index = os.path.join(os.path.expanduser(os.environ['PIP_ACCEL_CACHE']), 'binaries')
+    pip_accel_cache = os.path.expanduser(os.environ['PIP_ACCEL_CACHE'])
+
+# Generate the absolute pathnames of the source/binary caches.
+source_index = os.path.join(pip_accel_cache, 'sources')
+binary_index = os.path.join(pip_accel_cache, 'binaries')
+index_version_file = os.path.join(pip_accel_cache, 'version.txt')
 
 def main():
     """
@@ -430,12 +437,27 @@ def add_extension(download_path, archive_path):
 def initialize_directories():
     """
     Create the directories for the download cache, the source index and the
-    binary index if any of them don't exist yet.
+    binary index if any of them don't exist yet and reset the binary index
+    when its format changes.
     """
     # Create all required directories on the fly.
     for directory in [download_cache, source_index, binary_index]:
         if not os.path.isdir(directory):
             os.makedirs(directory)
+    # Invalidate the binary distribution cache when the
+    # format is changed in backwards incompatible ways.
+    if os.path.isfile(index_version_file):
+        with open(index_version_file) as handle:
+            if int(handle.read()) == CACHE_FORMAT_REVISION:
+                debug("Binary distribution cache format is compatible.\n")
+                return
+    debug("Binary distribution cache format is incompatible; clearing cache ..\n")
+    for entry in os.listdir(binary_index):
+        pathname = os.path.join(binary_index, entry)
+        debug(" - Deleting %s", pathname)
+        os.unlink(pathname)
+    with open(index_version_file, 'w') as handle:
+        handle.write("%i\n" % CACHE_FORMAT_REVISION)
 
 def interactive_message(text):
     """
