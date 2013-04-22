@@ -3,7 +3,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: April 17, 2013
+# Last Change: April 22, 2013
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -75,18 +75,24 @@ def main():
     initialize_directories()
     # Execute "pip install" in a loop in order to retry after intermittent
     # error responses from servers (which can happen quite frequently).
-    for i in xrange(1, MAX_RETRIES):
-        requirements = unpack_source_dists(arguments)
-        if requirements is None:
-            download_source_dists(arguments)
-        elif not requirements:
-            message("No requirements found in pip's output, probably there's nothing to do.\n")
-            return
-        else:
-            if build_binary_dists(requirements) and install_requirements(requirements):
-                message("Done! Took %s to install %i package%s.\n", main_timer, len(requirements), '' if len(requirements) == 1 else 's')
-            return
-    message("External command failed %i times, aborting!\n" % MAX_RETRIES)
+    try:
+        for i in xrange(1, MAX_RETRIES):
+            requirements = unpack_source_dists(arguments)
+            if requirements is None:
+                download_source_dists(arguments)
+            elif not requirements:
+                message("No requirements found in pip's output, probably there's nothing to do.\n")
+                return
+            else:
+                if build_binary_dists(requirements) and install_requirements(requirements):
+                    message("Done! Took %s to install %i package%s.\n", main_timer, len(requirements), '' if len(requirements) == 1 else 's')
+                return
+    except InstallationError:
+        # Abort early when pip reports installation errors.
+        message("Error: Pip reported unrecoverable installation errors. Please fix and rerun!\n")
+        sys.exit(1)
+    # Abort when after N retries we still failed to download source distributions.
+    message("Error: External command failed %i times, aborting!\n" % MAX_RETRIES)
     sys.exit(1)
 
 def unpack_source_dists(arguments):
@@ -333,6 +339,10 @@ def run_pip(arguments, use_remote_index):
 
     Returns a list of strings with the lines of output from `pip` on success,
     None otherwise (`pip` exited with a nonzero exit status).
+
+    Note that if pip reports an unrecoverable installation error, the custom
+    exception type `InstallationError` is raised so that the pip accelerator
+    can abort immediately instead of entering the retry loop.
     """
     command_line = []
     for i, arg in enumerate(arguments):
@@ -352,6 +362,8 @@ def run_pip(arguments, use_remote_index):
     for line in pip:
         message("  %s\n", line.rstrip(), prefix=False)
         output.append(line)
+        if re.search(r'\bInstallationError:', line):
+            raise InstallationError
     if pip.close() is None:
         update_source_dists_index()
         return output
@@ -461,6 +473,14 @@ def message(text, *args, **kw):
     if INTERACTIVE:
         text = '\r' + text
     sys.stderr.write(text % args)
+
+class InstallationError(Exception):
+    """
+    Custom exception type used to signal that pip reported an unrecoverable
+    installation error. The pip accelerator can't do anything useful when pip
+    reports such errors, so it will simply abort.
+    """
+    pass
 
 class Timer:
 
