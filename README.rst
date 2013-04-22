@@ -19,11 +19,11 @@ To give you an idea of how effective ``pip-accel`` is, below are the results of 
 =========  ================================  ===========  ===============
 Program    Description                       Duration     Percentage
 =========  ================================  ===========  ===============
-pip        Default configuration             434 seconds  100% (baseline)
-pip        With download cache (first run)   423 seconds  97%
-pip        With download cache (second run)  332 seconds  76%
-pip-accel  First run                         375 seconds  86%
-pip-accel  Second run                        34 seconds   8%
+pip        Default configuration             444 seconds  100% (baseline)
+pip        With download cache (first run)   416 seconds  94%
+pip        With download cache (second run)  318 seconds  72%
+pip-accel  First run                         397 seconds  89%
+pip-accel  Second run                        30 seconds   7%
 =========  ================================  ===========  ===============
 
 Control flow of pip-accel

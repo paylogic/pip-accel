@@ -3,8 +3,13 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: April 22, 2013
+# Last Change: April 23, 2013
 # URL: https://github.com/paylogic/pip-accel
+#
+# TODO Consider using pip's API instead of running it as a subprocess.
+# TODO Permanently store logs in the pip-accel directory (think about log rotation).
+# TODO Maybe we should save the output of `python setup.py bdist_dumb` somewhere as well?
+# FIXME When we run pip to download source distributions it's silent for a long time... (buffered output)
 
 """
 Usage: pip-accel [ARGUMENTS TO PIP]
@@ -23,7 +28,6 @@ import os
 import os.path
 import pkg_resources
 import re
-import shutil
 import sys
 import tarfile
 import time
@@ -36,14 +40,21 @@ INTERACTIVE = os.isatty(1)
 # Check if the operator requested verbose output.
 VERBOSE = '-v' in sys.argv
 
+# Find the environment where requirements are to be installed.
+ENVIRONMENT = os.path.abspath(os.environ.get('VIRTUAL_ENV', sys.prefix))
+
 # The main loop of pip-accel retries at most this many times to counter pip errors
 # due to connectivity issues with PyPi and/or linked distribution websites.
 MAX_RETRIES = 10
 
+# The directories under a given environment (/usr, /usr/local or a virtual
+# environment) where we can install files from binary distribution archives.
+KNOWN_ROOTS = ('bin/', 'lib/', 'man/', 'share/')
+
 # The version number of the binary distribution cache format in use. When we
 # break backwards compatibility we bump this number so that pip-accel knows it
 # should clear the cache before proceeding.
-CACHE_FORMAT_REVISION = 1
+CACHE_FORMAT_REVISION = 2
 
 # Select the default location of the download cache and other files based on
 # the user running the pip-accel command (root goes to /var/cache/pip-accel,
@@ -246,12 +257,52 @@ def build_binary_dists(requirements):
             return False
         cache_file = '%s:%s.tar.gz' % (name, version)
         message("Copying binary distribution %s to cache as %s.\n", filenames[0], cache_file)
-        shutil.move(os.path.join(directory, 'dist', filenames[0]),
-                    os.path.join(binary_index, cache_file))
+        cache_binary_distribution(os.path.join(directory, 'dist', filenames[0]),
+                                  os.path.join(binary_index, cache_file))
     message("Finished building binary distributions.\n")
     return True
 
-def install_requirements(requirements, install_prefix=sys.prefix):
+def cache_binary_distribution(input_path, output_path):
+    """
+    Transform a binary distribution archive created with `python setup.py
+    bdist_dumb --format=gztar` into a form that can be cached for future use.
+    This comes down to making the pathnames inside the archive relative to the
+    "prefix" that the binary distribution was built for.
+
+    Expects two arguments: The pathname of the original binary distribution
+    archive and the pathname of the binary distribution in the cache
+    directory.
+    """
+    # Copy the tar archive file by file so we can rewrite their pathnames.
+    debug("Expected prefix in binary distribution archive: %s\n", ENVIRONMENT)
+    input_bdist = tarfile.open(input_path, 'r:gz')
+    output_bdist = tarfile.open(output_path, 'w:gz')
+    for member in input_bdist.getmembers():
+        # In my testing the `dumb' tar files created with the `python setup.py
+        # bdist' command contain pathnames that are relative instead of
+        # absolute, but they're relative to / which is kind of awkward: I would
+        # like to use os.path.relpath() on them but that won't give the correct
+        # result without preprocessing...
+        original_pathname = member.name
+        absolute_pathname = re.sub(r'^\./', '/', original_pathname)
+        if member.isdir() or member.isdev():
+            debug("Ignoring directory or device file: %s\n", absolute_pathname)
+        else:
+            modified_pathname = os.path.relpath(absolute_pathname, ENVIRONMENT)
+            debug("Transformed %s -> %s.\n", original_pathname, modified_pathname)
+            if modified_pathname.startswith(KNOWN_ROOTS):
+                # Get the file data from the input archive.
+                file_data = input_bdist.extractfile(original_pathname)
+                # Use all metadata from the input archive but modify the filename.
+                member.name = modified_pathname
+                # Copy modified metadata + original file data to output archive.
+                output_bdist.addfile(member, file_data)
+            else:
+                message("Warning: Ignoring file in unknown location: %s\n", original_pathname)
+    input_bdist.close()
+    output_bdist.close()
+
+def install_requirements(requirements, install_prefix=ENVIRONMENT):
     """
     Manually install all requirements from binary distributions.
 
@@ -273,7 +324,7 @@ def install_requirements(requirements, install_prefix=sys.prefix):
     message("Finished installing all requirements in %s.\n", install_timer)
     return True
 
-def install_binary_dist(filename, install_prefix=sys.prefix):
+def install_binary_dist(filename, install_prefix=ENVIRONMENT):
     """
     Install a binary distribution created with `python setup.py bdist` into the
     given prefix (a directory like /usr, /usr/local or a virtual environment).
@@ -289,52 +340,23 @@ def install_binary_dist(filename, install_prefix=sys.prefix):
     python = os.path.join(install_prefix, 'bin', 'python')
     message("Installing binary distribution %s to %s ..\n", filename, install_prefix)
     archive = tarfile.open(filename, 'r:gz')
-    for original_path, relative_path, mode in find_bdist_contents(archive):
-        install_path = os.path.join(install_prefix, relative_path)
+    for member in archive.getmembers():
+        install_path = os.path.join(install_prefix, member.name)
         directory = os.path.dirname(install_path)
         if not os.path.isdir(directory):
             os.makedirs(directory)
         debug("Writing %s\n", install_path)
-        file_handle = archive.extractfile(original_path)
+        file_handle = archive.extractfile(member)
         with open(install_path, 'w') as handle:
             contents = file_handle.read()
             if contents.startswith('#!/'):
                 # Fix hashbangs.
+                # TODO Don't be so brute force about it?
                 contents = re.sub('^#![^\n]+', '#!' + python, contents)
             handle.write(contents)
-        os.chmod(install_path, mode)
+        os.chmod(install_path, member.mode)
     archive.close()
     message("Finished installing binary distribution in %s.\n", install_timer)
-
-def find_bdist_contents(archive):
-    """
-    Transform the absolute pathnames embedded in a binary distribution into
-    relative filenames that can be prefixed by /usr, /usr/local or the path to
-    a virtual environment.
-
-    Expects one argument: a tarfile object.
-
-    Returns a list of tuples with three values each: (original-path,
-    relative-path, file-mode). The first value is the pathname from the tar
-    archive, the second value is the transformed pathname and the third value
-    contains the integer mode that the file should get (executable bits and
-    other file permissions).
-    """
-    contents = []
-    for member in archive.getmembers():
-        original_path = member.name
-        member_is_file = member.isfile()
-        for substring in ['bin', 'lib', 'man', 'share']:
-            tokens = original_path.split('/%s/' % substring, 1)
-            if len(tokens) >= 2:
-                relative_path = os.path.join(substring, tokens[1])
-                if relative_path != original_path and member_is_file:
-                    contents.append((original_path, relative_path, member.mode))
-                    break  # the inner for loop (note also the else below)
-        else:
-            if member_is_file:
-                message("Warning: Ignoring unmatched file %s\n", original_path)
-    return contents
 
 def run_pip(arguments, use_remote_index):
     """
@@ -454,7 +476,7 @@ def initialize_directories():
     debug("Binary distribution cache format is incompatible; clearing cache ..\n")
     for entry in os.listdir(binary_index):
         pathname = os.path.join(binary_index, entry)
-        debug(" - Deleting %s", pathname)
+        debug(" - Deleting %s\n", pathname)
         os.unlink(pathname)
     with open(index_version_file, 'w') as handle:
         handle.write("%i\n" % CACHE_FORMAT_REVISION)
