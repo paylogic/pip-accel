@@ -227,7 +227,7 @@ def build_binary_dists(requirements):
         # Build a binary distribution.
         os.chdir(directory)
         message("Building binary distribution of %s (%s) ..\n", name, version)
-        status = (os.system('python setup.py bdist') == 0)
+        status = (os.system('python setup.py bdist_dumb --format=gztar') == 0)
         os.chdir(old_directory)
         if not status:
             message("Failed to build binary distribution!\n")

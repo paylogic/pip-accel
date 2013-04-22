@@ -43,7 +43,7 @@ The way ``pip-accel`` works is not very intuitive but it is very effective. Belo
 
   -  If the command succeeds it means all dependencies are now available as local source distributions; we don't need the network anymore! Go to step 1.
 
-3. Run ``python setup.py bdist`` for each dependency that doesn't have a cached binary distribution yet (taking version numbers into account). Go to step 4.
+3. Run ``python setup.py bdist_dumb --format=gztar`` for each dependency that doesn't have a cached binary distribution yet (taking version numbers into account). Go to step 4.
 
 4. Install all dependencies from binary distributions based on the list of direct and transitive dependencies obtained in step 1. We have to do these installations manually because ``easy_install`` nor ``pip`` support binary ``*.tar.gz`` distributions.
 
