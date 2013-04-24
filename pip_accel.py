@@ -328,10 +328,12 @@ def install_binary_dist(filename, install_prefix=ENVIRONMENT):
     Expects two arguments: The pathname of the tar archive and the pathname of
     the installation prefix.
     """
-    # TODO This is quite slow for modules like Django. Speed it up using links?
-    # The plan: We can maintain a "seed" environment under $PIP_ACCEL_CACHE and
-    # use symbolic and/or hard links to populate other places based on the
-    # "seed" environment.
+    # TODO This is quite slow for modules like Django. Speed it up! Two choices:
+    #  1. Run the external tar program to unpack the archive. This will
+    #     slightly complicate the fixing up of hashbangs.
+    #  2. Using links? The plan: We can maintain a "seed" environment under
+    #     $PIP_ACCEL_CACHE and use symbolic and/or hard links to populate other
+    #     places based on the "seed" environment.
     install_timer = Timer()
     python = os.path.join(install_prefix, 'bin', 'python')
     message("Installing binary distribution %s to %s ..\n", filename, install_prefix)
@@ -340,19 +342,46 @@ def install_binary_dist(filename, install_prefix=ENVIRONMENT):
         install_path = os.path.join(install_prefix, member.name)
         directory = os.path.dirname(install_path)
         if not os.path.isdir(directory):
+            debug("Creating directory: %s\n", directory)
             os.makedirs(directory)
-        debug("Writing %s\n", install_path)
+        debug("Writing file: %s\n", install_path)
         file_handle = archive.extractfile(member)
         with open(install_path, 'w') as handle:
             contents = file_handle.read()
             if contents.startswith('#!/'):
-                # Fix hashbangs.
-                # TODO Don't be so brute force about it?
-                contents = re.sub('^#![^\n]+', '#!' + python, contents)
+                contents = fix_hashbang(python, contents)
             handle.write(contents)
         os.chmod(install_path, member.mode)
     archive.close()
     message("Finished installing binary distribution in %s.\n", install_timer)
+
+def fix_hashbang(python, contents):
+    """
+    Rewrite the hashbang in an executable script so that the Python program
+    inside the virtual environment is used instead of a system wide Python.
+
+    Expects two arguments: The absolute pathname of the Python program inside
+    the virtual environment and a string with the contents of the script whose
+    hashbang should be fixed.
+
+    Returns the modified contents of the script as a string.
+    """
+    # Separate the first line in the file from the remainder of the contents
+    # while preserving the end of line sequence (CR+LF or just an LF) and
+    # without having to split all lines in the file (there's no point).
+    parts = re.split(r'(\r?\n)', contents, 1)
+    hashbang = parts[0]
+    # Get the base name of the command in the hashbang and deal with hashbangs
+    # like `#!/usr/bin/env python'.
+    modified_name = re.sub('^env ', '', os.path.basename(hashbang))
+    # Only rewrite hashbangs that actually involve Python.
+    if re.match(r'^python(\d+(\.\d+)*)?$', modified_name):
+        debug("Hashbang %r looks like a Python hashbang! We'll rewrite it!\n", hashbang)
+        parts[0] = '#!%s' % python
+        contents = ''.join(parts)
+    else:
+        message("Warning: Failed to match hashbang: %r\n", hashbang)
+    return contents
 
 def run_pip(arguments, use_remote_index):
     """
