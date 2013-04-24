@@ -1,0 +1,3 @@
+build/
+dist/
+pip_accel.egg-info/
