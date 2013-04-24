@@ -3,7 +3,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: April 23, 2013
+# Last Change: April 24, 2013
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Consider using pip's API instead of running it as a subprocess.
@@ -46,10 +46,6 @@ ENVIRONMENT = os.path.abspath(os.environ.get('VIRTUAL_ENV', sys.prefix))
 # The main loop of pip-accel retries at most this many times to counter pip errors
 # due to connectivity issues with PyPi and/or linked distribution websites.
 MAX_RETRIES = 10
-
-# The directories under a given environment (/usr, /usr/local or a virtual
-# environment) where we can install files from binary distribution archives.
-KNOWN_ROOTS = ('bin/', 'lib/', 'man/', 'share/')
 
 # The version number of the binary distribution cache format in use. When we
 # break backwards compatibility we bump this number so that pip-accel knows it
@@ -279,26 +275,26 @@ def cache_binary_distribution(input_path, output_path):
     output_bdist = tarfile.open(output_path, 'w:gz')
     for member in input_bdist.getmembers():
         # In my testing the `dumb' tar files created with the `python setup.py
-        # bdist' command contain pathnames that are relative instead of
-        # absolute, but they're relative to / which is kind of awkward: I would
-        # like to use os.path.relpath() on them but that won't give the correct
-        # result without preprocessing...
+        # bdist' command contain pathnames that are relative to `/' which is
+        # kind of awkward: I would like to use os.path.relpath() on them but
+        # that won't give the correct result without preprocessing...
         original_pathname = member.name
         absolute_pathname = re.sub(r'^\./', '/', original_pathname)
-        if member.isdir() or member.isdev():
-            debug("Ignoring directory or device file: %s\n", absolute_pathname)
-        else:
+        if member.isdev():
+            debug("Warning: Ignoring device file: %s\n", absolute_pathname)
+        elif not member.isdir():
             modified_pathname = os.path.relpath(absolute_pathname, ENVIRONMENT)
-            debug("Transformed %s -> %s.\n", original_pathname, modified_pathname)
-            if modified_pathname.startswith(KNOWN_ROOTS):
+            if os.path.isabs(modified_pathname):
+                message("Warning: Failed to transform pathname in binary distribution to relative path! (original: %r, modified: %r)\n",
+                        original_pathname, modified_pathname)
+            else:
+                debug("Transformed %r -> %r.\n", original_pathname, modified_pathname)
                 # Get the file data from the input archive.
                 file_data = input_bdist.extractfile(original_pathname)
                 # Use all metadata from the input archive but modify the filename.
                 member.name = modified_pathname
                 # Copy modified metadata + original file data to output archive.
                 output_bdist.addfile(member, file_data)
-            else:
-                message("Warning: Ignoring file in unknown location: %s\n", original_pathname)
     input_bdist.close()
     output_bdist.close()
 
