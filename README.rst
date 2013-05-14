@@ -9,7 +9,23 @@ The ``pip-accel`` program is a wrapper for `pip <http://www.pip-installer.org/>`
 
 2. `Binary distributions <http://docs.python.org/2/distutils/builtdist.html>`_ are used to speed up the process of installing dependencies with binary components (like `M2Crypto <https://pypi.python.org/pypi/M2Crypto>`_ and `LXML <https://pypi.python.org/pypi/lxml>`_). Instead of recompiling these dependencies again for every virtual environment we compile them once and cache the result as a binary ``*.tar.gz`` distribution.
 
-The ``pip-accel`` command supports all subcommands and options supported by ``pip``, however it is of course only useful for the ``pip install`` subcommand.
+Usage
+-----
+
+The ``pip-accel`` command supports all subcommands and options supported by ``pip``, however it is of course only useful for the ``pip install`` subcommand. So for example::
+
+   pip-accel install -r requirements.txt
+
+Based on the user running ``pip-accel`` the following file locations are used by default:
+
+=============================  =========================  =======================================
+Root user                      All other users            Purpose
+=============================  =========================  =======================================
+``/root/.pip/download-cache``  ``~/.pip/download-cache``  Assumed to be pip's download cache
+``/var/cache/pip-accel``       ``~/.pip-accel``           Used to store the source/binary indexes
+=============================  =========================  =======================================
+
+These defaults can be overridden by defining the environment variables ``PIP_DOWNLOAD_CACHE`` and/or ``PIP_ACCEL_CACHE``.
 
 How fast is it?
 ---------------
