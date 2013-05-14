@@ -3,7 +3,7 @@
 # Tests for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: April 16, 2013
+# Last Change: May 15, 2013
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Test successful installation of iPython, because it used to break! (nested /lib/ directory)
@@ -49,12 +49,14 @@ class PipAccelTestCase(unittest.TestCase):
         arguments = ['install', 'virtualenv==1.8.4']
         # First we do a simple sanity check.
         requirements = self.pip_accel.unpack_source_dists(arguments)
-        self.assertIsNone(requirements)
+        #self.assertIsNone(requirements)
+        self.assertTrue(requirements is None)
         # Download the source distribution from PyPi.
         self.pip_accel.download_source_dists(arguments)
         # Implicitly verify that the download was successful.
         requirements = self.pip_accel.unpack_source_dists(arguments)
-        self.assertIsInstance(requirements, list)
+        # self.assertIsInstance(requirements, list)
+        self.assertTrue(isinstance(requirements, list))
         self.assertEqual(len(requirements), 1)
         self.assertEqual(requirements[0][0], 'virtualenv')
         self.assertEqual(requirements[0][1], '1.8.4')
