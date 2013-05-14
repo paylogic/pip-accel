@@ -3,7 +3,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: April 24, 2013
+# Last Change: May 15, 2013
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Consider using pip's API instead of running it as a subprocess.
@@ -27,6 +27,7 @@ at https://github.com/paylogic/pip-accel
 import os
 import os.path
 import pkg_resources
+import pwd
 import re
 import sys
 import tarfile
@@ -52,6 +53,18 @@ MAX_RETRIES = 10
 # should clear the cache before proceeding.
 CACHE_FORMAT_REVISION = 2
 
+# Look up the home directory of the effective user id so we can generate
+# pathnames relative to the home directory.
+HOME = pwd.getpwuid(os.getuid()).pw_dir
+
+def expanduser(pathname):
+    """
+    Variant of os.path.expanduser() that doesn't use $HOME but instead uses the
+    home directory of the effective user id. This is basically a workaround for
+    ``sudo -s`` not resetting $HOME.
+    """
+    return re.sub('^~/', HOME, pathname)
+
 # Select the default location of the download cache and other files based on
 # the user running the pip-accel command (root goes to /var/cache/pip-accel,
 # otherwise ~/.pip-accel).
@@ -59,14 +72,14 @@ if os.getuid() == 0:
     download_cache = '/root/.pip/download-cache'
     pip_accel_cache = '/var/cache/pip-accel'
 else:
-    download_cache = os.path.expanduser('~/.pip/download-cache')
-    pip_accel_cache = os.path.expanduser('~/.pip-accel')
+    download_cache = expanduser('~/.pip/download-cache')
+    pip_accel_cache = expanduser('~/.pip-accel')
 
 # Enable overriding the default locations with environment variables.
 if 'PIP_DOWNLOAD_CACHE' in os.environ:
-    download_cache = os.path.expanduser(os.environ['PIP_DOWNLOAD_CACHE'])
+    download_cache = expanduser(os.environ['PIP_DOWNLOAD_CACHE'])
 if 'PIP_ACCEL_CACHE' in os.environ:
-    pip_accel_cache = os.path.expanduser(os.environ['PIP_ACCEL_CACHE'])
+    pip_accel_cache = expanduser(os.environ['PIP_ACCEL_CACHE'])
 
 # Generate the absolute pathnames of the source/binary caches.
 source_index = os.path.join(pip_accel_cache, 'sources')

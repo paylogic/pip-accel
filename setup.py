@@ -9,7 +9,7 @@ readme_file = join(dirname(abspath(__file__)), 'README.rst')
 readme_text = open(readme_file, 'r').read()
 
 setup(name='pip-accel',
-      version='0.7.2',
+      version='0.7.3',
       description='Accelerator for pip, the Python package manager',
       long_description=readme_text,
       author='Peter Odding',
