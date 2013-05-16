@@ -122,15 +122,13 @@ def main():
                 requirements = unpack_source_dists(arguments)
             except DistributionNotFound:
                 logger.warn("Warning: We don't have all source distributions yet!")
-                requirements = None
-            if requirements is None:
                 download_source_dists(arguments)
-            elif not requirements:
-                logger.info("No unsatisfied requirements found, probably there's nothing to do.")
-                return
             else:
-                if build_binary_dists(requirements) and install_requirements(requirements):
-                    logger.info("Done! Took %s to install %i package%s.", main_timer, len(requirements), '' if len(requirements) == 1 else 's')
+                if not requirements:
+                    logger.info("No unsatisfied requirements found, probably there's nothing to do.")
+                else:
+                    if build_binary_dists(requirements) and install_requirements(requirements):
+                        logger.info("Done! Took %s to install %i package%s.", main_timer, len(requirements), '' if len(requirements) == 1 else 's')
                 return
     except InstallationError:
         # Abort early when pip reports installation errors.
