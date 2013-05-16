@@ -3,11 +3,12 @@
 # Tests for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: May 15, 2013
+# Last Change: May 16, 2013
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Test successful installation of iPython, because it used to break! (nested /lib/ directory)
 
+# Standard library modules.
 import os
 import shutil
 import tempfile
@@ -31,6 +32,7 @@ class PipAccelTestCase(unittest.TestCase):
         assert os.system('virtualenv "%s"' % self.virtual_environment) == 0
         # Make sure pip-accel uses the pip in the temporary virtual environment.
         os.environ['PATH'] = '%s:%s' % (os.path.join(self.virtual_environment, 'bin'), os.environ['PATH'])
+        os.environ['VIRTUAL_ENV'] = self.virtual_environment
         # Make pip and pip-accel use the temporary working directory.
         os.environ['PIP_DOWNLOAD_CACHE'] = os.path.join(self.working_directory, 'download-cache')
         os.environ['PIP_ACCEL_CACHE'] = self.working_directory
@@ -46,7 +48,7 @@ class PipAccelTestCase(unittest.TestCase):
         # We will test the downloading, conversion to binary distribution and
         # installation of the virtualenv package (we simply need a package we
         # know is available from PyPi).
-        arguments = ['install', 'virtualenv==1.8.4']
+        arguments = ['install', 'virtualenv==1.8.4', '--build=%s' % self.working_directory, '--ignore-installed']
         # First we do a simple sanity check.
         requirements = self.pip_accel.unpack_source_dists(arguments)
         #self.assertIsNone(requirements)
