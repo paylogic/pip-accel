@@ -36,6 +36,7 @@ import urllib
 import urlparse
 
 # External dependencies.
+from coloredlogs import ColoredStreamHandler
 from pip.backwardcompat import string_types
 from pip.baseparser import create_main_parser
 from pip.commands.install import InstallCommand
@@ -45,7 +46,7 @@ from pip.status_codes import SUCCESS
 # Initialize the logging subsystem.
 logger = logging.getLogger('pip-accel')
 logger.setLevel(logging.INFO)
-logger.addHandler(logging.StreamHandler())
+logger.addHandler(ColoredStreamHandler())
 
 # Whether a user is directly looking at the output.
 INTERACTIVE = os.isatty(1)
