@@ -118,7 +118,10 @@ def main():
     # error responses from servers (which can happen quite frequently).
     try:
         for i in xrange(1, MAX_RETRIES):
-            requirements = unpack_source_dists(arguments)
+            try:
+                requirements = unpack_source_dists(arguments)
+            except DistributionNotFound:
+                logger.warn("Warning: We don't have all source distributions yet!")
             if requirements is None:
                 download_source_dists(arguments)
             elif not requirements:
@@ -158,22 +161,19 @@ def unpack_source_dists(arguments):
     unpack_timer = Timer()
     logger.info("Unpacking local source distributions ..")
     # Execute pip to unpack the source distributions.
-    try:
-        requirement_set = run_pip(arguments + ['--no-install'],
-                                  use_remote_index=False)
-        logger.info("Unpacked local source distributions in %s.", unpack_timer)
-        requirements = []
-        for install_requirement in sorted_requirements(requirement_set):
-            if install_requirement.satisfied_by:
-              logger.info("Requirement already satisfied: %s.", install_requirement)
-            else:
-                req = ensure_parsed_requirement(install_requirement)
-                requirements.append((req.project_name,
-                                     install_requirement.installed_version,
-                                     install_requirement.source_dir))
-        return requirements
-    except DistributionNotFound:
-        logger.warn("Warning: We don't have all source distributions yet!")
+    requirement_set = run_pip(arguments + ['--no-install'],
+                              use_remote_index=False)
+    logger.info("Unpacked local source distributions in %s.", unpack_timer)
+    requirements = []
+    for install_requirement in sorted_requirements(requirement_set):
+        if install_requirement.satisfied_by:
+          logger.info("Requirement already satisfied: %s.", install_requirement)
+        else:
+            req = ensure_parsed_requirement(install_requirement)
+            requirements.append((req.project_name,
+                                 install_requirement.installed_version,
+                                 install_requirement.source_dir))
+    return requirements
 
 def sorted_requirements(requirement_set):
     """
