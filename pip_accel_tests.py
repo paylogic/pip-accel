@@ -36,6 +36,8 @@ class PipAccelTestCase(unittest.TestCase):
         # Make pip and pip-accel use the temporary working directory.
         os.environ['PIP_DOWNLOAD_CACHE'] = os.path.join(self.working_directory, 'download-cache')
         os.environ['PIP_ACCEL_CACHE'] = self.working_directory
+        # Enable verbose output from pip-accel.
+        os.environ['PIP_ACCEL_VERBOSE'] = 'yes, please'
         # Initialize the required subdirectories.
         self.pip_accel = __import__('pip_accel')
         self.pip_accel.initialize_directories()

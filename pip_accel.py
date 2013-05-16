@@ -3,13 +3,11 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: May 15, 2013
+# Last Change: May 16, 2013
 # URL: https://github.com/paylogic/pip-accel
 #
-# TODO Consider using pip's API instead of running it as a subprocess.
 # TODO Permanently store logs in the pip-accel directory (think about log rotation).
 # TODO Maybe we should save the output of `python setup.py bdist_dumb` somewhere as well?
-# FIXME When we run pip to download source distributions it's silent for a long time... (buffered output)
 
 """
 Usage: pip-accel [ARGUMENTS TO PIP]
@@ -24,6 +22,7 @@ For more information please refer to the GitHub project page
 at https://github.com/paylogic/pip-accel
 """
 
+# Standard library modules.
 import os
 import os.path
 import pkg_resources
@@ -35,11 +34,18 @@ import time
 import urllib
 import urlparse
 
+# External dependencies.
+from pip.backwardcompat import string_types
+from pip.baseparser import create_main_parser
+from pip.commands.install import InstallCommand
+from pip.exceptions import DistributionNotFound, InstallationError
+from pip.status_codes import SUCCESS
+
 # Whether a user is directly looking at the output.
 INTERACTIVE = os.isatty(1)
 
 # Check if the operator requested verbose output.
-VERBOSE = '-v' in sys.argv
+VERBOSE = '-v' in sys.argv or 'PIP_ACCEL_VERBOSE' in os.environ
 
 # Find the environment where requirements are to be installed.
 ENVIRONMENT = os.path.abspath(os.environ.get('VIRTUAL_ENV', sys.prefix))
@@ -108,7 +114,7 @@ def main():
             if requirements is None:
                 download_source_dists(arguments)
             elif not requirements:
-                message("No requirements found in pip's output, probably there's nothing to do.\n")
+                message("No unsatisfied requirements found, probably there's nothing to do.\n")
                 return
             else:
                 if build_binary_dists(requirements) and install_requirements(requirements):
@@ -144,63 +150,69 @@ def unpack_source_dists(arguments):
     unpack_timer = Timer()
     message("Unpacking local source distributions ..\n")
     # Execute pip to unpack the source distributions.
-    output = run_pip(arguments + ['-v', '-v', '--no-install'],
-                     use_remote_index=False)
-    if output is not None:
-        # If pip succeeded, parse its output to find the pinned requirements.
+    try:
+        requirement_set = run_pip(arguments + ['--no-install'],
+                                  use_remote_index=False)
         message("Unpacked local source distributions in %s.\n", unpack_timer)
-        return parse_requirements(output)
-    else:
-        # If pip failed, notify the user.
-        interactive_message("Warning: We probably don't have all source distributions yet")
-        return None
+        requirements = []
+        for install_requirement in sorted_requirements(requirement_set):
+            if install_requirement.satisfied_by:
+              message("Requirement already satisfied: %s\n", install_requirement)
+            else:
+                req = ensure_parsed_requirement(install_requirement)
+                requirements.append((req.project_name,
+                                     install_requirement.installed_version,
+                                     install_requirement.source_dir))
+        return requirements
+    except DistributionNotFound:
+        interactive_message("Warning: We don't have all source distributions yet")
 
-def parse_requirements(pip_output):
+def sorted_requirements(requirement_set):
     """
-    Parse the output of `pip install -v -v --no-install` to find the pinned
-    requirements reported by pip.
+    Sort the requirements in a ``RequirementSet``.
 
-    Expects one argument: a list containing all lines of output reported by a
-    `pip install -v -v --no-install ...` command.
+    Expects a ``RequirementSet`` object as the first and only argument.
 
-    Returns a list of tuples where each tuple contains three values in this
-    order: (package-name, package-version, directory). The third value points
-    to an existing directory containing the unpacked sources.
+    Returns a list of sorted ``InstallRequirement`` objects.
     """
-    requirements = []
-    # This is the relevant (verbose) output of a normal "pip install something" command:
-    #   Source in /some/directory has version 1.2.3, which satisfies requirement something
-    # This is the relevant (verbose) output of a "pip install --editable /another/directory" command:
-    #   Source in /some/directory has version 2.3.4, which satisfies requirement foobar==2.3.4 from file:///another/directory
-    pattern = re.compile(r'^\s*Source in (.+?) has version (.+?), which satisfies requirement ([^ ]+)')
-    for line in pip_output:
-        match = pattern.match(line)
-        if match:
-            directory = match.group(1)
-            version = match.group(2)
-            requirement = pkg_resources.Requirement.parse(match.group(3))
-            requirements.append((requirement.project_name, version, directory))
-    message("Found %i requirement%s in pip's output.\n",
-            len(requirements), '' if len(requirements) == 1 else 's')
-    for name, version, directory in requirements:
-        debug(" - %s (%s)\n", name, version)
-    return requirements
+    return sorted(requirement_set.requirements.values(),
+                  key=lambda r: ensure_parsed_requirement(r).project_name.lower())
+
+def ensure_parsed_requirement(install_requirement):
+    """
+    ``InstallRequirement`` objects in ``RequirementSet`` objects have a ``req``
+    member, which apparently can be either a string or a
+    ``pkg_resources.Requirement`` object. This function makes sure we're
+    dealing with a ``pkg_resources.Requirement`` object.
+
+    This was "copied" from the pip source code, I'm not sure if this code is
+    actually necessary but it doesn't hurt and pip probably did it for a
+    reason. Right? :-)
+
+    Expects a single argument which is an ``InstallRequirement`` object
+    produced by pip.
+
+    Returns a ``pkg_resources.Requirement`` object.
+    """
+    req = install_requirement.req
+    if isinstance(req, string_types):
+        req = pkg_resources.Requirement.parse(req)
+    return req
 
 def download_source_dists(arguments):
     """
     Download missing source distributions.
 
-    Expects one argument: a list containing all lines of output reported by
-    `pip install -v -v --no-install`.
+    Expects one argument: A list with the arguments intended for pip.
     """
     download_timer = Timer()
     message("Downloading source distributions ..\n")
     # Execute pip to download missing source distributions.
-    output = run_pip(arguments + ['--no-install'],
-                     use_remote_index=True)
-    if output is not None:
+    try:
+        run_pip(arguments + ['--no-install'], use_remote_index=True)
         message("Finished downloading source distributions in %s.\n", download_timer)
-    else:
+    except Exception, e:
+        message("Error: pip raised an exception while downloading source distributions: %s", e)
         interactive_message("Warning: Failed to download one or more source distributions")
 
 def find_binary_dists():
@@ -398,18 +410,15 @@ def fix_hashbang(python, contents):
 
 def run_pip(arguments, use_remote_index):
     """
-    Execute a modified `pip install` command.
+    Execute a modified `pip install` command. This function assumes that the
+    arguments concern a "pip install" command.
 
     Expects two arguments: A list of strings containing the arguments that will
     be passed to `pip` followed by a boolean indicating whether `pip` may
     contact http://pypi.python.org.
 
-    Returns a list of strings with the lines of output from `pip` on success,
-    None otherwise (`pip` exited with a nonzero exit status).
-
-    Note that if pip reports an unrecoverable installation error, the custom
-    exception type `InstallationError` is raised so that the pip accelerator
-    can abort immediately instead of entering the retry loop.
+    Returns a pip RequirementSet object. If pip reports an error, the exception
+    will be re-raised by the run_pip() function.
     """
     command_line = []
     for i, arg in enumerate(arguments):
@@ -422,21 +431,40 @@ def run_pip(arguments, use_remote_index):
             command_line += arguments[i+1:]
             break
     else:
-        command_line += ['pip'] + arguments
+        command_line = ['pip'] + arguments
     message("Executing command: %s\n", ' '.join(command_line))
-    pip = os.popen(' '.join(command_line))
-    output = []
-    for line in pip:
-        message("  %s\n", line.rstrip(), prefix=False)
-        output.append(line)
-        if re.search(r'\bInstallationError:', line):
-            raise InstallationError
-    if pip.close() is None:
-        update_source_dists_index()
-        return output
+    parser = create_main_parser()
+    pip = CustomInstallCommand(parser)
+    initial_options, args = parser.parse_args(command_line[1:])
+    exit_status = pip.main(command_line[2:], initial_options)
+    # Make sure the output of pip and pip-accel are not intermingled.
+    sys.stdout.flush()
+    update_source_dists_index()
+    if exit_status == SUCCESS:
+        return pip.requirement_set
     else:
-        # Explicit is better than implicit.
-        return None
+        raise pip.intercepted_exception
+
+class CustomInstallCommand(InstallCommand):
+
+    """
+    InstallCommand.run() returns a RequirementSet object which pip-accel is
+    interested in, however pip.basecommand.Command.main() swallows the
+    requirement set (based on my reading of the pip 1.3.x source code). This
+    is why we subclass InstallCommand to wrap the run() method :-). Yes, this
+    is a bit sneaky, but I don't fancy reimplementing
+    pip.basecommand.Command.main() inside pip-accel...
+    """
+
+    def run(self, *args, **kw):
+        original_method = super(CustomInstallCommand, self).run
+        try:
+            self.intercepted_exception = None
+            self.requirement_set = original_method(*args, **kw)
+            return self.requirement_set
+        except Exception, e:
+            self.intercepted_exception = e
+            raise
 
 def update_source_dists_index():
     """
@@ -555,14 +583,6 @@ def message(text, *args, **kw):
     if INTERACTIVE:
         text = '\r' + text
     sys.stderr.write(text % args)
-
-class InstallationError(Exception):
-    """
-    Custom exception type used to signal that pip reported an unrecoverable
-    installation error. The pip accelerator can't do anything useful when pip
-    reports such errors, so it will simply abort.
-    """
-    pass
 
 class Timer:
 

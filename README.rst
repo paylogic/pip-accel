@@ -16,6 +16,8 @@ The ``pip-accel`` command supports all subcommands and options supported by ``pi
 
    pip-accel install -r requirements.txt
 
+If you pass a `-v` option then ``pip`` and ``pip-accel`` will both use verbose output. To enable verbose output from ``pip-accel`` only, you can set the environment variable ``PIP_ACCEL_VERBOSE``.
+
 Based on the user running ``pip-accel`` the following file locations are used by default:
 
 =============================  =========================  =======================================
