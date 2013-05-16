@@ -77,7 +77,7 @@ def expanduser(pathname):
     home directory of the effective user id. This is basically a workaround for
     ``sudo -s`` not resetting $HOME.
     """
-    return re.sub('^~/', HOME, pathname)
+    return re.sub('^~(?=/)', HOME, pathname)
 
 # Select the default location of the download cache and other files based on
 # the user running the pip-accel command (root goes to /var/cache/pip-accel,
@@ -122,6 +122,7 @@ def main():
                 requirements = unpack_source_dists(arguments)
             except DistributionNotFound:
                 logger.warn("Warning: We don't have all source distributions yet!")
+                requirements = None
             if requirements is None:
                 download_source_dists(arguments)
             elif not requirements:
