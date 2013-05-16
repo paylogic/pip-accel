@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>

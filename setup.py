@@ -19,4 +19,4 @@ setup(name='pip-accel',
       entry_points={'console_scripts': ['pip-accel = pip_accel:main']},
       install_requires=['pip >= 1.3', 'coloredlogs'],
       tests_require=['virtualenv'],
-      test_suite='pip_accel_tests')
+      test_suite='pip_accel.tests')
