@@ -23,6 +23,7 @@ at https://github.com/paylogic/pip-accel
 """
 
 # Standard library modules.
+import logging
 import os
 import os.path
 import pkg_resources
@@ -41,11 +42,17 @@ from pip.commands.install import InstallCommand
 from pip.exceptions import DistributionNotFound, InstallationError
 from pip.status_codes import SUCCESS
 
+# Initialize the logging subsystem.
+logger = logging.getLogger('pip-accel')
+logger.setLevel(logging.INFO)
+logger.addHandler(logging.StreamHandler())
+
 # Whether a user is directly looking at the output.
 INTERACTIVE = os.isatty(1)
 
 # Check if the operator requested verbose output.
-VERBOSE = '-v' in sys.argv or 'PIP_ACCEL_VERBOSE' in os.environ
+if '-v' in sys.argv or 'PIP_ACCEL_VERBOSE' in os.environ:
+    logger.setLevel(logging.DEBUG)
 
 # Find the environment where requirements are to be installed.
 ENVIRONMENT = os.path.abspath(os.environ.get('VIRTUAL_ENV', sys.prefix))
@@ -98,7 +105,7 @@ def main():
     """
     arguments = sys.argv[1:]
     if not arguments:
-        message("%s\n", __doc__.strip(), prefix=False)
+        print __doc__.strip()
         sys.exit(0)
     # If no install subcommand is given we pass the command line straight
     # to pip without any changes and exit immediately afterwards.
@@ -114,18 +121,18 @@ def main():
             if requirements is None:
                 download_source_dists(arguments)
             elif not requirements:
-                message("No unsatisfied requirements found, probably there's nothing to do.\n")
+                logger.info("No unsatisfied requirements found, probably there's nothing to do.")
                 return
             else:
                 if build_binary_dists(requirements) and install_requirements(requirements):
-                    message("Done! Took %s to install %i package%s.\n", main_timer, len(requirements), '' if len(requirements) == 1 else 's')
+                    logger.info("Done! Took %s to install %i package%s.", main_timer, len(requirements), '' if len(requirements) == 1 else 's')
                 return
     except InstallationError:
         # Abort early when pip reports installation errors.
-        message("Error: Pip reported unrecoverable installation errors. Please fix and rerun!\n")
+        logger.fatal("Error: Pip reported unrecoverable installation errors. Please fix and rerun!")
         sys.exit(1)
     # Abort when after N retries we still failed to download source distributions.
-    message("Error: External command failed %i times, aborting!\n" % MAX_RETRIES)
+    logger.fatal("Error: External command failed %i times, aborting!" % MAX_RETRIES)
     sys.exit(1)
 
 def unpack_source_dists(arguments):
@@ -148,16 +155,16 @@ def unpack_source_dists(arguments):
     returned instead.
     """
     unpack_timer = Timer()
-    message("Unpacking local source distributions ..\n")
+    logger.info("Unpacking local source distributions ..")
     # Execute pip to unpack the source distributions.
     try:
         requirement_set = run_pip(arguments + ['--no-install'],
                                   use_remote_index=False)
-        message("Unpacked local source distributions in %s.\n", unpack_timer)
+        logger.info("Unpacked local source distributions in %s.", unpack_timer)
         requirements = []
         for install_requirement in sorted_requirements(requirement_set):
             if install_requirement.satisfied_by:
-              message("Requirement already satisfied: %s\n", install_requirement)
+              logger.info("Requirement already satisfied: %s.", install_requirement)
             else:
                 req = ensure_parsed_requirement(install_requirement)
                 requirements.append((req.project_name,
@@ -165,7 +172,7 @@ def unpack_source_dists(arguments):
                                      install_requirement.source_dir))
         return requirements
     except DistributionNotFound:
-        interactive_message("Warning: We don't have all source distributions yet")
+        logger.warn("Warning: We don't have all source distributions yet!")
 
 def sorted_requirements(requirement_set):
     """
@@ -206,14 +213,13 @@ def download_source_dists(arguments):
     Expects one argument: A list with the arguments intended for pip.
     """
     download_timer = Timer()
-    message("Downloading source distributions ..\n")
+    logger.info("Downloading source distributions ..")
     # Execute pip to download missing source distributions.
     try:
         run_pip(arguments + ['--no-install'], use_remote_index=True)
-        message("Finished downloading source distributions in %s.\n", download_timer)
+        logger.info("Finished downloading source distributions in %s.", download_timer)
     except Exception, e:
-        message("Error: pip raised an exception while downloading source distributions: %s", e)
-        interactive_message("Warning: Failed to download one or more source distributions")
+        logger.warn("Error: pip raised an exception while downloading source distributions: %s.", e)
 
 def find_binary_dists():
     """
@@ -222,20 +228,20 @@ def find_binary_dists():
     Returns a dictionary with (package-name, package-version) tuples as keys
     and pathnames of binary archives as values.
     """
-    message("Scanning binary distribution index ..\n")
+    logger.info("Scanning binary distribution index ..")
     distributions = {}
     for filename in sorted(os.listdir(binary_index), key=str.lower):
         match = re.match(r'^(.+?):(.+?)\.tar\.gz$', filename)
         if match:
             key = (match.group(1).lower(), match.group(2))
-            debug("Matched %s in %s\n", key, filename)
+            logger.debug("Matched %s in %s.", key, filename)
             distributions[key] = os.path.join(binary_index, filename)
         else:
-            message("Failed to match filename: %s\n", filename)
-    message("Found %i existing binary distribution%s.\n",
-            len(distributions), '' if len(distributions) == 1 else 's')
+            logger.debug("Failed to match filename: %s.", filename)
+    logger.info("Found %i existing binary distribution%s.",
+                len(distributions), '' if len(distributions) == 1 else 's')
     for (name, version), filename in distributions.iteritems():
-        debug(" - %s (%s) in %s\n", name, version, filename)
+        logger.debug(" - %s (%s) in %s.", name, version, filename)
     return distributions
 
 def build_binary_dists(requirements):
@@ -250,37 +256,37 @@ def build_binary_dists(requirements):
     libraries).
     """
     existing_binary_dists = find_binary_dists()
-    message("Building binary distributions ..\n")
+    logger.info("Building binary distributions ..")
     for name, version, directory in requirements:
         # Check if a binary distribution already exists.
         filename = existing_binary_dists.get((name.lower(), version))
         if filename:
-            debug("Existing binary distribution for %s (%s) found at %s\n", name, version, filename)
+            logger.debug("Existing binary distribution for %s (%s) found at %s.", name, version, filename)
             continue
         # Make sure the source distribution contains a setup script.
         setup_script = os.path.join(directory, 'setup.py')
         if not os.path.isfile(setup_script):
-            message("Warning: Package %s (%s) is not a source distribution.\n", name, version)
+            logger.warn("Warning: Package %s (%s) is not a source distribution.", name, version)
             continue
         old_directory = os.getcwd()
         # Build a binary distribution.
         os.chdir(directory)
-        message("Building binary distribution of %s (%s) ..\n", name, version)
+        logger.info("Building binary distribution of %s (%s) ..", name, version)
         status = (os.system('python setup.py bdist_dumb --format=gztar') == 0)
         os.chdir(old_directory)
         if not status:
-            message("Failed to build binary distribution!\n")
+            logger.error("Failed to build binary distribution of %s! (%s)!", name, version)
             return False
         # Move the generated distribution to the binary index.
         filenames = os.listdir(os.path.join(directory, 'dist'))
         if len(filenames) != 1:
-            message("Error: Build process did not result in one binary distribution! (matches: %s)\n", filenames)
+            logger.error("Error: Build process did not result in one binary distribution! (matches: %s)", filenames)
             return False
         cache_file = '%s:%s.tar.gz' % (name, version)
-        message("Copying binary distribution %s to cache as %s.\n", filenames[0], cache_file)
+        logger.info("Copying binary distribution %s to cache as %s.", filenames[0], cache_file)
         cache_binary_distribution(os.path.join(directory, 'dist', filenames[0]),
                                   os.path.join(binary_index, cache_file))
-    message("Finished building binary distributions.\n")
+    logger.info("Finished building binary distributions.")
     return True
 
 def cache_binary_distribution(input_path, output_path):
@@ -295,7 +301,7 @@ def cache_binary_distribution(input_path, output_path):
     directory.
     """
     # Copy the tar archive file by file so we can rewrite their pathnames.
-    debug("Expected prefix in binary distribution archive: %s\n", ENVIRONMENT)
+    logger.debug("Expected prefix in binary distribution archive: %s.", ENVIRONMENT)
     input_bdist = tarfile.open(input_path, 'r:gz')
     output_bdist = tarfile.open(output_path, 'w:gz')
     for member in input_bdist.getmembers():
@@ -306,14 +312,14 @@ def cache_binary_distribution(input_path, output_path):
         original_pathname = member.name
         absolute_pathname = re.sub(r'^\./', '/', original_pathname)
         if member.isdev():
-            debug("Warning: Ignoring device file: %s\n", absolute_pathname)
+            logger.debug("Warning: Ignoring device file: %s.", absolute_pathname)
         elif not member.isdir():
             modified_pathname = os.path.relpath(absolute_pathname, ENVIRONMENT)
             if os.path.isabs(modified_pathname):
-                message("Warning: Failed to transform pathname in binary distribution to relative path! (original: %r, modified: %r)\n",
-                        original_pathname, modified_pathname)
+                logger.warn("Warning: Failed to transform pathname in binary distribution to relative path! (original: %r, modified: %r)",
+                            original_pathname, modified_pathname)
             else:
-                debug("Transformed %r -> %r.\n", original_pathname, modified_pathname)
+                logger.debug("Transformed %r -> %r.", original_pathname, modified_pathname)
                 # Get the file data from the input archive.
                 file_data = input_bdist.extractfile(original_pathname)
                 # Use all metadata from the input archive but modify the filename.
@@ -335,14 +341,14 @@ def install_requirements(requirements, install_prefix=ENVIRONMENT):
     """
     install_timer = Timer()
     existing_binary_dists = find_binary_dists()
-    message("Installing from binary distributions ..\n")
+    logger.info("Installing from binary distributions ..")
     for name, version, directory in requirements:
         filename = existing_binary_dists.get((name.lower(), version))
         if not filename:
-            message("Error: No binary distribution of %s (%s) available!\n", name, version)
+            logger.error("Error: No binary distribution of %s (%s) available!", name, version)
             return False
         install_binary_dist(filename, install_prefix=install_prefix)
-    message("Finished installing all requirements in %s.\n", install_timer)
+    logger.info("Finished installing all requirements in %s.", install_timer)
     return True
 
 def install_binary_dist(filename, install_prefix=ENVIRONMENT):
@@ -361,15 +367,15 @@ def install_binary_dist(filename, install_prefix=ENVIRONMENT):
     #     places based on the "seed" environment.
     install_timer = Timer()
     python = os.path.join(install_prefix, 'bin', 'python')
-    message("Installing binary distribution %s to %s ..\n", filename, install_prefix)
+    logger.info("Installing binary distribution %s to %s ..", filename, install_prefix)
     archive = tarfile.open(filename, 'r:gz')
     for member in archive.getmembers():
         install_path = os.path.join(install_prefix, member.name)
         directory = os.path.dirname(install_path)
         if not os.path.isdir(directory):
-            debug("Creating directory: %s\n", directory)
+            logger.debug("Creating directory: %s ..", directory)
             os.makedirs(directory)
-        debug("Writing file: %s\n", install_path)
+        logger.debug("Writing file: %s ..", install_path)
         file_handle = archive.extractfile(member)
         with open(install_path, 'w') as handle:
             contents = file_handle.read()
@@ -378,7 +384,7 @@ def install_binary_dist(filename, install_prefix=ENVIRONMENT):
             handle.write(contents)
         os.chmod(install_path, member.mode)
     archive.close()
-    message("Finished installing binary distribution in %s.\n", install_timer)
+    logger.info("Finished installing binary distribution in %s.", install_timer)
 
 def fix_hashbang(python, contents):
     """
@@ -401,11 +407,11 @@ def fix_hashbang(python, contents):
     modified_name = re.sub('^env ', '', os.path.basename(hashbang))
     # Only rewrite hashbangs that actually involve Python.
     if re.match(r'^python(\d+(\.\d+)*)?$', modified_name):
-        debug("Hashbang %r looks like a Python hashbang! We'll rewrite it!\n", hashbang)
+        logger.debug("Hashbang %r looks like a Python hashbang! We'll rewrite it!", hashbang)
         parts[0] = '#!%s' % python
         contents = ''.join(parts)
     else:
-        message("Warning: Failed to match hashbang: %r\n", hashbang)
+        logger.debug("Warning: Failed to match hashbang: %r.", hashbang)
     return contents
 
 def run_pip(arguments, use_remote_index):
@@ -432,7 +438,7 @@ def run_pip(arguments, use_remote_index):
             break
     else:
         command_line = ['pip'] + arguments
-    message("Executing command: %s\n", ' '.join(command_line))
+    logger.info("Executing command: %s.", ' '.join(command_line))
     parser = create_main_parser()
     pip = CustomInstallCommand(parser)
     initial_options, args = parser.parse_args(command_line[1:])
@@ -479,9 +485,9 @@ def update_source_dists_index():
             archive_name = os.path.basename(components.path)
             archive_path = os.path.join(source_index, add_extension(download_path, archive_name))
             if not os.path.isfile(archive_path):
-                message("Linking files:\n")
-                message(" - Source: %s\n", download_path)
-                message(" - Target: %s\n", archive_path)
+                logger.info("Linking files:")
+                logger.info(" - Source: %s", download_path)
+                logger.info(" - Target: %s", archive_path)
                 os.symlink(download_path, archive_path)
 
 def add_extension(download_path, archive_path):
@@ -537,52 +543,15 @@ def initialize_directories():
     if os.path.isfile(index_version_file):
         with open(index_version_file) as handle:
             if int(handle.read()) == CACHE_FORMAT_REVISION:
-                debug("Binary distribution cache format is compatible.\n")
+                logger.debug("Binary distribution cache format is compatible.")
                 return
-    debug("Binary distribution cache format is incompatible; clearing cache ..\n")
+    logger.debug("Binary distribution cache format is incompatible; clearing cache ..")
     for entry in os.listdir(binary_index):
         pathname = os.path.join(binary_index, entry)
-        debug(" - Deleting %s\n", pathname)
+        logger.debug(" - Deleting %s.", pathname)
         os.unlink(pathname)
     with open(index_version_file, 'w') as handle:
         handle.write("%i\n" % CACHE_FORMAT_REVISION)
-
-def interactive_message(text):
-    """
-    Show a message to the operator for 5 seconds.
-
-    Expects one argument: the text to present to the user.
-    """
-    for i in range(5, 0, -1):
-        message("%s, retrying after %i second%s .. ", text, i, '' if i == 1 else 's')
-        time.sleep(1)
-    message("\n", prefix=False)
-
-def debug(text, *args, **kw):
-    """
-    Print a formatted message to the console if the operator requested verbose
-    execution.
-
-    Expects the same arguments as the message() function.
-    """
-    if VERBOSE:
-        message(text, *args, **kw)
-
-def message(text, *args, **kw):
-    """
-    Print a formatted message to the console. By default the prefix
-    `(pip-accel)` is added to the text.
-
-    Expects at least one argument: The text to print. If further positional
-    arguments are received the text will be formatted using those arguments and
-    the `%` operator. The prefix can be disabled by passing the keyword
-    argument `prefix=False`.
-    """
-    if kw.get('prefix', True):
-        text = '(pip-accel) ' + text
-    if INTERACTIVE:
-        text = '\r' + text
-    sys.stderr.write(text % args)
 
 class Timer:
 
