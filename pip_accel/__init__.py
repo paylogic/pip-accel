@@ -24,7 +24,6 @@ taking a look at the following functions:
 __version__ = '0.8.20'
 
 # Standard library modules.
-import logging
 import os
 import os.path
 import pkg_resources
@@ -39,8 +38,11 @@ import time
 import urllib
 import urlparse
 
+# Internal modules.
+from pip_accel.deps import sanity_check_dependencies
+from pip_accel.logger import logger
+
 # External dependencies.
-from coloredlogs import ColoredStreamHandler
 from pip.backwardcompat import string_types
 from pip.baseparser import create_main_parser
 from pip.commands.install import InstallCommand
@@ -48,17 +50,8 @@ from pip.exceptions import DistributionNotFound, InstallationError
 from pip.log import logger as pip_logger
 from pip.status_codes import SUCCESS
 
-# Initialize the logging subsystem.
-logger = logging.getLogger('pip-accel')
-logger.setLevel(logging.INFO)
-logger.addHandler(ColoredStreamHandler())
-
 # Whether a user is directly looking at the output.
 INTERACTIVE = os.isatty(1)
-
-# Check if the operator requested verbose output.
-if '-v' in sys.argv or 'PIP_ACCEL_VERBOSE' in os.environ:
-    logger.setLevel(logging.DEBUG)
 
 # Find the environment where requirements are to be installed.
 ENVIRONMENT = os.path.abspath(os.environ.get('VIRTUAL_ENV', sys.prefix))
@@ -305,41 +298,67 @@ def build_missing_binary_dists(requirements):
         if not os.path.isfile(setup_script):
             logger.warn("Package %s (%s) is not a source distribution.", name, version)
             continue
-        old_directory = os.getcwd()
-        # Build a binary distribution.
-        os.chdir(directory)
-        build_text = "Building binary distribution of %s (%s) .." % (name, version)
-        logger.info("%s", build_text)
-        command_line = '"%s/bin/python" setup.py bdist_dumb --format=gztar' % ENVIRONMENT
-        logger.debug("Executing external command: %s", command_line)
-        # Redirect all output of the build to a temporary file.
-        fd, temporary_file = tempfile.mkstemp()
-        build = subprocess.Popen(['sh', '-c', '%s > "%s" 2>&1' % (command_line, temporary_file)])
-        # Wait for the build to finish.
-        if INTERACTIVE:
-            # Provide feedback to the user in the mean time.
-            spinner = Spinner(build_text)
-            while build.poll() is None:
-                spinner.step()
-                time.sleep(0.1)
-            spinner.clear()
-        else:
-            build.wait()
-        os.chdir(old_directory)
-        if build.returncode != 0:
-            logger.error("Failed to build binary distribution of %s! (%s)!", name, version)
-            with open(temporary_file) as handle:
-                logger.info("Build output (will probably provide a hint as to what went wrong):\n%s", handle.read())
-            return False
-        # Move the generated distribution to the binary index.
-        filenames = os.listdir(os.path.join(directory, 'dist'))
-        if len(filenames) != 1:
-            logger.error("Build process did not result in one binary distribution! (matches: %s)", filenames)
-            return False
-        cache_file = '%s:%s:%s.tar.gz' % (name, version, pyversion)
-        logger.info("Copying binary distribution %s to cache as %s.", filenames[0], cache_file)
-        cache_binary_dist(os.path.join(directory, 'dist', filenames[0]),
-                          os.path.join(binary_index, cache_file))
+        # Try to build the binary distribution.
+        if not build_binary_dist(name, version, directory):
+            if not (sanity_check_dependencies(name) and build_binary_dist(name, version, directory)):
+                return False
+     logger.info("Finished building binary distributions.")
+     return True
+
+def build_binary_dist(name, version, directory):
+    """
+    Convert a single, unpacked source distribution to a binary distribution.
+
+    :param name: The name of the requirement to build.
+    :param version: The version of the requirement to build.
+    :param directory: The directory where the unpacked sources of the
+                      requirement are available.
+
+    :returns: ``True`` if we succeed in building a binary distribution,
+              ``False`` otherwise (probably because of missing binary
+              dependencies like system libraries).
+    """
+    # Cleanup previously generated distributions.
+    dist_directory = os.path.join(directory, 'dist')
+    if os.path.isdir(dist_directory):
+        logger.info("Cleaning up previously generated distributions in %s ..", dist_directory)
+        shutil.rmtree(dist_directory)
+    # Let the user know what's going on.
+    build_text = "Building binary distribution of %s (%s) .." % (name, version)
+    logger.info("%s", build_text)
+    # Compose the command line needed to build the binary distribution.
+    command_line = '"%s/bin/python" setup.py bdist_dumb --format=gztar' % ENVIRONMENT
+    logger.debug("Executing external command: %s", command_line)
+    # Redirect all output of the build to a temporary file.
+    fd, temporary_file = tempfile.mkstemp()
+    command_line = '%s > "%s" 2>&1' % (command_line, temporary_file)
+    # Start the build.
+    build = subprocess.Popen(['sh', '-c', command_line], cwd=directory)
+    # Wait for the build to finish.
+    if INTERACTIVE:
+        # Provide feedback to the user in the mean time.
+        spinner = Spinner(build_text)
+        while build.poll() is None:
+            spinner.step()
+            time.sleep(0.1)
+        spinner.clear()
+    else:
+        build.wait()
+    # Make sure the build succeeded.
+    if build.returncode != 0:
+        logger.error("Failed to build binary distribution of %s! (version: %s)", name, version)
+        with open(temporary_file) as handle:
+            logger.info("Build output (will probably provide a hint as to what went wrong):\n%s", handle.read())
+        return False
+    # Move the generated distribution to the binary index.
+    filenames = os.listdir(dist_directory)
+    if len(filenames) != 1:
+        logger.error("Build process did not result in one binary distribution! (matches: %s)", filenames)
+        return False
+    cache_file = '%s:%s:%s.tar.gz' % (name, version, pyversion)
+    logger.info("Copying binary distribution %s to cache as %s.", filenames[0], cache_file)
+    cache_binary_dist(os.path.join(directory, 'dist', filenames[0]),
+                      os.path.join(binary_index, cache_file))
     logger.info("Finished building binary distributions.")
     return True
 
