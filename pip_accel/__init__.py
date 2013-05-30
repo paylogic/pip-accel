@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: May 17, 2013
+# Last Change: May 30, 2013
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Permanently store logs in the pip-accel directory (think about log rotation).
@@ -272,7 +272,7 @@ def build_binary_dists(requirements):
         # Build a binary distribution.
         os.chdir(directory)
         logger.info("Building binary distribution of %s (%s) ..", name, version)
-        status = (os.system('python setup.py bdist_dumb --format=gztar') == 0)
+        status = (os.system('"%s/bin/python" setup.py bdist_dumb --format=gztar' % ENVIRONMENT) == 0)
         os.chdir(old_directory)
         if not status:
             logger.error("Failed to build binary distribution of %s! (%s)!", name, version)
