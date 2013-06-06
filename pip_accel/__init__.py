@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: May 30, 2013
+# Last Change: June 6, 2013
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Permanently store logs in the pip-accel directory (think about log rotation).
@@ -63,7 +63,7 @@ MAX_RETRIES = 10
 # The version number of the binary distribution cache format in use. When we
 # break backwards compatibility we bump this number so that pip-accel knows it
 # should clear the cache before proceeding.
-CACHE_FORMAT_REVISION = 2
+CACHE_FORMAT_REVISION = 3
 
 # Look up the home directory of the effective user id so we can generate
 # pathnames relative to the home directory.
@@ -231,17 +231,18 @@ def find_binary_dists():
     logger.info("Scanning binary distribution index ..")
     distributions = {}
     for filename in sorted(os.listdir(binary_index), key=str.lower):
-        match = re.match(r'^(.+?):(.+?)\.tar\.gz$', filename)
-        if match:
-            key = (match.group(1).lower(), match.group(2))
-            logger.debug("Matched %s in %s.", key, filename)
-            distributions[key] = os.path.join(binary_index, filename)
-        else:
-            logger.debug("Failed to match filename: %s.", filename)
+        if filename.endswith('.tar.gz'):
+            basename = re.sub('\.tar.gz$', '', filename)
+            key = tuple(basename.split(':'))
+            if len(key) == 3:
+                logger.debug("Matched %s in %s.", key, filename)
+                distributions[key] = os.path.join(binary_index, filename)
+                continue
+        logger.debug("Failed to match filename: %s.", filename)
     logger.info("Found %i existing binary distribution%s.",
                 len(distributions), '' if len(distributions) == 1 else 's')
-    for (name, version), filename in distributions.iteritems():
-        logger.debug(" - %s (%s) in %s.", name, version, filename)
+    for (name, version, pyversion), filename in distributions.iteritems():
+        logger.debug(" - %s (%s, %s) in %s.", name, version, pyversion, filename)
     return distributions
 
 def build_binary_dists(requirements):
@@ -257,9 +258,10 @@ def build_binary_dists(requirements):
     """
     existing_binary_dists = find_binary_dists()
     logger.info("Building binary distributions ..")
+    pyversion = get_python_version()
     for name, version, directory in requirements:
         # Check if a binary distribution already exists.
-        filename = existing_binary_dists.get((name.lower(), version))
+        filename = existing_binary_dists.get((name.lower(), version, pyversion))
         if filename:
             logger.debug("Existing binary distribution for %s (%s) found at %s.", name, version, filename)
             continue
@@ -282,7 +284,7 @@ def build_binary_dists(requirements):
         if len(filenames) != 1:
             logger.error("Error: Build process did not result in one binary distribution! (matches: %s)", filenames)
             return False
-        cache_file = '%s:%s.tar.gz' % (name, version)
+        cache_file = '%s:%s:%s.tar.gz' % (name, version, pyversion)
         logger.info("Copying binary distribution %s to cache as %s.", filenames[0], cache_file)
         cache_binary_distribution(os.path.join(directory, 'dist', filenames[0]),
                                   os.path.join(binary_index, cache_file))
@@ -341,9 +343,10 @@ def install_requirements(requirements, install_prefix=ENVIRONMENT):
     """
     install_timer = Timer()
     existing_binary_dists = find_binary_dists()
+    pyversion = get_python_version()
     logger.info("Installing from binary distributions ..")
     for name, version, directory in requirements:
-        filename = existing_binary_dists.get((name.lower(), version))
+        filename = existing_binary_dists.get((name.lower(), version, pyversion))
         if not filename:
             logger.error("Error: No binary distribution of %s (%s) available!", name, version)
             return False
@@ -489,6 +492,12 @@ def update_source_dists_index():
                 logger.info(" - Source: %s", download_path)
                 logger.info(" - Target: %s", archive_path)
                 os.symlink(download_path, archive_path)
+
+def get_python_version():
+    """
+    Return a string identifying the currently running Python version.
+    """
+    return "py%i.%i" % (sys.version_info.major, sys.version_info.minor)
 
 def add_extension(download_path, archive_path):
     """

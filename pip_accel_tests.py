@@ -3,7 +3,7 @@
 # Tests for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: May 17, 2013
+# Last Change: June 6, 2013
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Test successful installation of iPython, because it used to break! (nested /lib/ directory)
@@ -39,8 +39,10 @@ class PipAccelTestCase(unittest.TestCase):
         # Enable verbose output from pip-accel.
         os.environ['PIP_ACCEL_VERBOSE'] = 'yes, please'
         # Initialize the required subdirectories.
+        print "pip_accel_tests 1: PIP_ACCEL_CACHE=%r" % os.environ.get('PIP_ACCEL_CACHE', '?')
         self.pip_accel = __import__('pip_accel')
         self.pip_accel.initialize_directories()
+        print "pip_accel_tests 2: PIP_ACCEL_CACHE=%r" % os.environ.get('PIP_ACCEL_CACHE', '?')
 
     def runTest(self):
         """
@@ -50,11 +52,15 @@ class PipAccelTestCase(unittest.TestCase):
         # We will test the downloading, conversion to binary distribution and
         # installation of the virtualenv package (we simply need a package we
         # know is available from PyPi).
-        arguments = ['install', 'virtualenv==1.8.4', '--build=%s' % self.working_directory, '--ignore-installed']
+        arguments = ['install', '--ignore-installed', '--build=%s' % self.working_directory, 'virtualenv==1.8.4']
         # First we do a simple sanity check.
-        requirements = self.pip_accel.unpack_source_dists(arguments)
-        #self.assertIsNone(requirements)
-        self.assertTrue(requirements is None)
+        from pip.exceptions import DistributionNotFound
+        try:
+            requirements = self.pip_accel.unpack_source_dists(arguments)
+            # This line should never be reached.
+            self.assertTrue(False)
+        except Exception, e:
+            self.assertTrue(isinstance(e, DistributionNotFound))
         # Download the source distribution from PyPi.
         self.pip_accel.download_source_dists(arguments)
         # Implicitly verify that the download was successful.
