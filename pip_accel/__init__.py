@@ -233,8 +233,9 @@ def find_binary_dists():
     for filename in sorted(os.listdir(binary_index), key=str.lower):
         if filename.endswith('.tar.gz'):
             basename = re.sub('\.tar.gz$', '', filename)
-            key = tuple(basename.split(':'))
-            if len(key) == 3:
+            parts = basename.split(':')
+            if len(parts) == 3:
+                key = (parts[0].lower(), parts[1], parts[2])
                 logger.debug("Matched %s in %s.", key, filename)
                 distributions[key] = os.path.join(binary_index, filename)
                 continue
