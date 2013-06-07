@@ -498,7 +498,7 @@ def get_python_version():
     """
     Return a string identifying the currently running Python version.
     """
-    return "py%i.%i" % (sys.version_info.major, sys.version_info.minor)
+    return "py%i.%i" % (sys.version_info[0], sys.version_info[1])
 
 def add_extension(download_path, archive_path):
     """
