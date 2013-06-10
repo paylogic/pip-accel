@@ -5,7 +5,7 @@ pip-accel: Accelerator for pip, the Python package manager
 
 The ``pip-accel`` program is a wrapper for `pip <http://www.pip-installer.org/>`_, the Python package manager. It accelerates the usage of ``pip`` to initialize `Python virtual environments <http://www.virtualenv.org/en/latest/>`_ given one or more `requirements <http://www.pip-installer.org/en/latest/cookbook.html#requirements-files>`_ files. It does so by combining the following two approaches:
 
-1. Source distribution downloads are cached and used to generate a `local index of source distribution archives <http://www.pip-installer.org/en/latest/cookbook.html#fast-local-installs>`_. If all your dependencies are pinned to absolute versions whose source distribution downloads were previously cached, ``pip-accel`` won't need a network connection at all! This is one of the reasons why ``pip`` can be so slow: given absolute pinned dependencies available in the download cache it will still scan `PyPi <http://pypi.python.org/>`_ and distribution websites.
+1. Source distribution downloads are cached and used to generate a `local index of source distribution archives <http://www.pip-installer.org/en/latest/cookbook.html#fast-local-installs>`_. If all your dependencies are pinned to absolute versions whose source distribution downloads were previously cached, ``pip-accel`` won't need a network connection at all! This is one of the reasons why ``pip`` can be so slow: given absolute pinned dependencies available in the download cache it will still scan `PyPI <http://pypi.python.org/>`_ and distribution websites.
 
 2. `Binary distributions <http://docs.python.org/2/distutils/builtdist.html>`_ are used to speed up the process of installing dependencies with binary components (like `M2Crypto <https://pypi.python.org/pypi/M2Crypto>`_ and `LXML <https://pypi.python.org/pypi/lxml>`_). Instead of recompiling these dependencies again for every virtual environment we compile them once and cache the result as a binary ``*.tar.gz`` distribution.
 
@@ -57,7 +57,7 @@ The way ``pip-accel`` works is not very intuitive but it is very effective. Belo
 
 2. Run ``pip install --no-install -r requirements.txt`` to download missing source distributions to the download cache:
 
-  -  If the command fails it means that pip encountered errors while scanning `PyPi <http://pypi.python.org/>`_, scanning a distribution website, downloading a source distribution or unpacking a source distribution. Usually these kinds of errors are intermittent so retrying a few times is worth a shot. Go to step 2.
+  -  If the command fails it means that pip encountered errors while scanning `PyPI <http://pypi.python.org/>`_, scanning a distribution website, downloading a source distribution or unpacking a source distribution. Usually these kinds of errors are intermittent so retrying a few times is worth a shot. Go to step 2.
 
   -  If the command succeeds it means all dependencies are now available as local source distributions; we don't need the network anymore! Go to step 1.
 

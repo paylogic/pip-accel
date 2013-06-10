@@ -1,23 +1,23 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: June 6, 2013
+# Last Change: June 10, 2013
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Permanently store logs in the pip-accel directory (think about log rotation).
 # TODO Maybe we should save the output of `python setup.py bdist_dumb` somewhere as well?
 
 """
-Usage: pip-accel [ARGUMENTS TO PIP]
+The Python module :py:mod:`pip_accel` defines the classes and functions that
+implement the functionality of the pip accelerator and the ``pip-accel``
+command. Instead of using the ``pip-accel`` command you can also use the pip
+accelerator as a Python module. In this case you'll probably want to start by
+taking a look at the following functions:
 
-The pip-accel program is a wrapper for pip, the Python package manager. It
-accelerates the usage of pip to initialize Python virtual environments given
-one or more requirements files. The pip-accel command supports all subcommands
-and options supported by pip, however it is only useful for the "pip install"
-subcommand.
-
-For more information please refer to the GitHub project page
-at https://github.com/paylogic/pip-accel
+- :py:func:`unpack_source_dists`
+- :py:func:`download_source_dists`
+- :py:func:`build_binary_dists`
+- :py:func:`install_requirements`
 """
 
 # Standard library modules.
@@ -29,6 +29,7 @@ import pwd
 import re
 import sys
 import tarfile
+import textwrap
 import time
 import urllib
 import urlparse
@@ -57,7 +58,7 @@ if '-v' in sys.argv or 'PIP_ACCEL_VERBOSE' in os.environ:
 ENVIRONMENT = os.path.abspath(os.environ.get('VIRTUAL_ENV', sys.prefix))
 
 # The main loop of pip-accel retries at most this many times to counter pip errors
-# due to connectivity issues with PyPi and/or linked distribution websites.
+# due to connectivity issues with PyPI and/or linked distribution websites.
 MAX_RETRIES = 10
 
 # The version number of the binary distribution cache format in use. When we
@@ -71,9 +72,13 @@ HOME = pwd.getpwuid(os.getuid()).pw_dir
 
 def expanduser(pathname):
     """
-    Variant of os.path.expanduser() that doesn't use $HOME but instead uses the
-    home directory of the effective user id. This is basically a workaround for
-    ``sudo -s`` not resetting $HOME.
+    Variant of :py:func:`os.path.expanduser()` that doesn't use ``$HOME`` but
+    instead uses the home directory of the effective user id. This is basically
+    a workaround for ``sudo -s`` not resetting ``$HOME``.
+
+    :param pathname: A pathname that may start with ``~/``, indicating the path
+                     should be interpreted as being relative to the home
+                     directory of the current (effective) user.
     """
     return re.sub('^~(?=/)', HOME, pathname)
 
@@ -100,11 +105,11 @@ index_version_file = os.path.join(pip_accel_cache, 'version.txt')
 
 def main():
     """
-    Main logic of the pip-accel command.
+    Main logic of the ``pip-accel`` command.
     """
     arguments = sys.argv[1:]
     if not arguments:
-        print __doc__.strip()
+        print_usage()
         sys.exit(0)
     # If no install subcommand is given we pass the command line straight
     # to pip without any changes and exit immediately afterwards.
@@ -138,24 +143,42 @@ def main():
     logger.fatal("Error: External command failed %i times, aborting!" % MAX_RETRIES)
     sys.exit(1)
 
+def print_usage():
+    """
+    Report the usage of the pip-accel command to the console.
+    """
+    print textwrap.dedent("""
+        Usage: pip-accel [ARGUMENTS TO PIP]
+
+        The pip-accel program is a wrapper for pip, the Python package manager. It
+        accelerates the usage of pip to initialize Python virtual environments given
+        one or more requirements files. The pip-accel command supports all subcommands
+        and options supported by pip, however it is only useful for the "pip install"
+        subcommand.
+
+        For more information please refer to the GitHub project page
+        at https://github.com/paylogic/pip-accel
+    """).strip()
+
 def unpack_source_dists(arguments):
     """
     Check whether there are local source distributions available for all
     requirements, unpack the source distribution archives and find the names
-    and versions of the requirements. By using the "pip install --no-install"
+    and versions of the requirements. By using the ``pip install --no-install``
     command we avoid reimplementing the following pip features:
 
-     - Parsing of "requirements.txt" (including recursive parsing)
-     - Resolution of possibly conflicting pinned requirements
-     - Unpacking source distributions in multiple formats
-     - Finding the name & version of a given source distribution
+    - Parsing of ``requirements.txt`` (including recursive parsing)
+    - Resolution of possibly conflicting pinned requirements
+    - Unpacking source distributions in multiple formats
+    - Finding the name & version of a given source distribution
 
-    Expects one argument: a list of strings with the command line arguments to
-    be passed to the `pip` command.
+    :param arguments: A list of strings with the command line arguments to be
+                      passed to the ``pip`` command.
 
-    Returns the list of tuples also returned by and documented under the
-    parse_requirements() function, unless `pip` fails in which case None is
-    returned instead.
+    :returns: A list of tuples with three strings each: The name of a
+              requirement (package), its version number and the directory where
+              the unpacked source distribution is located. If ``pip`` fails, an
+              exception will be raised by ``pip``.
     """
     unpack_timer = Timer()
     logger.info("Unpacking local source distributions ..")
@@ -178,9 +201,8 @@ def sorted_requirements(requirement_set):
     """
     Sort the requirements in a ``RequirementSet``.
 
-    Expects a ``RequirementSet`` object as the first and only argument.
-
-    Returns a list of sorted ``InstallRequirement`` objects.
+    :param requirement_set: A ``RequirementSet`` object produced by ``pip``.
+    :returns: A list of sorted ``InstallRequirement`` objects.
     """
     return sorted(requirement_set.requirements.values(),
                   key=lambda r: ensure_parsed_requirement(r).project_name.lower())
@@ -193,13 +215,12 @@ def ensure_parsed_requirement(install_requirement):
     dealing with a ``pkg_resources.Requirement`` object.
 
     This was "copied" from the pip source code, I'm not sure if this code is
-    actually necessary but it doesn't hurt and pip probably did it for a
+    actually necessary but it doesn't hurt and ``pip`` probably did it for a
     reason. Right? :-)
 
-    Expects a single argument which is an ``InstallRequirement`` object
-    produced by pip.
-
-    Returns a ``pkg_resources.Requirement`` object.
+    :param install_requirement: An ``InstallRequirement`` object
+                                produced by ``pip``.
+    :returns: A ``pkg_resources.Requirement`` object.
     """
     req = install_requirement.req
     if isinstance(req, string_types):
@@ -210,7 +231,7 @@ def download_source_dists(arguments):
     """
     Download missing source distributions.
 
-    Expects one argument: A list with the arguments intended for pip.
+    :param arguments: A list with the arguments intended for ``pip``.
     """
     download_timer = Timer()
     logger.info("Downloading source distributions ..")
@@ -225,8 +246,8 @@ def find_binary_dists():
     """
     Find all previously cached binary distributions.
 
-    Returns a dictionary with (package-name, package-version) tuples as keys
-    and pathnames of binary archives as values.
+    :returns: A dictionary with (package-name, package-version, python-version)
+              tuples as keys and pathnames of binary archives as values.
     """
     logger.info("Scanning binary distribution index ..")
     distributions = {}
@@ -250,12 +271,12 @@ def build_binary_dists(requirements):
     """
     Convert source distributions to binary distributions.
 
-    Expects a list of tuples in the format of the return value of the
-    parse_requirements() function.
+    :param requirements: A list of tuples in the format of the return value of
+                         the :py:func:`unpack_source_dists()` function.
 
-    Returns True if it succeeds in building a binary distribution, False
-    otherwise (probably because of missing binary dependencies like system
-    libraries).
+    :returns: ``True`` if it succeeds in building a binary distribution,
+              ``False`` otherwise (probably because of missing binary
+              dependencies like system libraries).
     """
     existing_binary_dists = find_binary_dists()
     logger.info("Building binary distributions ..")
@@ -294,14 +315,14 @@ def build_binary_dists(requirements):
 
 def cache_binary_distribution(input_path, output_path):
     """
-    Transform a binary distribution archive created with `python setup.py
-    bdist_dumb --format=gztar` into a form that can be cached for future use.
+    Transform a binary distribution archive created with ``python setup.py
+    bdist_dumb --format=gztar`` into a form that can be cached for future use.
     This comes down to making the pathnames inside the archive relative to the
-    "prefix" that the binary distribution was built for.
+    `prefix` that the binary distribution was built for.
 
-    Expects two arguments: The pathname of the original binary distribution
-    archive and the pathname of the binary distribution in the cache
-    directory.
+    :param input_path: The pathname of the original binary distribution archive
+    :param output_path: The pathname of the binary distribution in the cache
+                        directory.
     """
     # Copy the tar archive file by file so we can rewrite their pathnames.
     logger.debug("Expected prefix in binary distribution archive: %s.", ENVIRONMENT)
@@ -336,11 +357,14 @@ def install_requirements(requirements, install_prefix=ENVIRONMENT):
     """
     Manually install all requirements from binary distributions.
 
-    Expects a list of tuples in the format of the return value of the
-    parse_requirements() function.
-
-    Returns True if it succeeds in installing all requirements from binary
-    distribution archives, False otherwise.
+    :param requirements: A list of tuples in the format of the return value of
+                         :py:func:`unpack_source_dists()`.
+    :param install_prefix: The "prefix" under which the requirements should be
+                           installed. This will be a pathname like ``/usr``,
+                           ``/usr/local`` or the pathname of a virtual
+                           environment.
+    :returns: ``True`` if it succeeds in installing all requirements from
+              binary distribution archives, ``False`` otherwise.
     """
     install_timer = Timer()
     existing_binary_dists = find_binary_dists()
@@ -357,11 +381,15 @@ def install_requirements(requirements, install_prefix=ENVIRONMENT):
 
 def install_binary_dist(filename, install_prefix=ENVIRONMENT):
     """
-    Install a binary distribution created with `python setup.py bdist` into the
-    given prefix (a directory like /usr, /usr/local or a virtual environment).
+    Install a binary distribution created with ``python setup.py bdist`` into
+    the given prefix (a directory like ``/usr``, ``/usr/local`` or a virtual
+    environment).
 
-    Expects two arguments: The pathname of the tar archive and the pathname of
-    the installation prefix.
+    :param filename: The pathname of the tar archive.
+    :param install_prefix: The "prefix" under which the requirements should be
+                           installed. This will be a pathname like ``/usr``,
+                           ``/usr/local`` or the pathname of a virtual
+                           environment.
     """
     # TODO This is quite slow for modules like Django. Speed it up! Two choices:
     #  1. Run the external tar program to unpack the archive. This will
@@ -395,11 +423,11 @@ def fix_hashbang(python, contents):
     Rewrite the hashbang in an executable script so that the Python program
     inside the virtual environment is used instead of a system wide Python.
 
-    Expects two arguments: The absolute pathname of the Python program inside
-    the virtual environment and a string with the contents of the script whose
-    hashbang should be fixed.
-
-    Returns the modified contents of the script as a string.
+    :param python: The absolute pathname of the Python program inside the
+                   virtual environment.
+    :param contents: A string with the contents of the script whose hashbang
+                     should be fixed.
+    :returns: The modified contents of the script as a string.
     """
     # Separate the first line in the file from the remainder of the contents
     # while preserving the end of line sequence (CR+LF or just an LF) and
@@ -420,15 +448,17 @@ def fix_hashbang(python, contents):
 
 def run_pip(arguments, use_remote_index):
     """
-    Execute a modified `pip install` command. This function assumes that the
-    arguments concern a "pip install" command.
+    Execute a modified ``pip install`` command. This function assumes that the
+    arguments concern a ``pip install`` command (:py:func:`main()` makes sure
+    of this).
 
-    Expects two arguments: A list of strings containing the arguments that will
-    be passed to `pip` followed by a boolean indicating whether `pip` may
-    contact http://pypi.python.org.
-
-    Returns a pip RequirementSet object. If pip reports an error, the exception
-    will be re-raised by the run_pip() function.
+    :param arguments: A list of strings containing the arguments that will be
+                      passed to ``pip``.
+    :param use_remote_index: A boolean indicating whether ``pip`` is allowed to
+                             contact http://pypi.python.org.
+    :returns: A ``RequirementSet`` object created by ``pip``, unless an
+              exception is raised by ``pip`` (in which case the exception will
+              bubble up).
     """
     command_line = []
     for i, arg in enumerate(arguments):
@@ -458,12 +488,16 @@ def run_pip(arguments, use_remote_index):
 class CustomInstallCommand(InstallCommand):
 
     """
-    InstallCommand.run() returns a RequirementSet object which pip-accel is
-    interested in, however pip.basecommand.Command.main() swallows the
-    requirement set (based on my reading of the pip 1.3.x source code). This
-    is why we subclass InstallCommand to wrap the run() method :-). Yes, this
-    is a bit sneaky, but I don't fancy reimplementing
-    pip.basecommand.Command.main() inside pip-accel...
+    Required to call ``pip`` as a Python module instead of a subprocess.
+
+    The ``pip.commands.install.InstallCommand.run()`` method returns a
+    ``RequirementSet`` object which ``pip-accel`` is interested in, however
+    ``pip.basecommand.Command.main()`` swallows the requirement set (based on
+    my reading of the pip 1.3.x source code).
+
+    To work around the problem described above, we subclass ``InstallCommand``
+    to wrap the run() method. Yes this is a bit sneaky, but I don't fancy
+    reimplementing ``pip.basecommand.Command.main()`` inside ``pip-accel``!
     """
 
     def run(self, *args, **kw):
@@ -497,6 +531,9 @@ def update_source_dists_index():
 def get_python_version():
     """
     Return a string identifying the currently running Python version.
+
+    :returns: A string like "py2.6" or "py2.7" containing a short mnemonic
+              prefix followed by the major and minor version numbers.
     """
     return "py%i.%i" % (sys.version_info[0], sys.version_info[1])
 
@@ -507,17 +544,17 @@ def add_extension(download_path, archive_path):
     them while we really need the proper filenames to build the local source
     index.
 
-    Expects two arguments: The pathname of the source distribution archive in
-    the download cache and the pathname of the distribution archive in the
-    source index directory.
+    :param download_path: The pathname of the source distribution archive in
+                          the download cache.
+    :param archive_path: The pathname of the distribution archive in the source
+                         index directory.
+    :returns: The (possibly modified) pathname of the distribution archive in
+              the source index directory.
 
-    Returns the (possibly modified) pathname of the distribution archive in the
-    source index directory.
-
-    Previously this used the "file" executable, now it checks the magic file
-    headers itself. I could have used any of the numerous libmagic bindings on
-    PyPi, but that would add a binary dependency to pip-accel and I don't want
-    that :-).
+    Previously this used the ``file`` executable, now it checks the magic file
+    headers itself. I could have used any of the numerous ``libmagic`` bindings
+    on PyPI, but that would add a binary dependency to ``pip-accel`` and I
+    don't want that :-).
     """
     handle = open(download_path)
     header = handle.read(2)
@@ -570,14 +607,24 @@ class Timer:
     """
 
     def __init__(self):
+        """
+        Store the time when the timer object was created.
+        """
         self.start_time = time.time()
-
-    def __str__(self):
-        return "%.2f seconds" % self.elapsed_time
 
     @property
     def elapsed_time(self):
+        """
+        Get the number of seconds elapsed since the timer object was created.
+        """
         return time.time() - self.start_time
+
+    def __str__(self):
+        """
+        When a timer object is coerced to a string it will show the number of
+        seconds elapsed since the timer object was created.
+        """
+        return "%.2f seconds" % self.elapsed_time
 
 if __name__ == '__main__':
     main()
