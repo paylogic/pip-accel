@@ -68,7 +68,7 @@ The way ``pip-accel`` works is not very intuitive but it is very effective. Belo
 Contact
 -------
 
-If you have questions, bug reports, suggestions, etc. please create an issue on the `GitHub project page <https://github.com/paylogic/pip-accel>`_. The latest version of ``pip-accel`` will always be available on GitHub.
+If you have questions, bug reports, suggestions, etc. please create an issue on the `GitHub project page <https://github.com/paylogic/pip-accel>`_. The latest version of ``pip-accel`` will always be available on GitHub. The internal API documentation is `hosted on Read The Docs <https://pip-accel.readthedocs.org/>`_.
 
 License
 -------
