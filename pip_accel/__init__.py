@@ -21,7 +21,7 @@ taking a look at the following functions:
 """
 
 # Semi-standard module versioning.
-__version__ = '0.8.18'
+__version__ = '0.8.19'
 
 # Standard library modules.
 import logging
@@ -134,7 +134,7 @@ def main():
             try:
                 requirements = unpack_source_dists(arguments)
             except DistributionNotFound:
-                logger.warn("Warning: We don't have all source distributions yet!")
+                logger.warn("We don't have all source distributions yet!")
                 download_source_dists(arguments)
             else:
                 if not requirements:
@@ -145,12 +145,13 @@ def main():
                     else:
                         sys.exit(1)
                 return
+            logger.warn("pip failed, retrying (%i/%i) ..", i + 1, MAX_RETRIES)
     except InstallationError:
         # Abort early when pip reports installation errors.
-        logger.fatal("Error: Pip reported unrecoverable installation errors. Please fix and rerun!")
+        logger.fatal("pip reported unrecoverable installation errors. Please fix and rerun!")
         sys.exit(1)
     # Abort when after N retries we still failed to download source distributions.
-    logger.fatal("Error: External command failed %i times, aborting!" % MAX_RETRIES)
+    logger.fatal("External command failed %i times, aborting!" % MAX_RETRIES)
     sys.exit(1)
 
 def print_usage():
@@ -250,7 +251,7 @@ def download_source_dists(arguments):
         run_pip(arguments + ['--no-install'], use_remote_index=True)
         logger.info("Finished downloading source distributions in %s.", download_timer)
     except Exception, e:
-        logger.warn("Error: pip raised an exception while downloading source distributions: %s.", e)
+        logger.warn("pip raised an exception while downloading source distributions: %s.", e)
 
 def find_binary_dists():
     """
@@ -300,7 +301,7 @@ def build_binary_dists(requirements):
         # Make sure the source distribution contains a setup script.
         setup_script = os.path.join(directory, 'setup.py')
         if not os.path.isfile(setup_script):
-            logger.warn("Warning: Package %s (%s) is not a source distribution.", name, version)
+            logger.warn("Package %s (%s) is not a source distribution.", name, version)
             continue
         old_directory = os.getcwd()
         # Build a binary distribution.
@@ -314,7 +315,7 @@ def build_binary_dists(requirements):
         # Move the generated distribution to the binary index.
         filenames = os.listdir(os.path.join(directory, 'dist'))
         if len(filenames) != 1:
-            logger.error("Error: Build process did not result in one binary distribution! (matches: %s)", filenames)
+            logger.error("Build process did not result in one binary distribution! (matches: %s)", filenames)
             return False
         cache_file = '%s:%s:%s.tar.gz' % (name, version, pyversion)
         logger.info("Copying binary distribution %s to cache as %s.", filenames[0], cache_file)
@@ -350,7 +351,7 @@ def cache_binary_distribution(input_path, output_path):
         elif not member.isdir():
             modified_pathname = os.path.relpath(absolute_pathname, ENVIRONMENT)
             if os.path.isabs(modified_pathname):
-                logger.warn("Warning: Failed to transform pathname in binary distribution to relative path! (original: %r, modified: %r)",
+                logger.warn("Failed to transform pathname in binary distribution to relative path! (original: %r, modified: %r)",
                             original_pathname, modified_pathname)
             else:
                 logger.debug("Transformed %r -> %r.", original_pathname, modified_pathname)
@@ -383,7 +384,7 @@ def install_requirements(requirements, install_prefix=ENVIRONMENT):
     for name, version, directory in requirements:
         filename = existing_binary_dists.get((name.lower(), version, pyversion))
         if not filename:
-            logger.error("Error: No binary distribution of %s (%s) available!", name, version)
+            logger.error("No binary distribution of %s (%s) available!", name, version)
             return False
         install_binary_dist(name, filename, install_prefix=install_prefix)
     logger.info("Finished installing all requirements in %s.", install_timer)
