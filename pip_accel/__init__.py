@@ -21,7 +21,7 @@ taking a look at the following functions:
 """
 
 # Semi-standard module versioning.
-__version__ = '0.8.17'
+__version__ = '0.8.18'
 
 # Standard library modules.
 import logging
@@ -43,6 +43,7 @@ from pip.backwardcompat import string_types
 from pip.baseparser import create_main_parser
 from pip.commands.install import InstallCommand
 from pip.exceptions import DistributionNotFound, InstallationError
+from pip.log import logger as pip_logger
 from pip.status_codes import SUCCESS
 
 # Initialize the logging subsystem.
@@ -501,19 +502,32 @@ def run_pip(arguments, use_remote_index):
 class CustomInstallCommand(InstallCommand):
 
     """
-    Required to call ``pip`` as a Python module instead of a subprocess.
-
-    The ``pip.commands.install.InstallCommand.run()`` method returns a
-    ``RequirementSet`` object which ``pip-accel`` is interested in, however
-    ``pip.basecommand.Command.main()`` swallows the requirement set (based on
-    my reading of the pip 1.3.x source code).
-
-    To work around the problem described above, we subclass ``InstallCommand``
-    to wrap the run() method. Yes this is a bit sneaky, but I don't fancy
-    reimplementing ``pip.basecommand.Command.main()`` inside ``pip-accel``!
+    Subclass of ``pip.commands.install.InstallCommand`` that makes it easier to
+    run ``pip install`` from Python.
     """
 
+    def main(self, *args, **kw):
+        """
+        ``pip.basecommand.Command.main()`` expects to be executed only once; it
+        unconditionally executes ``pip.log.logger.consumers.extend()``. This
+        means that when we run ``pip`` more than once we'll cause it to repeat
+        its output as many times as we executed a ``pip install`` command. We
+        wrap ``main()`` to explicitly reset the list of consumers.
+        """
+        pip_logger.consumers = []
+        return super(CustomInstallCommand, self).main(*args, **kw)
+
+
     def run(self, *args, **kw):
+        """
+        The method ``pip.commands.install.InstallCommand.run()`` returns a
+        ``RequirementSet`` object which ``pip-accel`` is interested in, however
+        ``pip.basecommand.Command.main()`` (the caller of ``run()``) swallows
+        the requirement set (based on my reading of the pip 1.3.x source code).
+        We wrap ``run()`` so that we can intercept the requirement set. This is
+        a bit sneaky, but I don't fancy reimplementing large parts of
+        ``pip.basecommand.Command.main()`` inside ``pip-accel``!
+        """
         original_method = super(CustomInstallCommand, self).run
         try:
             self.intercepted_exception = None
