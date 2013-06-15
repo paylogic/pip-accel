@@ -1,8 +1,6 @@
 pip-accel: Accelerator for pip, the Python package manager
 ==========================================================
 
-**Usage: pip-accel [ARGUMENTS TO PIP]**
-
 The ``pip-accel`` program is a wrapper for `pip <http://www.pip-installer.org/>`_, the Python package manager. It accelerates the usage of ``pip`` to initialize `Python virtual environments <http://www.virtualenv.org/en/latest/>`_ given one or more `requirements <http://www.pip-installer.org/en/latest/cookbook.html#requirements-files>`_ files. It does so by combining the following two approaches:
 
 1. Source distribution downloads are cached and used to generate a `local index of source distribution archives <http://www.pip-installer.org/en/latest/cookbook.html#fast-local-installs>`_. If all your dependencies are pinned to absolute versions whose source distribution downloads were previously cached, ``pip-accel`` won't need a network connection at all! This is one of the reasons why ``pip`` can be so slow: given absolute pinned dependencies available in the download cache it will still scan `PyPI <http://pypi.python.org/>`_ and distribution websites.
