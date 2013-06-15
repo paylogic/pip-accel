@@ -20,6 +20,10 @@ two approaches:
    compile them once and cache the result as a binary ``*.tar.gz``
    distribution.
 
+In addition, since version 0.9 ``pip-accel`` contains a simple mechanism that
+detects missing system packages when a build fails and prompts the user whether
+to install the missing dependencies and retry the build.
+
 Usage
 -----
 
@@ -63,6 +67,50 @@ pip        With download cache (second run)  318 seconds  72%
 pip-accel  First run                         397 seconds  89%
 pip-accel  Second run                        30 seconds   7%
 =========  ================================  ===========  ===============
+
+Dependencies on system packages
+-------------------------------
+
+Since version 0.9 ``pip-accel`` contains a simple mechanism that detects
+missing system packages when a build fails and prompts the user whether to
+install the missing dependencies and retry the build. Currently only Debian
+Linux and derivative Linux distributions are supported, although support for
+other platforms should be easy to add. This functionality currently works based
+on configuration files that define dependencies of Python packages on system
+packages. This means the results should be fairly reliable, but every single
+dependency needs to be manually defined...
+
+Here's what it looks like in practice::
+
+ 2013-06-16 01:01:53 wheezy-vm INFO Building binary distribution of python-mcrypt (1.1) ..
+ 2013-06-16 01:01:53 wheezy-vm ERROR Failed to build binary distribution of python-mcrypt! (version: 1.1)
+ 2013-06-16 01:01:53 wheezy-vm INFO Build output (will probably provide a hint as to what went wrong):
+
+ gcc -pthread -fno-strict-aliasing -DNDEBUG -g -fwrapv -O2 -Wall -Wstrict-prototypes -fPIC -DVERSION="1.1" -I/usr/include/python2.7 -c mcrypt.c -o build/temp.linux-i686-2.7/mcrypt.o
+ mcrypt.c:23:20: fatal error: mcrypt.h: No such file or directory
+ error: command 'gcc' failed with exit status 1
+
+ 2013-06-16 01:01:53 wheezy-vm INFO python-mcrypt: Checking for missing dependencies ..
+ 2013-06-16 01:01:53 wheezy-vm INFO You seem to be missing 1 dependency: libmcrypt-dev
+ 2013-06-16 01:01:53 wheezy-vm INFO I can install it for you with this command: sudo apt-get install --yes libmcrypt-dev
+ Do you want me to install this dependency? [y/N] y
+ 2013-06-16 01:02:05 wheezy-vm INFO Got permission to install missing dependency.
+
+ The following extra packages will be installed:
+   libmcrypt4
+ Suggested packages:
+   mcrypt
+ The following NEW packages will be installed:
+   libmcrypt-dev libmcrypt4
+ 0 upgraded, 2 newly installed, 0 to remove and 68 not upgraded.
+ Unpacking libmcrypt4 (from .../libmcrypt4_2.5.8-3.1_i386.deb) ...
+ Unpacking libmcrypt-dev (from .../libmcrypt-dev_2.5.8-3.1_i386.deb) ...
+ Setting up libmcrypt4 (2.5.8-3.1) ...
+ Setting up libmcrypt-dev (2.5.8-3.1) ...
+
+ 2013-06-16 01:02:13 wheezy-vm INFO Successfully installed 1 missing dependency.
+ 2013-06-16 01:02:13 wheezy-vm INFO Building binary distribution of python-mcrypt (1.1) ..
+ 2013-06-16 01:02:14 wheezy-vm INFO Copying binary distribution python-mcrypt-1.1.linux-i686.tar.gz to cache as python-mcrypt:1.1:py2.7.tar.gz.
 
 Control flow of pip-accel
 -------------------------
