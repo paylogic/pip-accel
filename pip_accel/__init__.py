@@ -21,7 +21,7 @@ taking a look at the following functions:
 """
 
 # Semi-standard module versioning.
-__version__ = '0.8.15'
+__version__ = '0.8.16'
 
 # Standard library modules.
 import logging
@@ -118,6 +118,12 @@ def main():
     # to pip without any changes and exit immediately afterwards.
     if 'install' not in arguments:
         sys.exit(os.spawnvp(os.P_WAIT, 'pip', ['pip'] + arguments))
+    # Make sure the prefix is the same as the environment.
+    if not os.path.samefile(sys.prefix, ENVIRONMENT):
+        logger.error("You are trying to install in prefix #1 which is different from prefix #2 where pip-accel is installed! Please install pip-accel under the other prefix to install packages there.")
+        logger.info("Prefix #1: %s (the environment prefix)", ENVIRONMENT)
+        logger.info("Prefix #2: %s (the installation prefix)", sys.prefix)
+        sys.exit(1)
     main_timer = Timer()
     initialize_directories()
     # Execute "pip install" in a loop in order to retry after intermittent
