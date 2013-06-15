@@ -1,2 +1,3 @@
 include *.rst
 include *.txt
+include pip_accel/deps/*.ini

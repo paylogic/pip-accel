@@ -32,6 +32,7 @@ setup(name='pip-accel',
       packages=find_packages(),
       py_modules=['pip_accel', 'pip_accel.deps', 'pip_accel.logger', 'pip_accel_tests'],
       entry_points={'console_scripts': ['pip-accel = pip_accel:main']},
+      package_data={'pip_accel.deps': ['*.ini']},
       install_requires=['pip >= 1.3', 'coloredlogs'],
       tests_require=['virtualenv'],
       test_suite='pip_accel_tests')

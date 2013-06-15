@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: June 15, 2013
+# Last Change: June 16, 2013
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Permanently store logs in the pip-accel directory (think about log rotation).
@@ -21,7 +21,7 @@ taking a look at the following functions:
 """
 
 # Semi-standard module versioning.
-__version__ = '0.8.20'
+__version__ = '0.9'
 
 # Standard library modules.
 import os
@@ -29,6 +29,7 @@ import os.path
 import pkg_resources
 import pwd
 import re
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -299,13 +300,13 @@ def build_missing_binary_dists(requirements):
             logger.warn("Package %s (%s) is not a source distribution.", name, version)
             continue
         # Try to build the binary distribution.
-        if not build_binary_dist(name, version, directory):
-            if not (sanity_check_dependencies(name) and build_binary_dist(name, version, directory)):
+        if not build_binary_dist(name, version, directory, pyversion):
+            if not (sanity_check_dependencies(name) and build_binary_dist(name, version, directory, pyversion)):
                 return False
-     logger.info("Finished building binary distributions.")
-     return True
+    logger.info("Finished building binary distributions.")
+    return True
 
-def build_binary_dist(name, version, directory):
+def build_binary_dist(name, version, directory, pyversion):
     """
     Convert a single, unpacked source distribution to a binary distribution.
 
@@ -525,7 +526,7 @@ def run_pip(arguments, use_remote_index):
             break
     else:
         command_line = ['pip'] + arguments
-    logger.info("Executing command: %s.", ' '.join(command_line))
+    logger.info("Executing command: %s", ' '.join(command_line))
     parser = create_main_parser()
     pip = CustomInstallCommand(parser)
     initial_options, args = parser.parse_args(command_line[1:])
