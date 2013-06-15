@@ -1,10 +1,10 @@
 Documentation for the pip accelerator
 =====================================
 
-Welcome to the documentation for the pip accelerator! This documentation
-consists of two parts: The documentation for users of the ``pip-accel``
-command and the documentation for developers who wish to extend and/or
-embed the functionality of ``pip-accel``.
+Welcome to the documentation for version |release| of the pip accelerator! This
+documentation consists of two parts: The documentation for users of the
+``pip-accel`` command and the documentation for developers who wish to extend
+and/or embed the functionality of ``pip-accel``.
 
 Introduction & usage
 --------------------
