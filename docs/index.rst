@@ -1,10 +1,22 @@
 Documentation for the pip accelerator
 =====================================
 
-Welcome to the documentation for version |release| of the pip accelerator! This
-documentation consists of two parts: The documentation for users of the
-``pip-accel`` command and the documentation for developers who wish to extend
-and/or embed the functionality of ``pip-accel``.
+The pip accelerator makes `pip <http://www.pip-installer.org/>`_ (the Python
+package manager) faster by keeping pip off the internet when possible and by
+caching compiled binary distributions. It can bring a 10 minute run of ``pip``
+down to less than a minute. You can find the pip accelerator in the following
+places:
+
+- The source code lives on `GitHub <https://github.com/paylogic/pip-accel>`_
+- Downloads are available in the `Python Package Index <https://pypi.python.org/pypi/pip-accel>`_
+- Online documentation is hosted by `Read The Docs <https://pip-accel.readthedocs.org/>`_
+
+This is the documentation for version |release| of the pip accelerator. The
+documentation consists of two parts:
+
+- The documentation for users of the ``pip-accel`` command
+- The documentation for developers who wish to extend and/or embed the
+  functionality of ``pip-accel``
 
 Introduction & usage
 --------------------

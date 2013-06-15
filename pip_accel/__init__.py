@@ -21,7 +21,7 @@ taking a look at the following functions:
 """
 
 # Semi-standard module versioning.
-__version__ = '0.8.13'
+__version__ = '0.8.14'
 
 # Standard library modules.
 import logging
