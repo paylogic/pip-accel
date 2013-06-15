@@ -16,12 +16,12 @@ taking a look at the following functions:
 
 - :py:func:`unpack_source_dists`
 - :py:func:`download_source_dists`
-- :py:func:`build_binary_dists`
+- :py:func:`build_missing_binary_dists`
 - :py:func:`install_requirements`
 """
 
 # Semi-standard module versioning.
-__version__ = '0.8.19'
+__version__ = '0.8.20'
 
 # Standard library modules.
 import logging
@@ -30,8 +30,10 @@ import os.path
 import pkg_resources
 import pwd
 import re
+import subprocess
 import sys
 import tarfile
+import tempfile
 import textwrap
 import time
 import urllib
@@ -140,7 +142,7 @@ def main():
                 if not requirements:
                     logger.info("No unsatisfied requirements found, probably there's nothing to do.")
                 else:
-                    if build_binary_dists(requirements) and install_requirements(requirements):
+                    if build_missing_binary_dists(requirements) and install_requirements(requirements):
                         logger.info("Done! Took %s to install %i package%s.", main_timer, len(requirements), '' if len(requirements) == 1 else 's')
                     else:
                         sys.exit(1)
@@ -253,7 +255,7 @@ def download_source_dists(arguments):
     except Exception, e:
         logger.warn("pip raised an exception while downloading source distributions: %s.", e)
 
-def find_binary_dists():
+def find_cached_binary_dists():
     """
     Find all previously cached binary distributions.
 
@@ -278,7 +280,7 @@ def find_binary_dists():
         logger.debug(" - %s (%s, %s) in %s.", name, version, pyversion, filename)
     return distributions
 
-def build_binary_dists(requirements):
+def build_missing_binary_dists(requirements):
     """
     Convert source distributions to binary distributions.
 
@@ -289,7 +291,7 @@ def build_binary_dists(requirements):
               ``False`` otherwise (probably because of missing binary
               dependencies like system libraries).
     """
-    existing_binary_dists = find_binary_dists()
+    existing_binary_dists = find_cached_binary_dists()
     logger.info("Building binary distributions ..")
     pyversion = get_python_version()
     for name, version, directory in requirements:
@@ -306,11 +308,28 @@ def build_binary_dists(requirements):
         old_directory = os.getcwd()
         # Build a binary distribution.
         os.chdir(directory)
-        logger.info("Building binary distribution of %s (%s) ..", name, version)
-        status = (os.system('"%s/bin/python" setup.py bdist_dumb --format=gztar' % ENVIRONMENT) == 0)
+        build_text = "Building binary distribution of %s (%s) .." % (name, version)
+        logger.info("%s", build_text)
+        command_line = '"%s/bin/python" setup.py bdist_dumb --format=gztar' % ENVIRONMENT
+        logger.debug("Executing external command: %s", command_line)
+        # Redirect all output of the build to a temporary file.
+        fd, temporary_file = tempfile.mkstemp()
+        build = subprocess.Popen(['sh', '-c', '%s > "%s" 2>&1' % (command_line, temporary_file)])
+        # Wait for the build to finish.
+        if INTERACTIVE:
+            # Provide feedback to the user in the mean time.
+            spinner = Spinner(build_text)
+            while build.poll() is None:
+                spinner.step()
+                time.sleep(0.1)
+            spinner.clear()
+        else:
+            build.wait()
         os.chdir(old_directory)
-        if not status:
+        if build.returncode != 0:
             logger.error("Failed to build binary distribution of %s! (%s)!", name, version)
+            with open(temporary_file) as handle:
+                logger.info("Build output (will probably provide a hint as to what went wrong):\n%s", handle.read())
             return False
         # Move the generated distribution to the binary index.
         filenames = os.listdir(os.path.join(directory, 'dist'))
@@ -319,12 +338,12 @@ def build_binary_dists(requirements):
             return False
         cache_file = '%s:%s:%s.tar.gz' % (name, version, pyversion)
         logger.info("Copying binary distribution %s to cache as %s.", filenames[0], cache_file)
-        cache_binary_distribution(os.path.join(directory, 'dist', filenames[0]),
-                                  os.path.join(binary_index, cache_file))
+        cache_binary_dist(os.path.join(directory, 'dist', filenames[0]),
+                          os.path.join(binary_index, cache_file))
     logger.info("Finished building binary distributions.")
     return True
 
-def cache_binary_distribution(input_path, output_path):
+def cache_binary_dist(input_path, output_path):
     """
     Transform a binary distribution archive created with ``python setup.py
     bdist_dumb --format=gztar`` into a form that can be cached for future use.
@@ -378,7 +397,7 @@ def install_requirements(requirements, install_prefix=ENVIRONMENT):
               binary distribution archives, ``False`` otherwise.
     """
     install_timer = Timer()
-    existing_binary_dists = find_binary_dists()
+    existing_binary_dists = find_cached_binary_dists()
     pyversion = get_python_version()
     logger.info("Installing from binary distributions ..")
     for name, version, directory in requirements:
@@ -653,6 +672,37 @@ class Timer:
         seconds elapsed since the timer object was created.
         """
         return "%.2f seconds" % self.elapsed_time
+
+class Spinner:
+
+    """
+    Show a "spinner" on the terminal to let the user know that we're busy
+    building a package's binary distribution without dumping all of the
+    output on the terminal.
+    """
+
+    def __init__(self, label):
+        self.label = label
+        self.states = ['-', '\\', '|', '/']
+        self.counter = 0
+
+    def step(self):
+        """
+        Advance the spinner by one step without starting a new line, causing
+        an animated effect which is very simple but much nicer than waiting
+        for a prompt which is completely silent for a long time.
+        """
+        state = self.states[self.counter % len(self.states)]
+        sys.stderr.write("\r %s %s " % (state, self.label))
+        self.counter += 1
+
+    def clear(self):
+        """
+        Clear the spinner. The next line which is shown on the standard
+        output or error stream after calling this method will overwrite the
+        line that used to show the spinner.
+        """
+        sys.stderr.write("\r")
 
 if __name__ == '__main__':
     main()
