@@ -21,7 +21,7 @@ taking a look at the following functions:
 """
 
 # Semi-standard module versioning.
-__version__ = '0.8.16'
+__version__ = '0.8.17'
 
 # Standard library modules.
 import logging
@@ -384,16 +384,17 @@ def install_requirements(requirements, install_prefix=ENVIRONMENT):
         if not filename:
             logger.error("Error: No binary distribution of %s (%s) available!", name, version)
             return False
-        install_binary_dist(filename, install_prefix=install_prefix)
+        install_binary_dist(name, filename, install_prefix=install_prefix)
     logger.info("Finished installing all requirements in %s.", install_timer)
     return True
 
-def install_binary_dist(filename, install_prefix=ENVIRONMENT):
+def install_binary_dist(package, filename, install_prefix=ENVIRONMENT):
     """
     Install a binary distribution created with ``python setup.py bdist`` into
     the given prefix (a directory like ``/usr``, ``/usr/local`` or a virtual
     environment).
 
+    :param package: The name of the package to install.
     :param filename: The pathname of the tar archive.
     :param install_prefix: The "prefix" under which the requirements should be
                            installed. This will be a pathname like ``/usr``,
@@ -408,7 +409,10 @@ def install_binary_dist(filename, install_prefix=ENVIRONMENT):
     #     places based on the "seed" environment.
     install_timer = Timer()
     python = os.path.join(install_prefix, 'bin', 'python')
-    logger.info("Installing binary distribution %s to %s ..", filename, install_prefix)
+    pip = os.path.join(install_prefix, 'bin', 'pip')
+    if os.system('"%s" uninstall --yes "%s" >/dev/null 2>&1' % (pip, package)) == 0:
+        logger.info("Uninstalled previously installed package %s.", package)
+    logger.info("Installing package %s from binary distribution %s to %s ..", package, filename, install_prefix)
     archive = tarfile.open(filename, 'r:gz')
     for member in archive.getmembers():
         install_path = os.path.join(install_prefix, member.name)
