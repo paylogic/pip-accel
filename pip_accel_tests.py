@@ -3,7 +3,7 @@
 # Tests for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: June 10, 2013
+# Last Change: June 16, 2013
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Test successful installation of iPython, because it used to break! (nested /lib/ directory)
@@ -75,7 +75,7 @@ class PipAccelTestCase(unittest.TestCase):
         # pass "install_prefix" explicitly here because the Python process
         # running this test is not inside the virtual environment created to
         # run the tests...
-        self.assertTrue(self.pip_accel.build_binary_dists(requirements))
+        self.assertTrue(self.pip_accel.build_missing_binary_dists(requirements))
         self.assertTrue(self.pip_accel.install_requirements(requirements, install_prefix=self.virtual_environment))
         # Check that the virtualenv command was installed.
         self.assertTrue(os.path.isfile(os.path.join(self.virtual_environment, 'bin', 'virtualenv')))

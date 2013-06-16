@@ -1,5 +1,11 @@
 #!/usr/bin/env python
 
+# Setup script for the pip accelerator.
+#
+# Author: Peter Odding <peter.odding@paylogic.eu>
+# Last Change: June 16, 2013
+# URL: https://github.com/paylogic/pip-accel
+
 import re
 from os.path import abspath, dirname, join
 from setuptools import setup, find_packages
