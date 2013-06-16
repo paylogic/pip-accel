@@ -21,7 +21,7 @@ taking a look at the following functions:
 """
 
 # Semi-standard module versioning.
-__version__ = '0.9.3'
+__version__ = '0.9.4'
 
 # Standard library modules.
 import os
