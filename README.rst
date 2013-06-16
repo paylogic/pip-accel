@@ -185,4 +185,4 @@ This software is licensed under the `MIT license`_ just like pip_ (on which
 .. _pip: http://www.pip-installer.org/
 .. _PyPI: http://pypi.python.org/
 .. _Python virtual environments: http://www.virtualenv.org/en/latest/
-.. _requirements files: requirements <http://www.pip-installer.org/en/latest/cookbook.html#requirements-files>`_
+.. _requirements files: http://www.pip-installer.org/en/latest/cookbook.html#requirements-files
