@@ -21,7 +21,7 @@ taking a look at the following functions:
 """
 
 # Semi-standard module versioning.
-__version__ = '0.9.4'
+__version__ = '0.9.5'
 
 # Standard library modules.
 import os
@@ -117,9 +117,9 @@ def main():
         sys.exit(os.spawnvp(os.P_WAIT, 'pip', ['pip'] + arguments))
     # Make sure the prefix is the same as the environment.
     if not os.path.samefile(sys.prefix, ENVIRONMENT):
-        logger.error("You are trying to install in prefix #1 which is different from prefix #2 where pip-accel is installed! Please install pip-accel under the other prefix to install packages there.")
-        logger.info("Prefix #1: %s (the environment prefix)", ENVIRONMENT)
-        logger.info("Prefix #2: %s (the installation prefix)", sys.prefix)
+        logger.error("You are trying to install packages in environment #1 which is different from environment #2 where pip-accel is installed! Please install pip-accel under environment #1 to install packages there.")
+        logger.info("Environment #1: %s ($VIRTUAL_ENV)", ENVIRONMENT)
+        logger.info("Environment #2: %s (installation prefix)", sys.prefix)
         sys.exit(1)
     main_timer = Timer()
     initialize_directories()
