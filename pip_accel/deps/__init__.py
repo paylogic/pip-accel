@@ -1,7 +1,7 @@
 # Extension of pip-accel that deals with dependencies on system packages.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: June 16, 2013
+# Last Change: June 26, 2013
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -18,44 +18,74 @@ import os.path
 # Internal modules.
 from pip_accel.logger import logger
 
-# Enable automatic installation?
-AUTO_INSTALL = 'PIP_ACCEL_AUTO_INSTALL' in os.environ
-
-def sanity_check_dependencies(project_name):
+def sanity_check_dependencies(project_name, auto_install=None):
     """
     If ``pip-accel`` fails to build a binary distribution, it will call this
-    function as a last chance to install missing dependencies. Should this
-    function return ``True`` then ``pip-accel`` will retry the build once.
+    function as a last chance to install missing dependencies. If this function
+    does not raise an exception, ``pip-accel`` will retry the build once.
 
     :param project_name: The project name of a requirement as found on PyPI.
+    :param auto_install: ``True`` if dependencies on system packages may be
+                         automatically installed, ``False`` if missing system
+                         packages should raise an error, ``None`` if the
+                         decision should be based on the environment variable
+                         ``PIP_ACCEL_AUTO_INSTALL``.
 
-    :returns: ``True`` if any missing system packages were successfully
-              installed, ``False`` otherwise.
+    If missing system packages are found, this function will try to install
+    them. If anything "goes wrong" an exception is raised:
+
+    - If ``auto_install=False`` then :py:class:`DependencyCheckFailed` is
+      raised
+    - If installation of missing packages fails
+      :py:class:`DependencyInstallationFailed` is raised
+    - If the user refuses to let pip-accel install missing packages
+      :py:class:`RefusedAutomaticInstallation` is raised.
+
+    If all goes well nothing is raised, nor is anything returned.
     """
+    # Has the caller forbidden us from automatic installation?
+    auto_install_forbidden = (auto_install == False)
+    if auto_install is not None:
+        # If the caller made an explicit choice, we'll respect that.
+        auto_install_allowed = auto_install
+    else:
+        # Otherwise we check the environment variable.
+        auto_install_allowed = 'PIP_ACCEL_AUTO_INSTALL' in os.environ
     logger.info("%s: Checking for missing dependencies ..", project_name)
     known_dependencies = current_platform.find_dependencies(project_name.lower())
     if not known_dependencies:
-        logger.info("No known dependencies. Maybe you have a suggestion?")
+        logger.info("%s: No known dependencies... Maybe you have a suggestion?", project_name)
     else:
         installed_packages = set(current_platform.find_installed())
         missing_packages = [p for p in known_dependencies if p not in installed_packages]
         if not missing_packages:
-            logger.info("No known to be missing dependencies found.")
+            logger.info("%s: All known dependencies are already installed.", project_name)
+        elif auto_install_forbidden:
+            msg = "Missing %i system package%s (%s) required by %s but automatic installation is disabled!"
+            raise DependencyCheckFailed, msg % (len(missing_packages), '' if len(missing_packages) == 1 else 's',
+                                                ', '.join(missing_packages), project_name)
         else:
             command_line = ['sudo'] + current_platform.install_command(missing_packages)
-            if AUTO_INSTALL or confirm_installation(missing_packages, command_line):
-                exit_code = os.spawnvp(os.P_WAIT, 'sudo', command_line)
-                if exit_code == 0:
-                    logger.info("Successfully installed %i missing dependenc%s.",
-                                len(missing_packages),
-                                len(missing_packages) == 1 and 'y' or 'ies')
-                    return True
-                else:
-                    logger.error("Failed to install %i missing dependenc%s!",
-                                 len(missing_packages),
-                                 len(missing_packages) == 1 and 'y' or 'ies')
+            if not auto_install_allowed:
+                confirm_installation(project_name, missing_packages, command_line)
+            logger.info("%s: Missing %i dependenc%s: %s",
+                        project_name, len(missing_packages),
+                        'y' if len(missing_packages) == 1 else 'ies',
+                        " ".join(missing_packages))
+            exit_code = os.spawnvp(os.P_WAIT, 'sudo', command_line)
+            if exit_code == 0:
+                logger.info("%s: Successfully installed %i missing dependenc%s.",
+                            project_name, len(missing_packages),
+                            len(missing_packages) == 1 and 'y' or 'ies')
+            else:
+                logger.error("%s: Failed to install %i missing dependenc%s!",
+                             project_name, len(missing_packages),
+                             len(missing_packages) == 1 and 'y' or 'ies')
+                msg = "Failed to install %i system package%s required by %s! (command failed: %s)"
+                raise DependencyInstallationFailed, msg % (len(missing_packages), '' if len(missing_packages) == 1 else 's',
+                                                           project_name, command_line)
 
-def confirm_installation(packages, command_line):
+def confirm_installation(project_name, packages, command_line):
     """
     Notify the user that there are missing dependencies and how they can be
     installed. Then ask the user whether we are allowed to install the
@@ -66,13 +96,13 @@ def confirm_installation(packages, command_line):
     :param command_line: A list of strings with the command line needed to
                          install the packages.
 
-    :returns: ``True`` if the user agrees to the installation, ``False``
-              otherwise.
+    Raises :py:class:`RefusedAutomaticInstallation` when the user refuses to
+    let pip-accel install any missing dependencies.
     """
-    logger.info("You seem to be missing %i dependenc%s: %s", len(packages),
-                len(packages) == 1 and 'y' or 'ies', " ".join(packages))
-    logger.info("I can install %s for you with this command: %s",
-                len(packages) == 1 and 'it' or 'them',
+    logger.info("%s: You seem to be missing %i dependenc%s: %s",  project_name,
+                len(packages), len(packages) == 1 and 'y' or 'ies', " ".join(packages))
+    logger.info("%s: I can install %s for you with this command: %s",
+                project_name, len(packages) == 1 and 'it' or 'them',
                 " ".join(command_line))
     try:
         prompt = "Do you want me to install %s dependenc%s? [y/N] "
@@ -81,12 +111,13 @@ def confirm_installation(packages, command_line):
         if choice.lower().strip() == 'y':
             logger.info("Got permission to install missing dependenc%s.",
                         len(packages) == 1 and 'y' or 'ies')
-            return True
+            return
     except:
         pass
-    logger.error("Refused installation of missing dependenc%s!",
-                 len(packages) == 1 and 'y' or 'ies')
-    return False
+    logger.error("%s: Refused installation of missing dependenc%s!",
+                 project_name, len(packages) == 1 and 'y' or 'ies')
+    msg = "%s: User canceled automatic installation of missing dependenc%s!"
+    raise RefusedAutomaticInstallation, msg % (project_name, 'y' if len(packages) == 1 else 'ies')
 
 class BasePlatform(object):
 
@@ -189,6 +220,25 @@ class DebianLinux(BasePlatform):
         :returns: A list containing the program name and its arguments.
         """
         return ['apt-get', 'install', '--yes'] + missing_packages
+
+class DependencyCheckFailed(Exception):
+    """
+    Custom exception type raised by :py:func:`sanity_check_dependencies()` when
+    one or more known to be required system packages are missing and automatic
+    installation of missing dependencies is explicitly disabled.
+    """
+
+class RefusedAutomaticInstallation(Exception):
+    """
+    Custom exception type raised by :py:func:`confirm_installation()` when the
+    user refuses to install missing system packages.
+    """
+
+class DependencyInstallationFailed(Exception):
+    """
+    Custom exception type raised by :py:func:`sanity_check_dependencies()` when
+    installation of missing system packages fails.
+    """
 
 # Select the interface to the package manager of the current platform.
 for Interface in [DebianLinux, BasePlatform]:

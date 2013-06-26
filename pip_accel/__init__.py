@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: June 16, 2013
+# Last Change: June 26, 2013
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Permanently store logs in the pip-accel directory (think about log rotation).
@@ -21,7 +21,7 @@ taking a look at the following functions:
 """
 
 # Semi-standard module versioning.
-__version__ = '0.9.5'
+__version__ = '0.9.6'
 
 # Standard library modules.
 import os
@@ -301,7 +301,8 @@ def build_missing_binary_dists(requirements):
             continue
         # Try to build the binary distribution.
         if not build_binary_dist(name, version, directory, pyversion):
-            if not (sanity_check_dependencies(name) and build_binary_dist(name, version, directory, pyversion)):
+            sanity_check_dependencies(name)
+            if not build_binary_dist(name, version, directory, pyversion):
                 return False
     logger.info("Finished building binary distributions.")
     return True
@@ -360,7 +361,6 @@ def build_binary_dist(name, version, directory, pyversion):
     logger.info("Copying binary distribution %s to cache as %s.", filenames[0], cache_file)
     cache_binary_dist(os.path.join(directory, 'dist', filenames[0]),
                       os.path.join(binary_index, cache_file))
-    logger.info("Finished building binary distributions.")
     return True
 
 def cache_binary_dist(input_path, output_path):
