@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: June 26, 2013
+# Last Change: July 4, 2013
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Permanently store logs in the pip-accel directory (think about log rotation).
@@ -21,7 +21,7 @@ taking a look at the following functions:
 """
 
 # Semi-standard module versioning.
-__version__ = '0.9.6'
+__version__ = '0.9.7'
 
 # Standard library modules.
 import os
@@ -64,7 +64,7 @@ MAX_RETRIES = 10
 # The version number of the binary distribution cache format in use. When we
 # break backwards compatibility we bump this number so that pip-accel knows it
 # should clear the cache before proceeding.
-CACHE_FORMAT_REVISION = 3
+CACHE_FORMAT_REVISION = 4
 
 # Look up the home directory of the effective user id so we can generate
 # pathnames relative to the home directory.
@@ -393,6 +393,14 @@ def cache_binary_dist(input_path, output_path):
                 logger.warn("Failed to transform pathname in binary distribution to relative path! (original: %r, modified: %r)",
                             original_pathname, modified_pathname)
             else:
+                # Some binary distributions include C header files (see for
+                # example the greenlet package) however the subdirectory of
+                # include/ in a virtual environment is a symbolic link to a
+                # subdirectory of /usr/include/ so we should never try to
+                # install C header files inside the directory pointed to by the
+                # symbolic link. Instead we implement the same workaround that
+                # pip uses to avoid this problem.
+                modified_pathname = re.sub('^include/', 'include/site/', modified_pathname)
                 logger.debug("Transformed %r -> %r.", original_pathname, modified_pathname)
                 # Get the file data from the input archive.
                 file_data = input_bdist.extractfile(original_pathname)
