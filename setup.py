@@ -3,7 +3,7 @@
 # Setup script for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: June 16, 2013
+# Last Change: July 15, 2013
 # URL: https://github.com/paylogic/pip-accel
 
 import re
@@ -36,7 +36,6 @@ setup(name='pip-accel',
       author_email='peter.odding@paylogic.eu',
       url='https://github.com/paylogic/pip-accel',
       packages=find_packages(),
-      py_modules=['pip_accel', 'pip_accel.deps', 'pip_accel.logger', 'pip_accel_tests'],
       entry_points={'console_scripts': ['pip-accel = pip_accel:main']},
       package_data={'pip_accel.deps': ['*.ini']},
       install_requires=['pip >= 1.3', 'coloredlogs'],
