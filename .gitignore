@@ -1,3 +1,6 @@
+*.egg
+*.pyc
+.tox/
 build/
 dist/
 pip_accel.egg-info/
