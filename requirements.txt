@@ -1,0 +1,2 @@
+coloredlogs==0.4.3
+pip >= 1.3

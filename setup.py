@@ -3,7 +3,7 @@
 # Setup script for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: July 15, 2013
+# Last Change: July 17, 2013
 # URL: https://github.com/paylogic/pip-accel
 
 import re
@@ -28,6 +28,9 @@ else:
 readme_file = join(source_directory, 'README.rst')
 readme_text = open(readme_file, 'r').read()
 
+# Fill in the "install_requires" field based on requirements.txt.
+requirements = [l.strip() for l in open(join(source_directory, 'requirements.txt'), 'r')]
+
 setup(name='pip-accel',
       version=version_string,
       description='Accelerator for pip, the Python package manager',
@@ -38,6 +41,6 @@ setup(name='pip-accel',
       packages=find_packages(),
       entry_points={'console_scripts': ['pip-accel = pip_accel:main']},
       package_data={'pip_accel.deps': ['*.ini']},
-      install_requires=['pip >= 1.3', 'coloredlogs'],
+      install_requires=requirements,
       tests_require=['virtualenv'],
       test_suite='pip_accel_tests')
