@@ -149,8 +149,8 @@ def main():
         logger.fatal("pip reported unrecoverable installation errors. Please fix and rerun!")
         sys.exit(1)
     finally:
-      # Always cleanup temporary build directory.
-      shutil.rmtree(build_directory)
+        # Always cleanup temporary build directory.
+        shutil.rmtree(build_directory)
     # Abort when after N retries we still failed to download source distributions.
     logger.fatal("External command failed %i times, aborting!" % MAX_RETRIES)
     sys.exit(1)
