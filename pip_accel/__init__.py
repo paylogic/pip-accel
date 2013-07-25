@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: July 21, 2013
+# Last Change: July 25, 2013
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Permanently store logs in the pip-accel directory (think about log rotation).
@@ -45,6 +45,7 @@ from pip_accel.logger import logger
 
 # External dependencies.
 from pip.backwardcompat import string_types
+from pip.cmdoptions import requirements as requirements_option
 from pip.baseparser import create_main_parser
 from pip.commands.install import InstallCommand
 from pip.exceptions import DistributionNotFound, InstallationError
@@ -535,6 +536,8 @@ def run_pip(arguments, use_remote_index):
     else:
         command_line = ['pip'] + arguments
     logger.info("Executing command: %s", ' '.join(command_line))
+    # XXX Nasty hack required for pip 1.4 compatibility (workaround for global state).
+    requirements_option.default = []
     parser = create_main_parser()
     pip = CustomInstallCommand(parser)
     initial_options, args = parser.parse_args(command_line[1:])
