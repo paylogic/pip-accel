@@ -44,9 +44,9 @@ from pip_accel.deps import sanity_check_dependencies
 from pip_accel.logger import logger
 
 # External dependencies.
+from pip import parseopts
 from pip.backwardcompat import string_types
 from pip.cmdoptions import requirements as requirements_option
-from pip.baseparser import create_main_parser
 from pip.commands.install import InstallCommand
 from pip.exceptions import DistributionNotFound, InstallationError
 from pip.log import logger as pip_logger
@@ -538,10 +538,9 @@ def run_pip(arguments, use_remote_index):
     logger.info("Executing command: %s", ' '.join(command_line))
     # XXX Nasty hack required for pip 1.4 compatibility (workaround for global state).
     requirements_option.default = []
-    parser = create_main_parser()
+    cmd_name, options, args, parser = parseopts(command_line[1:])
     pip = CustomInstallCommand(parser)
-    initial_options, args = parser.parse_args(command_line[1:])
-    exit_status = pip.main(command_line[2:], initial_options)
+    exit_status = pip.main(args[1:], options)
     # Make sure the output of pip and pip-accel are not intermingled.
     sys.stdout.flush()
     update_source_dists_index()
