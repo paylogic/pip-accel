@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: July 21, 2013
+# Last Change: July 25, 2013
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Permanently store logs in the pip-accel directory (think about log rotation).
@@ -21,7 +21,7 @@ taking a look at the following functions:
 """
 
 # Semi-standard module versioning.
-__version__ = '0.9.10'
+__version__ = '0.9.11'
 
 # Standard library modules.
 import os
@@ -44,10 +44,11 @@ from pip_accel.deps import sanity_check_dependencies
 from pip_accel.logger import logger
 
 # External dependencies.
+from pip import parseopts
 from pip.backwardcompat import string_types
-from pip.baseparser import create_main_parser
+from pip.cmdoptions import requirements as requirements_option
 from pip.commands.install import InstallCommand
-from pip.exceptions import DistributionNotFound, InstallationError
+from pip.exceptions import DistributionNotFound, InstallationError, PreviousBuildDirError
 from pip.log import logger as pip_logger
 from pip.status_codes import SUCCESS
 
@@ -123,12 +124,13 @@ def main():
         sys.exit(1)
     main_timer = Timer()
     initialize_directories()
+    build_directory = tempfile.mkdtemp()
     # Execute "pip install" in a loop in order to retry after intermittent
     # error responses from servers (which can happen quite frequently).
     try:
         for i in xrange(1, MAX_RETRIES):
             try:
-                requirements = unpack_source_dists(arguments)
+                requirements = unpack_source_dists(arguments, build_directory)
             except DistributionNotFound:
                 logger.warn("We don't have all source distributions yet!")
                 download_source_dists(arguments)
@@ -146,6 +148,9 @@ def main():
         # Abort early when pip reports installation errors.
         logger.fatal("pip reported unrecoverable installation errors. Please fix and rerun!")
         sys.exit(1)
+    finally:
+        # Always cleanup temporary build directory.
+        shutil.rmtree(build_directory)
     # Abort when after N retries we still failed to download source distributions.
     logger.fatal("External command failed %i times, aborting!" % MAX_RETRIES)
     sys.exit(1)
@@ -167,7 +172,7 @@ def print_usage():
         at https://github.com/paylogic/pip-accel
     """).strip()
 
-def unpack_source_dists(arguments):
+def unpack_source_dists(arguments, build_directory):
     """
     Check whether there are local source distributions available for all
     requirements, unpack the source distribution archives and find the names
@@ -190,8 +195,20 @@ def unpack_source_dists(arguments):
     unpack_timer = Timer()
     logger.info("Unpacking local source distributions ..")
     # Execute pip to unpack the source distributions.
+    try:
+        return unpack_source_dists_helper(arguments, build_directory, unpack_timer)
+    except PreviousBuildDirError:
+        # This sucks but I don't see any way around it. Shouldn't pip try to
+        # prevent this situation from happening? We always start from a clean
+        # build directory anyway :-s.
+        shutil.rmtree(build_directory)
+        os.makedirs(build_directory)
+        return unpack_source_dists_helper(arguments, build_directory, unpack_timer)
+
+def unpack_source_dists_helper(arguments, build_directory, unpack_timer):
     requirement_set = run_pip(arguments + ['--no-install'],
-                              use_remote_index=False)
+                              use_remote_index=False,
+                              build_directory=build_directory)
     logger.info("Unpacked local source distributions in %s.", unpack_timer)
     requirements = []
     for install_requirement in sorted_requirements(requirement_set):
@@ -508,7 +525,7 @@ def fix_hashbang(python, contents):
         logger.debug("Warning: Failed to match hashbang: %r.", hashbang)
     return contents
 
-def run_pip(arguments, use_remote_index):
+def run_pip(arguments, use_remote_index, build_directory=None):
     """
     Execute a modified ``pip install`` command. This function assumes that the
     arguments concern a ``pip install`` command (:py:func:`main()` makes sure
@@ -528,6 +545,8 @@ def run_pip(arguments, use_remote_index):
             command_line += ['pip'] + arguments[:i+1] + [
                     '--download-cache=%s' % download_cache,
                     '--find-links=file://%s' % source_index]
+            if build_directory:
+                command_line += ['--build-directory=%s' % build_directory]
             if not use_remote_index:
                 command_line += ['--no-index']
             command_line += arguments[i+1:]
@@ -535,10 +554,11 @@ def run_pip(arguments, use_remote_index):
     else:
         command_line = ['pip'] + arguments
     logger.info("Executing command: %s", ' '.join(command_line))
-    parser = create_main_parser()
+    # XXX Nasty hack required for pip 1.4 compatibility (workaround for global state).
+    requirements_option.default = []
+    cmd_name, options, args, parser = parseopts(command_line[1:])
     pip = CustomInstallCommand(parser)
-    initial_options, args = parser.parse_args(command_line[1:])
-    exit_status = pip.main(command_line[2:], initial_options)
+    exit_status = pip.main(args[1:], options)
     # Make sure the output of pip and pip-accel are not intermingled.
     sys.stdout.flush()
     update_source_dists_index()
