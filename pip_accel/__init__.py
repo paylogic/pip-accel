@@ -21,9 +21,10 @@ taking a look at the following functions:
 """
 
 # Semi-standard module versioning.
-__version__ = '0.9.11'
+__version__ = '0.9.12'
 
 # Standard library modules.
+import functools
 import os
 import os.path
 import pkg_resources
@@ -130,10 +131,12 @@ def main():
     try:
         for i in xrange(1, MAX_RETRIES):
             try:
-                requirements = unpack_source_dists(arguments, build_directory)
+                unpack_partial = functools.partial(unpack_source_dists, arguments, build_directory)
+                requirements = previous_build_workaround(unpack_partial, build_directory)
             except DistributionNotFound:
                 logger.warn("We don't have all source distributions yet!")
-                download_source_dists(arguments)
+                download_partial = functools.partial(download_source_dists, arguments, build_directory)
+                previous_build_workaround(download_partial, build_directory)
             else:
                 if not requirements:
                     logger.info("No unsatisfied requirements found, probably there's nothing to do.")
@@ -172,6 +175,27 @@ def print_usage():
         at https://github.com/paylogic/pip-accel
     """).strip()
 
+def previous_build_workaround(partial_function, build_directory):
+    """
+    Since pip 1.4, pip refuses to touch existing build directories, even if pip
+    itself created those build directories! This function implements a brute
+    force workaround until I find a better way.
+
+    :param partial_function: The function to apply the workaround to.
+    :param build_directory: The pathname of the build directory.
+    :returns: The return value of the partial function.
+    """
+    try:
+        return partial_function()
+    except PreviousBuildDirError:
+        logger.warn("Caught a 'previous build directory' error, applying workaround ..")
+        # This sucks but I don't see any way around it. Shouldn't pip try to
+        # prevent this situation from happening? We always start from a clean
+        # build directory anyway :-s.
+        shutil.rmtree(build_directory)
+        os.makedirs(build_directory)
+        return partial_function()
+
 def unpack_source_dists(arguments, build_directory):
     """
     Check whether there are local source distributions available for all
@@ -195,17 +219,6 @@ def unpack_source_dists(arguments, build_directory):
     unpack_timer = Timer()
     logger.info("Unpacking local source distributions ..")
     # Execute pip to unpack the source distributions.
-    try:
-        return unpack_source_dists_helper(arguments, build_directory, unpack_timer)
-    except PreviousBuildDirError:
-        # This sucks but I don't see any way around it. Shouldn't pip try to
-        # prevent this situation from happening? We always start from a clean
-        # build directory anyway :-s.
-        shutil.rmtree(build_directory)
-        os.makedirs(build_directory)
-        return unpack_source_dists_helper(arguments, build_directory, unpack_timer)
-
-def unpack_source_dists_helper(arguments, build_directory, unpack_timer):
     requirement_set = run_pip(arguments + ['--no-install'],
                               use_remote_index=False,
                               build_directory=build_directory)
@@ -213,7 +226,7 @@ def unpack_source_dists_helper(arguments, build_directory, unpack_timer):
     requirements = []
     for install_requirement in sorted_requirements(requirement_set):
         if install_requirement.satisfied_by:
-          logger.info("Requirement already satisfied: %s.", install_requirement)
+            logger.info("Requirement already satisfied: %s.", install_requirement)
         else:
             req = ensure_parsed_requirement(install_requirement)
             requirements.append((req.project_name,
@@ -251,7 +264,7 @@ def ensure_parsed_requirement(install_requirement):
         req = pkg_resources.Requirement.parse(req)
     return req
 
-def download_source_dists(arguments):
+def download_source_dists(arguments, build_directory):
     """
     Download missing source distributions.
 
@@ -261,8 +274,11 @@ def download_source_dists(arguments):
     logger.info("Downloading source distributions ..")
     # Execute pip to download missing source distributions.
     try:
-        run_pip(arguments + ['--no-install'], use_remote_index=True)
+        run_pip(arguments + ['--no-install'], use_remote_index=True, build_directory=build_directory)
         logger.info("Finished downloading source distributions in %s.", download_timer)
+    except PreviousBuildDirError:
+        # Shouldn't be swallowed.
+        raise
     except Exception, e:
         logger.warn("pip raised an exception while downloading source distributions: %s.", e)
 

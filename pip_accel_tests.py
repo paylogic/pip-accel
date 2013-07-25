@@ -3,12 +3,13 @@
 # Tests for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: June 16, 2013
+# Last Change: July 25, 2013
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Test successful installation of iPython, because it used to break! (nested /lib/ directory)
 
 # Standard library modules.
+import functools
 import os
 import shutil
 import tempfile
@@ -27,6 +28,8 @@ class PipAccelTestCase(unittest.TestCase):
         """
         # Create a temporary working directory.
         self.working_directory = tempfile.mkdtemp()
+        # Create a temporary build directory.
+        self.build_directory = os.path.join(self.working_directory, 'build')
         # Create a temporary virtual environment.
         self.virtual_environment = os.path.join(self.working_directory, 'environment')
         assert os.system('virtualenv "%s"' % self.virtual_environment) == 0
@@ -39,10 +42,8 @@ class PipAccelTestCase(unittest.TestCase):
         # Enable verbose output from pip-accel.
         os.environ['PIP_ACCEL_VERBOSE'] = 'yes, please'
         # Initialize the required subdirectories.
-        print "pip_accel_tests 1: PIP_ACCEL_CACHE=%r" % os.environ.get('PIP_ACCEL_CACHE', '?')
         self.pip_accel = __import__('pip_accel')
         self.pip_accel.initialize_directories()
-        print "pip_accel_tests 2: PIP_ACCEL_CACHE=%r" % os.environ.get('PIP_ACCEL_CACHE', '?')
 
     def runTest(self):
         """
@@ -52,19 +53,21 @@ class PipAccelTestCase(unittest.TestCase):
         # We will test the downloading, conversion to binary distribution and
         # installation of the virtualenv package (we simply need a package we
         # know is available from PyPI).
-        arguments = ['install', '--ignore-installed', '--build=%s' % self.working_directory, 'virtualenv==1.8.4']
+        arguments = ['install', '--ignore-installed', 'virtualenv==1.8.4']
         # First we do a simple sanity check.
         from pip.exceptions import DistributionNotFound
         try:
-            requirements = self.pip_accel.unpack_source_dists(arguments)
+            requirements = self.pip_accel.unpack_source_dists(arguments, build_directory=self.build_directory)
             # This line should never be reached.
             self.assertTrue(False)
         except Exception, e:
             self.assertTrue(isinstance(e, DistributionNotFound))
         # Download the source distribution from PyPI.
-        self.pip_accel.download_source_dists(arguments)
+        download_partial = functools.partial(self.pip_accel.download_source_dists, arguments, self.build_directory)
+        self.pip_accel.previous_build_workaround(download_partial, self.build_directory)
         # Implicitly verify that the download was successful.
-        requirements = self.pip_accel.unpack_source_dists(arguments)
+        unpack_partial = functools.partial(self.pip_accel.unpack_source_dists, arguments, build_directory=self.build_directory)
+        requirements = self.pip_accel.previous_build_workaround(unpack_partial, self.build_directory)
         # self.assertIsInstance(requirements, list)
         self.assertTrue(isinstance(requirements, list))
         self.assertEqual(len(requirements), 1)
