@@ -1,2 +1,2 @@
-coloredlogs==0.4.3
+coloredlogs==0.4.6
 pip >= 1.4

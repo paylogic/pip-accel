@@ -3,17 +3,21 @@
 # Tests for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: July 25, 2013
+# Last Change: August 7, 2013
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Test successful installation of iPython, because it used to break! (nested /lib/ directory)
 
 # Standard library modules.
 import functools
+import logging
 import os
 import shutil
 import tempfile
 import unittest
+
+# External dependency.
+import coloredlogs
 
 class PipAccelTestCase(unittest.TestCase):
 
@@ -26,6 +30,7 @@ class PipAccelTestCase(unittest.TestCase):
         for the download cache, the source index and the binary index (normally
         this is done from pip_accel.main).
         """
+        coloredlogs.install(level=logging.DEBUG)
         # Create a temporary working directory.
         self.working_directory = tempfile.mkdtemp()
         # Create a temporary build directory.
@@ -39,8 +44,6 @@ class PipAccelTestCase(unittest.TestCase):
         # Make pip and pip-accel use the temporary working directory.
         os.environ['PIP_DOWNLOAD_CACHE'] = os.path.join(self.working_directory, 'download-cache')
         os.environ['PIP_ACCEL_CACHE'] = self.working_directory
-        # Enable verbose output from pip-accel.
-        os.environ['PIP_ACCEL_VERBOSE'] = 'yes, please'
         # Initialize the required subdirectories.
         self.pip_accel = __import__('pip_accel')
         self.pip_accel.initialize_directories()

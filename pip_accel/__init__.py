@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: July 25, 2013
+# Last Change: August 7, 2013
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Permanently store logs in the pip-accel directory (think about log rotation).
@@ -21,7 +21,7 @@ taking a look at the following functions:
 """
 
 # Semi-standard module versioning.
-__version__ = '0.9.12'
+__version__ = '0.9.13'
 
 # Standard library modules.
 import functools
@@ -45,6 +45,7 @@ from pip_accel.deps import sanity_check_dependencies
 from pip_accel.logger import logger
 
 # External dependencies.
+import coloredlogs
 from pip import parseopts
 from pip.backwardcompat import string_types
 from pip.cmdoptions import requirements as requirements_option
@@ -110,13 +111,21 @@ def main():
     Main logic of the ``pip-accel`` command.
     """
     arguments = sys.argv[1:]
+    # If no arguments are given, the help text of pip-accel is printed.
     if not arguments:
         print_usage()
         sys.exit(0)
     # If no install subcommand is given we pass the command line straight
     # to pip without any changes and exit immediately afterwards.
-    if 'install' not in arguments:
+    elif 'install' not in arguments:
         sys.exit(os.spawnvp(os.P_WAIT, 'pip', ['pip'] + arguments))
+    # Initialize logging output.
+    coloredlogs.install()
+    # Increase verbosity based on -v, --verbose options.
+    for argument in arguments:
+        if argument == '--verbose' or (len(argument) >= 2 and argument[0] ==
+                '-' and argument[1] != '-' and 'v' in argument):
+            coloredlogs.increase_verbosity()
     # Make sure the prefix is the same as the environment.
     if not os.path.samefile(sys.prefix, ENVIRONMENT):
         logger.error("You are trying to install packages in environment #1 which is different from environment #2 where pip-accel is installed! Please install pip-accel under environment #1 to install packages there.")
