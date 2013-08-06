@@ -19,7 +19,7 @@ coloredlogs.install()
 
 # Initialize the logging subsystem.
 logger = logging.getLogger('pip-accel')
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 # Check if the operator requested verbose output.
 if '-v' in sys.argv or 'PIP_ACCEL_VERBOSE' in os.environ:
