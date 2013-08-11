@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: August 11, 2013
+# Last Change: August 12, 2013
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Permanently store logs in the pip-accel directory (think about log rotation).
@@ -21,7 +21,7 @@ taking a look at the following functions:
 """
 
 # Semi-standard module versioning.
-__version__ = '0.9.14'
+__version__ = '0.9.15'
 
 # Standard library modules.
 import os
@@ -45,6 +45,7 @@ from pip_accel.logger import logger
 
 # External dependencies.
 import coloredlogs
+from humanfriendly import Spinner, Timer
 from pip import parseopts
 from pip.backwardcompat import string_types
 from pip.cmdoptions import requirements as requirements_option
@@ -368,16 +369,12 @@ def build_binary_dist(name, version, directory, pyversion):
     command_line = '%s > "%s" 2>&1' % (command_line, temporary_file)
     # Start the build.
     build = subprocess.Popen(['sh', '-c', command_line], cwd=directory)
-    # Wait for the build to finish.
-    if INTERACTIVE:
-        # Provide feedback to the user in the mean time.
-        spinner = Spinner(build_text)
-        while build.poll() is None:
-            spinner.step()
-            time.sleep(0.1)
-        spinner.clear()
-    else:
-        build.wait()
+    # Wait for build to finish, provide feedback to the user in the mean time.
+    spinner = Spinner(build_text)
+    while build.poll() is None:
+        spinner.step()
+        time.sleep(0.1)
+    spinner.clear()
     # Make sure the build succeeded.
     if build.returncode != 0:
         logger.error("Failed to build binary distribution of %s! (version: %s)", name, version)
@@ -709,63 +706,6 @@ def initialize_directories():
         os.unlink(pathname)
     with open(index_version_file, 'w') as handle:
         handle.write("%i\n" % CACHE_FORMAT_REVISION)
-
-class Timer:
-
-    """
-    Easy to use timer to keep track of long during operations.
-    """
-
-    def __init__(self):
-        """
-        Store the time when the timer object was created.
-        """
-        self.start_time = time.time()
-
-    @property
-    def elapsed_time(self):
-        """
-        Get the number of seconds elapsed since the timer object was created.
-        """
-        return time.time() - self.start_time
-
-    def __str__(self):
-        """
-        When a timer object is coerced to a string it will show the number of
-        seconds elapsed since the timer object was created.
-        """
-        return "%.2f seconds" % self.elapsed_time
-
-class Spinner:
-
-    """
-    Show a "spinner" on the terminal to let the user know that we're busy
-    building a package's binary distribution without dumping all of the
-    output on the terminal.
-    """
-
-    def __init__(self, label):
-        self.label = label
-        self.states = ['-', '\\', '|', '/']
-        self.counter = 0
-
-    def step(self):
-        """
-        Advance the spinner by one step without starting a new line, causing
-        an animated effect which is very simple but much nicer than waiting
-        for a prompt which is completely silent for a long time.
-        """
-        state = self.states[self.counter % len(self.states)]
-        sys.stderr.write("\r %s %s " % (state, self.label))
-        self.counter += 1
-
-    def clear(self):
-        """
-        Clear the spinner. The next line which is shown on the standard
-        output or error stream after calling this method will overwrite the
-        line that used to show the spinner.
-        """
-        sys.stderr.write("\r")
 
 if __name__ == '__main__':
     main()
