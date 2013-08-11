@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: August 7, 2013
+# Last Change: August 11, 2013
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Permanently store logs in the pip-accel directory (think about log rotation).
@@ -21,10 +21,9 @@ taking a look at the following functions:
 """
 
 # Semi-standard module versioning.
-__version__ = '0.9.13'
+__version__ = '0.9.14'
 
 # Standard library modules.
-import functools
 import os
 import os.path
 import pkg_resources
@@ -50,7 +49,7 @@ from pip import parseopts
 from pip.backwardcompat import string_types
 from pip.cmdoptions import requirements as requirements_option
 from pip.commands.install import InstallCommand
-from pip.exceptions import DistributionNotFound, InstallationError, PreviousBuildDirError
+from pip.exceptions import DistributionNotFound, InstallationError
 from pip.log import logger as pip_logger
 from pip.status_codes import SUCCESS
 
@@ -140,12 +139,10 @@ def main():
     try:
         for i in xrange(1, MAX_RETRIES):
             try:
-                unpack_partial = functools.partial(unpack_source_dists, arguments, build_directory)
-                requirements = previous_build_workaround(unpack_partial, build_directory)
+                requirements = unpack_source_dists(arguments, build_directory)
             except DistributionNotFound:
                 logger.warn("We don't have all source distributions yet!")
-                download_partial = functools.partial(download_source_dists, arguments, build_directory)
-                previous_build_workaround(download_partial, build_directory)
+                download_source_dists(arguments, build_directory)
             else:
                 if not requirements:
                     logger.info("No unsatisfied requirements found, probably there's nothing to do.")
@@ -184,26 +181,20 @@ def print_usage():
         at https://github.com/paylogic/pip-accel
     """).strip()
 
-def previous_build_workaround(partial_function, build_directory):
+def clear_build_directory(directory):
     """
-    Since pip 1.4, pip refuses to touch existing build directories, even if pip
-    itself created those build directories! This function implements a brute
-    force workaround until I find a better way.
+    Since pip 1.4 there is a new exception that's raised by pip:
+    ``PreviousBuildDirError``. Unfortunately pip-accel apparently triggers the
+    worst possible side effect of this new "feature" and the only way to avoid
+    it is to start with an empty build directory in every step of pip-accel's
+    process (possibly very inefficient).
 
-    :param partial_function: The function to apply the workaround to.
-    :param build_directory: The pathname of the build directory.
-    :returns: The return value of the partial function.
+    :param directory: The build directory to clear.
     """
-    try:
-        return partial_function()
-    except PreviousBuildDirError:
-        logger.warn("Caught a 'previous build directory' error, applying workaround ..")
-        # This sucks but I don't see any way around it. Shouldn't pip try to
-        # prevent this situation from happening? We always start from a clean
-        # build directory anyway :-s.
-        shutil.rmtree(build_directory)
-        os.makedirs(build_directory)
-        return partial_function()
+    logger.debug("Clearing build directory ..")
+    if os.path.isdir(directory):
+        shutil.rmtree(directory)
+    os.makedirs(directory)
 
 def unpack_source_dists(arguments, build_directory):
     """
@@ -227,6 +218,7 @@ def unpack_source_dists(arguments, build_directory):
     """
     unpack_timer = Timer()
     logger.info("Unpacking local source distributions ..")
+    clear_build_directory(build_directory)
     # Execute pip to unpack the source distributions.
     requirement_set = run_pip(arguments + ['--no-install'],
                               use_remote_index=False,
@@ -281,13 +273,11 @@ def download_source_dists(arguments, build_directory):
     """
     download_timer = Timer()
     logger.info("Downloading source distributions ..")
+    clear_build_directory(build_directory)
     # Execute pip to download missing source distributions.
     try:
         run_pip(arguments + ['--no-install'], use_remote_index=True, build_directory=build_directory)
         logger.info("Finished downloading source distributions in %s.", download_timer)
-    except PreviousBuildDirError:
-        # Shouldn't be swallowed.
-        raise
     except Exception, e:
         logger.warn("pip raised an exception while downloading source distributions: %s.", e)
 

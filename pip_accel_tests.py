@@ -3,13 +3,12 @@
 # Tests for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: August 7, 2013
+# Last Change: August 11, 2013
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Test successful installation of iPython, because it used to break! (nested /lib/ directory)
 
 # Standard library modules.
-import functools
 import logging
 import os
 import shutil
@@ -66,11 +65,9 @@ class PipAccelTestCase(unittest.TestCase):
         except Exception, e:
             self.assertTrue(isinstance(e, DistributionNotFound))
         # Download the source distribution from PyPI.
-        download_partial = functools.partial(self.pip_accel.download_source_dists, arguments, self.build_directory)
-        self.pip_accel.previous_build_workaround(download_partial, self.build_directory)
+        self.pip_accel.download_source_dists(arguments, self.build_directory)
         # Implicitly verify that the download was successful.
-        unpack_partial = functools.partial(self.pip_accel.unpack_source_dists, arguments, build_directory=self.build_directory)
-        requirements = self.pip_accel.previous_build_workaround(unpack_partial, self.build_directory)
+        requirements = self.pip_accel.unpack_source_dists(arguments, build_directory=self.build_directory)
         # self.assertIsInstance(requirements, list)
         self.assertTrue(isinstance(requirements, list))
         self.assertEqual(len(requirements), 1)

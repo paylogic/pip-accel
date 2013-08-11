@@ -24,6 +24,27 @@ In addition, since version 0.9 ``pip-accel`` contains a simple mechanism that
 detects missing system packages when a build fails and prompts the user whether
 to install the missing dependencies and retry the build.
 
+Status
+------
+
+Paylogic_ uses ``pip-accel`` to quickly and reliably initialize virtual
+environments on its farm of continuous integration slaves which are constantly
+running unit tests (this was one of the original use cases for which
+``pip-accel`` was developed). We also use it on our build servers.
+
+When ``pip-accel`` was originally developed PyPI_ was sometimes very unreliable
+(PyPI wasn't `behind a CDN`_ back then). Because of the CDN, PyPI is much more
+reliable nowadays however ``pip-accel`` still has its place:
+
+- The CDN doesn't help for distribution sites, which are as unreliably as they
+  have always been.
+
+- By using ``pip-accel`` you can make Python deployments completely independent
+  from internet connectivity.
+
+- Because ``pip-accel`` caches compiled binary packages it can still provide a
+  nice speed boost over using plain ``pip``.
+
 Usage
 -----
 
@@ -169,10 +190,11 @@ License
 This software is licensed under the `MIT license`_ just like pip_ (on which
 ``pip-accel`` is based).
 
-© 2013 Peter Odding and Paylogic International.
+© 2013 Peter Odding and Paylogic_ International.
 
 
 .. External references:
+.. _behind a CDN: http://mail.python.org/pipermail/distutils-sig/2013-May/020848.html
 .. _Binary distributions: http://docs.python.org/2/distutils/builtdist.html
 .. _GitHub project page: https://github.com/paylogic/pip-accel
 .. _hosted on Read The Docs: https://pip-accel.readthedocs.org/
