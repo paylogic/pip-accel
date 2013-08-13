@@ -1,7 +1,7 @@
 # Functions to manipulate Python binary distribution archives.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: August 12, 2013
+# Last Change: August 14, 2013
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -58,7 +58,7 @@ def get_binary_dist(package, version, directory, python='/usr/bin/python', prefi
         # Build the binary distribution.
         try:
             raw_file = build_binary_dist(package, version, directory, python=python)
-        except Exception:
+        except BuildFailed:
             sanity_check_dependencies(package)
             raw_file = build_binary_dist(package, version, directory, python=python)
         # Transform the binary distribution archive into a form that we can re-use.
