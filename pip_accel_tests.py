@@ -3,7 +3,7 @@
 # Tests for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: August 11, 2013
+# Last Change: August 14, 2013
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Test successful installation of iPython, because it used to break! (nested /lib/ directory)
@@ -11,7 +11,9 @@
 # Standard library modules.
 import logging
 import os
+import pipes
 import shutil
+import sys
 import tempfile
 import unittest
 
@@ -36,7 +38,8 @@ class PipAccelTestCase(unittest.TestCase):
         self.build_directory = os.path.join(self.working_directory, 'build')
         # Create a temporary virtual environment.
         self.virtual_environment = os.path.join(self.working_directory, 'environment')
-        assert os.system('virtualenv "%s"' % self.virtual_environment) == 0
+        python = 'python%i.%i' % (sys.version_info[0], sys.version_info[1])
+        assert os.system('virtualenv --python=%s %s' % (pipes.quote(python), pipes.quote(self.virtual_environment))) == 0
         # Make sure pip-accel uses the pip in the temporary virtual environment.
         os.environ['PATH'] = '%s:%s' % (os.path.join(self.virtual_environment, 'bin'), os.environ['PATH'])
         os.environ['VIRTUAL_ENV'] = self.virtual_environment
@@ -78,10 +81,12 @@ class PipAccelTestCase(unittest.TestCase):
         # pass "install_prefix" explicitly here because the Python process
         # running this test is not inside the virtual environment created to
         # run the tests...
-        self.assertTrue(self.pip_accel.build_missing_binary_dists(requirements))
-        self.assertTrue(self.pip_accel.install_requirements(requirements, install_prefix=self.virtual_environment))
+        self.pip_accel.install_requirements(requirements, install_prefix=self.virtual_environment)
         # Check that the virtualenv command was installed.
         self.assertTrue(os.path.isfile(os.path.join(self.virtual_environment, 'bin', 'virtualenv')))
+        # Check that the virtualenv command can be executed successfully.
+        command = '%s --help >/dev/null 2>&1' % pipes.quote(os.path.join(self.virtual_environment, 'bin', 'virtualenv'))
+        self.assertEqual(os.system(command), 0)
 
     def tearDown(self):
         """

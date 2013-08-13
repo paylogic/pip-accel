@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: August 12, 2013
+# Last Change: August 14, 2013
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Permanently store logs in the pip-accel directory (think about log rotation).
@@ -16,36 +16,33 @@ taking a look at the following functions:
 
 - :py:func:`unpack_source_dists`
 - :py:func:`download_source_dists`
-- :py:func:`build_missing_binary_dists`
 - :py:func:`install_requirements`
 """
 
 # Semi-standard module versioning.
-__version__ = '0.9.15'
+__version__ = '0.10'
 
 # Standard library modules.
 import os
 import os.path
+import pipes
 import pkg_resources
-import pwd
-import re
 import shutil
-import subprocess
 import sys
-import tarfile
 import tempfile
 import textwrap
-import time
 import urllib
 import urlparse
 
-# Internal modules.
-from pip_accel.deps import sanity_check_dependencies
+# Modules included in our package.
+from pip_accel.bdist import get_binary_dist, install_binary_dist
+from pip_accel.config import (binary_index, download_cache,
+                              index_version_file, source_index)
 from pip_accel.logger import logger
 
 # External dependencies.
 import coloredlogs
-from humanfriendly import Spinner, Timer
+from humanfriendly import Timer
 from pip import parseopts
 from pip.backwardcompat import string_types
 from pip.cmdoptions import requirements as requirements_option
@@ -53,9 +50,6 @@ from pip.commands.install import InstallCommand
 from pip.exceptions import DistributionNotFound, InstallationError
 from pip.log import logger as pip_logger
 from pip.status_codes import SUCCESS
-
-# Whether a user is directly looking at the output.
-INTERACTIVE = os.isatty(1)
 
 # Find the environment where requirements are to be installed.
 ENVIRONMENT = os.path.abspath(os.environ.get('VIRTUAL_ENV', sys.prefix))
@@ -68,43 +62,6 @@ MAX_RETRIES = 10
 # break backwards compatibility we bump this number so that pip-accel knows it
 # should clear the cache before proceeding.
 CACHE_FORMAT_REVISION = 4
-
-# Look up the home directory of the effective user id so we can generate
-# pathnames relative to the home directory.
-HOME = pwd.getpwuid(os.getuid()).pw_dir
-
-def expanduser(pathname):
-    """
-    Variant of :py:func:`os.path.expanduser()` that doesn't use ``$HOME`` but
-    instead uses the home directory of the effective user id. This is basically
-    a workaround for ``sudo -s`` not resetting ``$HOME``.
-
-    :param pathname: A pathname that may start with ``~/``, indicating the path
-                     should be interpreted as being relative to the home
-                     directory of the current (effective) user.
-    """
-    return re.sub('^~(?=/)', HOME, pathname)
-
-# Select the default location of the download cache and other files based on
-# the user running the pip-accel command (root goes to /var/cache/pip-accel,
-# otherwise ~/.pip-accel).
-if os.getuid() == 0:
-    download_cache = '/root/.pip/download-cache'
-    pip_accel_cache = '/var/cache/pip-accel'
-else:
-    download_cache = expanduser('~/.pip/download-cache')
-    pip_accel_cache = expanduser('~/.pip-accel')
-
-# Enable overriding the default locations with environment variables.
-if 'PIP_DOWNLOAD_CACHE' in os.environ:
-    download_cache = expanduser(os.environ['PIP_DOWNLOAD_CACHE'])
-if 'PIP_ACCEL_CACHE' in os.environ:
-    pip_accel_cache = expanduser(os.environ['PIP_ACCEL_CACHE'])
-
-# Generate the absolute pathnames of the source/binary caches.
-source_index = os.path.join(pip_accel_cache, 'sources')
-binary_index = os.path.join(pip_accel_cache, 'binaries')
-index_version_file = os.path.join(pip_accel_cache, 'version.txt')
 
 def main():
     """
@@ -148,10 +105,8 @@ def main():
                 if not requirements:
                     logger.info("No unsatisfied requirements found, probably there's nothing to do.")
                 else:
-                    if build_missing_binary_dists(requirements) and install_requirements(requirements):
-                        logger.info("Done! Took %s to install %i package%s.", main_timer, len(requirements), '' if len(requirements) == 1 else 's')
-                    else:
-                        sys.exit(1)
+                    install_requirements(requirements)
+                    logger.info("Done! Took %s to install %i package%s.", main_timer, len(requirements), '' if len(requirements) == 1 else 's')
                 return
             logger.warn("pip failed, retrying (%i/%i) ..", i + 1, MAX_RETRIES)
     except InstallationError:
@@ -282,164 +237,6 @@ def download_source_dists(arguments, build_directory):
     except Exception, e:
         logger.warn("pip raised an exception while downloading source distributions: %s.", e)
 
-def find_cached_binary_dists():
-    """
-    Find all previously cached binary distributions.
-
-    :returns: A dictionary with (package-name, package-version, python-version)
-              tuples as keys and pathnames of binary archives as values.
-    """
-    logger.info("Scanning binary distribution index ..")
-    distributions = {}
-    for filename in sorted(os.listdir(binary_index), key=str.lower):
-        if filename.endswith('.tar.gz'):
-            basename = re.sub('\.tar.gz$', '', filename)
-            parts = basename.split(':')
-            if len(parts) == 3:
-                key = (parts[0].lower(), parts[1], parts[2])
-                logger.debug("Matched %s in %s.", key, filename)
-                distributions[key] = os.path.join(binary_index, filename)
-                continue
-        logger.debug("Failed to match filename: %s.", filename)
-    logger.info("Found %i existing binary distribution%s.",
-                len(distributions), '' if len(distributions) == 1 else 's')
-    for (name, version, pyversion), filename in distributions.iteritems():
-        logger.debug(" - %s (%s, %s) in %s.", name, version, pyversion, filename)
-    return distributions
-
-def build_missing_binary_dists(requirements):
-    """
-    Convert source distributions to binary distributions.
-
-    :param requirements: A list of tuples in the format of the return value of
-                         the :py:func:`unpack_source_dists()` function.
-
-    :returns: ``True`` if it succeeds in building a binary distribution,
-              ``False`` otherwise (probably because of missing binary
-              dependencies like system libraries).
-    """
-    existing_binary_dists = find_cached_binary_dists()
-    logger.info("Building binary distributions ..")
-    pyversion = get_python_version()
-    for name, version, directory in requirements:
-        # Check if a binary distribution already exists.
-        filename = existing_binary_dists.get((name.lower(), version, pyversion))
-        if filename:
-            logger.debug("Existing binary distribution for %s (%s) found at %s.", name, version, filename)
-            continue
-        # Make sure the source distribution contains a setup script.
-        setup_script = os.path.join(directory, 'setup.py')
-        if not os.path.isfile(setup_script):
-            logger.warn("Package %s (%s) is not a source distribution.", name, version)
-            continue
-        # Try to build the binary distribution.
-        if not build_binary_dist(name, version, directory, pyversion):
-            sanity_check_dependencies(name)
-            if not build_binary_dist(name, version, directory, pyversion):
-                return False
-    logger.info("Finished building binary distributions.")
-    return True
-
-def build_binary_dist(name, version, directory, pyversion):
-    """
-    Convert a single, unpacked source distribution to a binary distribution.
-
-    :param name: The name of the requirement to build.
-    :param version: The version of the requirement to build.
-    :param directory: The directory where the unpacked sources of the
-                      requirement are available.
-
-    :returns: ``True`` if we succeed in building a binary distribution,
-              ``False`` otherwise (probably because of missing binary
-              dependencies like system libraries).
-    """
-    # Cleanup previously generated distributions.
-    dist_directory = os.path.join(directory, 'dist')
-    if os.path.isdir(dist_directory):
-        logger.info("Cleaning up previously generated distributions in %s ..", dist_directory)
-        shutil.rmtree(dist_directory)
-    # Let the user know what's going on.
-    build_text = "Building binary distribution of %s (%s) .." % (name, version)
-    logger.info("%s", build_text)
-    # Compose the command line needed to build the binary distribution.
-    command_line = '"%s/bin/python" setup.py bdist_dumb --format=gztar' % ENVIRONMENT
-    logger.debug("Executing external command: %s", command_line)
-    # Redirect all output of the build to a temporary file.
-    fd, temporary_file = tempfile.mkstemp()
-    command_line = '%s > "%s" 2>&1' % (command_line, temporary_file)
-    # Start the build.
-    build = subprocess.Popen(['sh', '-c', command_line], cwd=directory)
-    # Wait for build to finish, provide feedback to the user in the mean time.
-    spinner = Spinner(build_text)
-    while build.poll() is None:
-        spinner.step()
-        time.sleep(0.1)
-    spinner.clear()
-    # Make sure the build succeeded.
-    if build.returncode != 0:
-        logger.error("Failed to build binary distribution of %s! (version: %s)", name, version)
-        with open(temporary_file) as handle:
-            logger.info("Build output (will probably provide a hint as to what went wrong):\n%s", handle.read())
-        return False
-    # Move the generated distribution to the binary index.
-    filenames = os.listdir(dist_directory)
-    if len(filenames) != 1:
-        logger.error("Build process did not result in one binary distribution! (matches: %s)", filenames)
-        return False
-    cache_file = '%s:%s:%s.tar.gz' % (name, version, pyversion)
-    logger.info("Copying binary distribution %s to cache as %s.", filenames[0], cache_file)
-    cache_binary_dist(os.path.join(directory, 'dist', filenames[0]),
-                      os.path.join(binary_index, cache_file))
-    return True
-
-def cache_binary_dist(input_path, output_path):
-    """
-    Transform a binary distribution archive created with ``python setup.py
-    bdist_dumb --format=gztar`` into a form that can be cached for future use.
-    This comes down to making the pathnames inside the archive relative to the
-    `prefix` that the binary distribution was built for.
-
-    :param input_path: The pathname of the original binary distribution archive
-    :param output_path: The pathname of the binary distribution in the cache
-                        directory.
-    """
-    # Copy the tar archive file by file so we can rewrite their pathnames.
-    logger.debug("Expected prefix in binary distribution archive: %s.", ENVIRONMENT)
-    input_bdist = tarfile.open(input_path, 'r:gz')
-    output_bdist = tarfile.open(output_path, 'w:gz')
-    for member in input_bdist.getmembers():
-        # In my testing the `dumb' tar files created with the `python setup.py
-        # bdist' command contain pathnames that are relative to `/' which is
-        # kind of awkward: I would like to use os.path.relpath() on them but
-        # that won't give the correct result without preprocessing...
-        original_pathname = member.name
-        absolute_pathname = re.sub(r'^\./', '/', original_pathname)
-        if member.isdev():
-            logger.debug("Warning: Ignoring device file: %s.", absolute_pathname)
-        elif not member.isdir():
-            modified_pathname = os.path.relpath(absolute_pathname, ENVIRONMENT)
-            if os.path.isabs(modified_pathname):
-                logger.warn("Failed to transform pathname in binary distribution to relative path! (original: %r, modified: %r)",
-                            original_pathname, modified_pathname)
-            else:
-                # Some binary distributions include C header files (see for
-                # example the greenlet package) however the subdirectory of
-                # include/ in a virtual environment is a symbolic link to a
-                # subdirectory of /usr/include/ so we should never try to
-                # install C header files inside the directory pointed to by the
-                # symbolic link. Instead we implement the same workaround that
-                # pip uses to avoid this problem.
-                modified_pathname = re.sub('^include/', 'include/site/', modified_pathname)
-                logger.debug("Transformed %r -> %r.", original_pathname, modified_pathname)
-                # Get the file data from the input archive.
-                file_data = input_bdist.extractfile(original_pathname)
-                # Use all metadata from the input archive but modify the filename.
-                member.name = modified_pathname
-                # Copy modified metadata + original file data to output archive.
-                output_bdist.addfile(member, file_data)
-    input_bdist.close()
-    output_bdist.close()
-
 def install_requirements(requirements, install_prefix=ENVIRONMENT):
     """
     Manually install all requirements from binary distributions.
@@ -454,88 +251,16 @@ def install_requirements(requirements, install_prefix=ENVIRONMENT):
               binary distribution archives, ``False`` otherwise.
     """
     install_timer = Timer()
-    existing_binary_dists = find_cached_binary_dists()
-    pyversion = get_python_version()
     logger.info("Installing from binary distributions ..")
-    for name, version, directory in requirements:
-        filename = existing_binary_dists.get((name.lower(), version, pyversion))
-        if not filename:
-            logger.error("No binary distribution of %s (%s) available!", name, version)
-            return False
-        install_binary_dist(name, filename, install_prefix=install_prefix)
-    logger.info("Finished installing all requirements in %s.", install_timer)
-    return True
-
-def install_binary_dist(package, filename, install_prefix=ENVIRONMENT):
-    """
-    Install a binary distribution created with ``python setup.py bdist`` into
-    the given prefix (a directory like ``/usr``, ``/usr/local`` or a virtual
-    environment).
-
-    :param package: The name of the package to install.
-    :param filename: The pathname of the tar archive.
-    :param install_prefix: The "prefix" under which the requirements should be
-                           installed. This will be a pathname like ``/usr``,
-                           ``/usr/local`` or the pathname of a virtual
-                           environment.
-    """
-    # TODO This is quite slow for modules like Django. Speed it up! Two choices:
-    #  1. Run the external tar program to unpack the archive. This will
-    #     slightly complicate the fixing up of hashbangs.
-    #  2. Using links? The plan: We can maintain a "seed" environment under
-    #     $PIP_ACCEL_CACHE and use symbolic and/or hard links to populate other
-    #     places based on the "seed" environment.
-    install_timer = Timer()
     python = os.path.join(install_prefix, 'bin', 'python')
     pip = os.path.join(install_prefix, 'bin', 'pip')
-    if os.system('"%s" uninstall --yes "%s" >/dev/null 2>&1' % (pip, package)) == 0:
-        logger.info("Uninstalled previously installed package %s.", package)
-    logger.info("Installing package %s from binary distribution %s to %s ..", package, filename, install_prefix)
-    archive = tarfile.open(filename, 'r:gz')
-    for member in archive.getmembers():
-        install_path = os.path.join(install_prefix, member.name)
-        directory = os.path.dirname(install_path)
-        if not os.path.isdir(directory):
-            logger.debug("Creating directory: %s ..", directory)
-            os.makedirs(directory)
-        logger.debug("Writing file: %s ..", install_path)
-        file_handle = archive.extractfile(member)
-        with open(install_path, 'w') as handle:
-            contents = file_handle.read()
-            if contents.startswith('#!/'):
-                contents = fix_hashbang(python, contents)
-            handle.write(contents)
-        os.chmod(install_path, member.mode)
-    archive.close()
-    logger.info("Finished installing binary distribution in %s.", install_timer)
-
-def fix_hashbang(python, contents):
-    """
-    Rewrite the hashbang in an executable script so that the Python program
-    inside the virtual environment is used instead of a system wide Python.
-
-    :param python: The absolute pathname of the Python program inside the
-                   virtual environment.
-    :param contents: A string with the contents of the script whose hashbang
-                     should be fixed.
-    :returns: The modified contents of the script as a string.
-    """
-    # Separate the first line in the file from the remainder of the contents
-    # while preserving the end of line sequence (CR+LF or just an LF) and
-    # without having to split all lines in the file (there's no point).
-    parts = re.split(r'(\r?\n)', contents, 1)
-    hashbang = parts[0]
-    # Get the base name of the command in the hashbang and deal with hashbangs
-    # like `#!/usr/bin/env python'.
-    modified_name = re.sub('^env ', '', os.path.basename(hashbang))
-    # Only rewrite hashbangs that actually involve Python.
-    if re.match(r'^python(\d+(\.\d+)*)?$', modified_name):
-        logger.debug("Hashbang %r looks like a Python hashbang! We'll rewrite it!", hashbang)
-        parts[0] = '#!%s' % python
-        contents = ''.join(parts)
-    else:
-        logger.debug("Warning: Failed to match hashbang: %r.", hashbang)
-    return contents
+    for name, version, directory in requirements:
+        if os.system('%s uninstall --yes %s >/dev/null 2>&1' % (pipes.quote(pip), pipes.quote(name))) == 0:
+            logger.info("Uninstalled previously installed package %s.", name)
+        members = get_binary_dist(name, version, directory, prefix=install_prefix, python=python)
+        install_binary_dist(members, prefix=install_prefix, python=python)
+    logger.info("Finished installing all requirements in %s.", install_timer)
+    return True
 
 def run_pip(arguments, use_remote_index, build_directory=None):
     """
@@ -634,15 +359,6 @@ def update_source_dists_index():
                 logger.info(" - Source: %s", download_path)
                 logger.info(" - Target: %s", archive_path)
                 os.symlink(download_path, archive_path)
-
-def get_python_version():
-    """
-    Return a string identifying the currently running Python version.
-
-    :returns: A string like "py2.6" or "py2.7" containing a short mnemonic
-              prefix followed by the major and minor version numbers.
-    """
-    return "py%i.%i" % (sys.version_info[0], sys.version_info[1])
 
 def add_extension(download_path, archive_path):
     """

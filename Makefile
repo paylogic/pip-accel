@@ -1,7 +1,7 @@
 # Makefile for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: June 16, 2013
+# Last Change: August 14, 2013
 # URL: https://github.com/paylogic/pip-accel
 
 default:
@@ -19,7 +19,8 @@ test:
 	python setup.py test
 
 clean:
-	rm -Rf build dist docs/build pip_accel.egg-info virtualenv-*-*.egg
+	rm -Rf .tox build dist docs/build *.egg-info *.egg
+	find -name __pycache__ -exec rm -R {} \; 2>/dev/null || true
 
 docs:
 	cd docs && make html
