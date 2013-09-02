@@ -1,7 +1,7 @@
 # Extension of pip-accel that deals with dependencies on system packages.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: June 26, 2013
+# Last Change: September 2, 2013
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -181,20 +181,19 @@ class DebianLinux(BasePlatform):
     @staticmethod
     def is_supported():
         """
-        Use the ``lsb_release`` program to check whether we are on a Debian
-        Linux system (or a derivative distribution of Debian like Ubuntu).
+        Find out if we are running on a Debian (derived) system by checking if
+        the file ``/etc/debian_version`` exists (this file is installed by the
+        Debian system package ``base-files``).
 
         :returns: ``True`` if we are, ``False`` if we're not.
         """
-        logger.debug("Checking if we're on a Debian (derived) system ..")
-        handle = os.popen('lsb_release -si 2>/dev/null')
-        output = handle.read()
-        handle.close()
-        distributor_id = output.strip()
-        logger.debug("Distributor ID: %s", distributor_id)
-        if distributor_id.lower() in ('debian', 'ubuntu'):
-            logger.debug("Using Debian package manager interface ..")
+        filename = '/etc/debian_version'
+        if os.path.exists(filename):
+            logger.debug("Looks like we are on a Debian (derived) system (%s exists) ..", filename)
             return True
+        else:
+            logger.debug("Looks like we're not on a Debian (derived) system (%s doesn't exist) ..", filename)
+            return False
 
     def find_installed(self):
         """
