@@ -195,6 +195,13 @@ class DebianLinux(BasePlatform):
         if distributor_id.lower() in ('debian', 'ubuntu'):
             logger.debug("Using Debian package manager interface ..")
             return True
+        # If /etc/debian_version exists, this OS uses the Debian base files,
+        # and thus is a Debian derivative, which sometimes cannot be read
+        # from the lsb-release command. /etc/os-version is deprecated,
+        # so this isn't a good solution, I think this is.
+        elif os.path.exists("/etc/debian_version"):
+            return True
+
 
     def find_installed(self):
         """
