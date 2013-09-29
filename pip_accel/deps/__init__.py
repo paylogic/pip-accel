@@ -1,7 +1,7 @@
 # Extension of pip-accel that deals with dependencies on system packages.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: September 2, 2013
+# Last Change: September 29, 2013
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -52,7 +52,7 @@ def sanity_check_dependencies(project_name, auto_install=None):
         # Otherwise we check the environment variable.
         auto_install_allowed = 'PIP_ACCEL_AUTO_INSTALL' in os.environ
     logger.info("%s: Checking for missing dependencies ..", project_name)
-    known_dependencies = current_platform.find_dependencies(project_name.lower())
+    known_dependencies = current_platform.find_dependencies(project_name)
     if not known_dependencies:
         logger.info("%s: No known dependencies... Maybe you have a suggestion?", project_name)
     else:
