@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: September 29, 2013
+# Last Change: October 14, 2013
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Permanently store logs in the pip-accel directory (think about log rotation).
@@ -20,7 +20,7 @@ taking a look at the following functions:
 """
 
 # Semi-standard module versioning.
-__version__ = '0.10.3'
+__version__ = '0.10.4'
 
 # Standard library modules.
 import os
@@ -408,6 +408,12 @@ def initialize_directories():
     for directory in [download_cache, source_index, binary_index]:
         if not os.path.isdir(directory):
             os.makedirs(directory)
+    # Remove broken symbolic links from the source index directory.
+    for entry in sorted(os.listdir(source_index)):
+        pathname = os.path.join(source_index, entry)
+        if os.path.islink(pathname) and not os.path.exists(pathname):
+            logger.warn("Cleaning up broken symbolic link: %s", pathname)
+            os.unlink(pathname)
     # Invalidate the binary distribution cache when the
     # format is changed in backwards incompatible ways.
     if os.path.isfile(index_version_file):
@@ -416,7 +422,7 @@ def initialize_directories():
                 logger.debug("Binary distribution cache format is compatible.")
                 return
     logger.debug("Binary distribution cache format is incompatible; clearing cache ..")
-    for entry in os.listdir(binary_index):
+    for entry in sorted(os.listdir(binary_index)):
         pathname = os.path.join(binary_index, entry)
         logger.debug(" - Deleting %s.", pathname)
         os.unlink(pathname)
