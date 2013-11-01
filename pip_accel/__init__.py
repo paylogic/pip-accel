@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: October 14, 2013
+# Last Change: November 1, 2013
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Permanently store logs in the pip-accel directory (think about log rotation).
@@ -20,13 +20,12 @@ taking a look at the following functions:
 """
 
 # Semi-standard module versioning.
-__version__ = '0.10.4'
+__version__ = '0.11'
 
 # Standard library modules.
 import os
 import os.path
 import pipes
-import pkg_resources
 import shutil
 import sys
 import tempfile
@@ -38,13 +37,13 @@ import urlparse
 from pip_accel.bdist import get_binary_dist, install_binary_dist
 from pip_accel.config import (binary_index, download_cache,
                               index_version_file, source_index)
+from pip_accel.req import Requirement
 from pip_accel.logger import logger
 
 # External dependencies.
 import coloredlogs
 from humanfriendly import Timer
 from pip import parseopts
-from pip.backwardcompat import string_types
 from pip.cmdoptions import requirements as requirements_option
 from pip.commands.install import InstallCommand
 from pip.exceptions import DistributionNotFound, InstallationError
@@ -102,11 +101,8 @@ def main():
                 logger.warn("We don't have all source distributions yet!")
                 download_source_dists(arguments, build_directory)
             else:
-                if not requirements:
-                    logger.info("No unsatisfied requirements found, probably there's nothing to do.")
-                else:
-                    install_requirements(requirements)
-                    logger.info("Done! Took %s to install %i package%s.", main_timer, len(requirements), '' if len(requirements) == 1 else 's')
+                install_requirements(requirements)
+                logger.info("Done! Took %s to install %i package%s.", main_timer, len(requirements), '' if len(requirements) == 1 else 's')
                 return
             logger.warn("pip failed, retrying (%i/%i) ..", i + 1, MAX_RETRIES)
     except InstallationError:
@@ -167,10 +163,8 @@ def unpack_source_dists(arguments, build_directory):
     :param arguments: A list of strings with the command line arguments to be
                       passed to the ``pip`` command.
 
-    :returns: A list of tuples with three strings each: The name of a
-              requirement (package), its version number and the directory where
-              the unpacked source distribution is located. If ``pip`` fails, an
-              exception will be raised by ``pip``.
+    :returns: A list of :py:class:`pip_accel.req.Requirement` objects. If
+              ``pip`` fails, an exception will be raised by ``pip``.
     """
     unpack_timer = Timer()
     logger.info("Unpacking local source distributions ..")
@@ -180,46 +174,8 @@ def unpack_source_dists(arguments, build_directory):
                               use_remote_index=False,
                               build_directory=build_directory)
     logger.info("Unpacked local source distributions in %s.", unpack_timer)
-    requirements = []
-    for install_requirement in sorted_requirements(requirement_set):
-        if install_requirement.satisfied_by:
-            logger.info("Requirement already satisfied: %s.", install_requirement)
-        else:
-            req = ensure_parsed_requirement(install_requirement)
-            requirements.append((req.project_name,
-                                 install_requirement.installed_version,
-                                 install_requirement.source_dir))
-    return requirements
-
-def sorted_requirements(requirement_set):
-    """
-    Sort the requirements in a ``RequirementSet``.
-
-    :param requirement_set: A ``RequirementSet`` object produced by ``pip``.
-    :returns: A list of sorted ``InstallRequirement`` objects.
-    """
-    return sorted(requirement_set.requirements.values(),
-                  key=lambda r: ensure_parsed_requirement(r).project_name.lower())
-
-def ensure_parsed_requirement(install_requirement):
-    """
-    ``InstallRequirement`` objects in ``RequirementSet`` objects have a ``req``
-    member, which apparently can be either a string or a
-    ``pkg_resources.Requirement`` object. This function makes sure we're
-    dealing with a ``pkg_resources.Requirement`` object.
-
-    This was "copied" from the pip source code, I'm not sure if this code is
-    actually necessary but it doesn't hurt and ``pip`` probably did it for a
-    reason. Right? :-)
-
-    :param install_requirement: An ``InstallRequirement`` object
-                                produced by ``pip``.
-    :returns: A ``pkg_resources.Requirement`` object.
-    """
-    req = install_requirement.req
-    if isinstance(req, string_types):
-        req = pkg_resources.Requirement.parse(req)
-    return req
+    return sorted([Requirement(r) for r in requirement_set.requirements.values()],
+                  key=lambda r: r.name.lower())
 
 def download_source_dists(arguments, build_directory):
     """
@@ -241,8 +197,7 @@ def install_requirements(requirements, install_prefix=ENVIRONMENT):
     """
     Manually install all requirements from binary distributions.
 
-    :param requirements: A list of tuples in the format of the return value of
-                         :py:func:`unpack_source_dists()`.
+    :param requirements: A list of :py:class:`pip_accel.req.Requirement` objects.
     :param install_prefix: The "prefix" under which the requirements should be
                            installed. This will be a pathname like ``/usr``,
                            ``/usr/local`` or the pathname of a virtual
@@ -254,11 +209,16 @@ def install_requirements(requirements, install_prefix=ENVIRONMENT):
     logger.info("Installing from binary distributions ..")
     python = os.path.join(install_prefix, 'bin', 'python')
     pip = os.path.join(install_prefix, 'bin', 'pip')
-    for name, version, directory in requirements:
-        if os.system('%s uninstall --yes %s >/dev/null 2>&1' % (pipes.quote(pip), pipes.quote(name))) == 0:
-            logger.info("Uninstalled previously installed package %s.", name)
-        members = get_binary_dist(name, version, directory, prefix=install_prefix, python=python)
-        install_binary_dist(members, prefix=install_prefix, python=python)
+    for requirement in requirements:
+        if requirement.is_installed:
+            logger.info("Requirement already satisfied: %s.", requirement.pip_requirement)
+        else:
+            if os.system('%s uninstall --yes %s >/dev/null 2>&1' % (pipes.quote(pip), pipes.quote(requirement.name))) == 0:
+                logger.info("Uninstalled previously installed package %s.", requirement.name)
+            members = get_binary_dist(requirement.name, requirement.version,
+                                      requirement.source_directory,
+                                      prefix=install_prefix, python=python)
+            install_binary_dist(members, prefix=install_prefix, python=python)
     logger.info("Finished installing all requirements in %s.", install_timer)
     return True
 
@@ -307,8 +267,10 @@ def run_pip(arguments, use_remote_index, build_directory=None):
 class CustomInstallCommand(InstallCommand):
 
     """
-    Subclass of ``pip.commands.install.InstallCommand`` that makes it easier to
-    run ``pip install`` from Python.
+    Subclass of :py:class:`pip.commands.install.InstallCommand` that makes it
+    easier to run ``pip install`` from Python. Used by the :py:func:`run_pip()`
+    function in order to run a ``pip install`` command in the same process,
+    without running pip as a subprocess.
     """
 
     def main(self, *args, **kw):

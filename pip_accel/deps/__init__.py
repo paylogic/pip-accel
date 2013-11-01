@@ -1,13 +1,16 @@
 # Extension of pip-accel that deals with dependencies on system packages.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: September 29, 2013
+# Last Change: November 1, 2013
 # URL: https://github.com/paylogic/pip-accel
 
 """
+System package dependency handling
+==================================
+
 Extension of the pip accelerator that deals with dependencies on system
-packages. Currently only Debian Linux and derivative Linux distributions are
-supported by this extension.
+packages. Currently only Debian Linux and derivative Linux distributions
+are supported by this extension.
 """
 
 # Standard library modules.
