@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: November 1, 2013
+# Last Change: November 3, 2013
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Permanently store logs in the pip-accel directory (think about log rotation).
@@ -20,7 +20,7 @@ taking a look at the following functions:
 """
 
 # Semi-standard module versioning.
-__version__ = '0.11'
+__version__ = '0.11.1'
 
 # Standard library modules.
 import os
@@ -309,6 +309,7 @@ def update_source_dists_index():
     Link newly downloaded source distributions into the local index directory
     using symbolic links.
     """
+    link_timer = Timer()
     for download_name in os.listdir(download_cache):
         download_path = os.path.join(download_cache, download_name)
         url = urllib.unquote(download_name)
@@ -317,10 +318,11 @@ def update_source_dists_index():
             archive_name = os.path.basename(components.path)
             archive_path = os.path.join(source_index, add_extension(download_path, archive_name))
             if not os.path.isfile(archive_path):
-                logger.info("Linking files:")
-                logger.info(" - Source: %s", download_path)
-                logger.info(" - Target: %s", archive_path)
+                logger.debug("Linking files:")
+                logger.debug(" - Source: %s", download_path)
+                logger.debug(" - Target: %s", archive_path)
                 os.symlink(download_path, archive_path)
+    logger.debug("Updated source index links in %s.", link_timer)
 
 def add_extension(download_path, archive_path):
     """
@@ -370,12 +372,19 @@ def initialize_directories():
     for directory in [download_cache, source_index, binary_index]:
         if not os.path.isdir(directory):
             os.makedirs(directory)
-    # Remove broken symbolic links from the source index directory.
+    # When files are removed from pip's download cache, broken symbolic links
+    # remain in pip-accel's source index. This results in very confusing error
+    # messages. To avoid this we cleanup broken symbolic links.
     for entry in sorted(os.listdir(source_index)):
         pathname = os.path.join(source_index, entry)
         if os.path.islink(pathname) and not os.path.exists(pathname):
             logger.warn("Cleaning up broken symbolic link: %s", pathname)
             os.unlink(pathname)
+    # If 1) pip's download cache is full but 2) pip-accel's source index hasn't
+    # been initialized yet and 3) all requirements are available in pip's
+    # download cache we can waste a lot of time. To avoid this we update the
+    # symbolic links in pip-accel's source index before every run.
+    update_source_dists_index()
     # Invalidate the binary distribution cache when the
     # format is changed in backwards incompatible ways.
     if os.path.isfile(index_version_file):
