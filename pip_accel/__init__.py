@@ -216,7 +216,7 @@ def install_requirements(requirements, install_prefix=ENVIRONMENT):
             if os.system('%s uninstall --yes %s >/dev/null 2>&1' % (pipes.quote(pip), pipes.quote(requirement.name))) == 0:
                 logger.info("Uninstalled previously installed package %s.", requirement.name)
             members = get_binary_dist(requirement.name, requirement.version,
-                                      requirement.source_directory,
+                                      requirement.source_directory, requirement.url,
                                       prefix=install_prefix, python=python)
             install_binary_dist(members, prefix=install_prefix, python=python)
     logger.info("Finished installing all requirements in %s.", install_timer)

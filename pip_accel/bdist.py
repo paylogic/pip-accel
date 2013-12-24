@@ -23,6 +23,7 @@ import subprocess
 import tarfile
 import tempfile
 import time
+import hashlib
 
 # External dependencies.
 from humanfriendly import Spinner, Timer
@@ -35,7 +36,7 @@ from pip_accel.utils import get_python_version
 # Initialize a logger for this module.
 logger = logging.getLogger(__name__)
 
-def get_binary_dist(package, version, directory, python='/usr/bin/python', prefix='/usr'):
+def get_binary_dist(package, version, directory, url, python='/usr/bin/python', prefix='/usr'):
     """
     Get the cached binary distribution archive that was previously built for
     the given package (name, version). If no archive has been cached yet, a
@@ -52,7 +53,13 @@ def get_binary_dist(package, version, directory, python='/usr/bin/python', prefi
     :returns: An iterable of tuples with two values each: A
               :py:class:`tarfile.TarInfo` object and a file-like object.
     """
-    cache_file = os.path.join(binary_index, '%s:%s:%s.tar.gz' % (package, version, get_python_version()))
+    if url:
+        tag = hashlib.sha1(version + url).hexdigest()
+    else:
+        tag = version
+
+    cache_file = os.path.join(binary_index, '%s:%s:%s.tar.gz' % (package, tag, get_python_version()))
+
     if not os.path.isfile(cache_file):
         logger.debug("%s (%s) hasn't been cached yet, doing so now.", package, version)
         # Build the binary distribution.

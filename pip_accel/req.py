@@ -80,6 +80,13 @@ class Requirement:
         return self.pip_requirement.installed_version
 
     @property
+    def url(self):
+        """
+        The url of the package. Based on :py:attr:`pip.req.InstallRequirement.url`.
+        """
+        return self.pip_requirement.url
+
+    @property
     def source_directory(self):
         """
         The pathname of the directory containing the unpacked source
