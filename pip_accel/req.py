@@ -1,7 +1,7 @@
 # Simple wrapper for pip and pkg_resources Requirement objects.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: November 1, 2013
+# Last Change: January 30, 2014
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -26,6 +26,8 @@ other two types of requirement objects and it also provides access to the
 original requirement objects (for those who are interested; the interfaces are
 basically undocumented AFAIK).
 """
+
+from pip.req import InstallRequirement
 
 class Requirement:
 
@@ -105,7 +107,7 @@ class Requirement:
         ``requirements.txt`` file). Based on
         :py:attr:`pip.req.InstallRequirement.comes_from`.
         """
-        return bool(self.pip_requirement.comes_from)
+        return isinstance(self.pip_requirement.comes_from, InstallRequirement)
 
     @property
     def is_direct(self):
