@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: January 30, 2014
+# Last Change: February 1, 2014
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Permanently store logs in the pip-accel directory (think about log rotation).
@@ -20,7 +20,7 @@ taking a look at the following functions:
 """
 
 # Semi-standard module versioning.
-__version__ = '0.11.3'
+__version__ = '0.11.4'
 
 # Standard library modules.
 import os
@@ -43,8 +43,10 @@ from pip_accel.logger import logger
 # External dependencies.
 import coloredlogs
 from humanfriendly import Timer
+from pip import index as pip_index_module
 from pip import parseopts
 from pip.cmdoptions import requirements as requirements_option
+from pip.commands import install as pip_install_module
 from pip.commands.install import InstallCommand
 from pip.exceptions import DistributionNotFound, InstallationError
 from pip.log import logger as pip_logger
@@ -169,13 +171,17 @@ def unpack_source_dists(arguments, build_directory):
     unpack_timer = Timer()
     logger.info("Unpacking local source distributions ..")
     clear_build_directory(build_directory)
-    # Execute pip to unpack the source distributions.
-    requirement_set = run_pip(arguments + ['--no-install'],
-                              use_remote_index=False,
-                              build_directory=build_directory)
-    logger.info("Unpacked local source distributions in %s.", unpack_timer)
-    return sorted([Requirement(r) for r in requirement_set.requirements.values()],
-                  key=lambda r: r.name.lower())
+    try:
+        install_custom_package_finder()
+        # Execute pip to unpack the source distributions.
+        requirement_set = run_pip(arguments + ['--no-install'],
+                                  use_remote_index=False,
+                                  build_directory=build_directory)
+        logger.info("Unpacked local source distributions in %s.", unpack_timer)
+        return sorted([Requirement(r) for r in requirement_set.requirements.values()],
+                      key=lambda r: r.name.lower())
+    finally:
+        cleanup_custom_package_finder()
 
 def download_source_dists(arguments, build_directory):
     """
@@ -399,6 +405,47 @@ def initialize_directories():
         os.unlink(pathname)
     with open(index_version_file, 'w') as handle:
         handle.write("%i\n" % CACHE_FORMAT_REVISION)
+
+ORIGINAL_PACKAGE_FINDER = None
+
+def install_custom_package_finder():
+    """
+    Install :py:class:`CustomPackageFinder` so we can be sure that pip will not
+    try to fetch any index pages (i.e. we disable all crawling, which in my
+    experience is the slowest operation performed by pip).
+    """
+    global ORIGINAL_PACKAGE_FINDER
+    logger.debug("Installing custom package finder (to force --no-index behavior) ..")
+    ORIGINAL_PACKAGE_FINDER = pip_index_module.PackageFinder
+    pip_install_module.PackageFinder = CustomPackageFinder
+
+def cleanup_custom_package_finder():
+    """
+    Clean up the monkey patch applied by :py:func:`install_custom_package_finder()`.
+    Use a try/finally block to ensure that the monkey patch is removed as soon
+    as it's not needed anymore, because it will break pip's normal behavior!
+    """
+    logger.debug("Cleaning up custom package finder ..")
+    pip_install_module.PackageFinder = ORIGINAL_PACKAGE_FINDER
+
+class CustomPackageFinder(pip_index_module.PackageFinder):
+
+    """
+    This class customizes :py:class:`pip.index.PackageFinder` to enforce what
+    the ``--no-index`` option does for the default package index but doesn't do
+    for package indexes registered with the ``--index=`` option in requirements
+    files. Judging by pip's documentation the fact that this has to be monkey
+    patched seems like a bug / oversight in pip (IMHO).
+    """
+
+    @property
+    def index_urls(self):
+        logger.debug("Custom package finder forcing --no-index behavior ..")
+        return []
+
+    @index_urls.setter
+    def index_urls(self, value):
+        pass
 
 if __name__ == '__main__':
     main()
