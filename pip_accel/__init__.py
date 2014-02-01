@@ -20,7 +20,7 @@ taking a look at the following functions:
 """
 
 # Semi-standard module versioning.
-__version__ = '0.11.4'
+__version__ = '0.11.5'
 
 # Standard library modules.
 import os
@@ -440,12 +440,21 @@ class CustomPackageFinder(pip_index_module.PackageFinder):
 
     @property
     def index_urls(self):
-        logger.debug("Custom package finder forcing --no-index behavior ..")
+        logger.debug("Custom package finder forcing --no-index behavior (hiding 'index_urls') ..")
         return []
 
     @index_urls.setter
     def index_urls(self, value):
-        pass
+        logger.debug("Custom package finder ignoring 'index_urls' value (%r) ..", value)
+
+    @property
+    def dependency_links(self):
+        logger.debug("Custom package finder forcing --no-index behavior (hiding 'dependency_links') ..")
+        return []
+
+    @dependency_links.setter
+    def dependency_links(self, value):
+        logger.debug("Custom package finder ignoring 'dependency_links' value (%r) ..", value)
 
 if __name__ == '__main__':
     main()
