@@ -20,7 +20,7 @@ taking a look at the following functions:
 """
 
 # Semi-standard module versioning.
-__version__ = '0.11.5'
+__version__ = '0.11.6'
 
 # Standard library modules.
 import os
@@ -306,7 +306,7 @@ class CustomInstallCommand(InstallCommand):
             self.intercepted_exception = None
             self.requirement_set = original_method(*args, **kw)
             return self.requirement_set
-        except Exception, e:
+        except (Exception, KeyboardInterrupt), e:
             self.intercepted_exception = e
             raise
 
