@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: February 1, 2014
+# Last Change: February 18, 2014
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Permanently store logs in the pip-accel directory (think about log rotation).
@@ -20,7 +20,7 @@ taking a look at the following functions:
 """
 
 # Semi-standard module versioning.
-__version__ = '0.11.6'
+__version__ = '0.11.7'
 
 # Standard library modules.
 import os
@@ -178,7 +178,16 @@ def unpack_source_dists(arguments, build_directory):
                                   use_remote_index=False,
                                   build_directory=build_directory)
         logger.info("Unpacked local source distributions in %s.", unpack_timer)
-        return sorted([Requirement(r) for r in requirement_set.requirements.values()],
+        # XXX This feels (looks) like a nasty hack but it prevents an unhandled
+        # exception that was introduced in pip-accel==0.11. Please refer to
+        # https://github.com/paylogic/pip-accel/issues/24 for gory details.
+        filtered_requirements = []
+        for requirement in requirement_set.requirements.values():
+            if requirement.satisfied_by:
+                logger.info("Requirement already satisfied: %s.", requirement)
+            else:
+                filtered_requirements.append(requirement)
+        return sorted([Requirement(r) for r in filtered_requirements],
                       key=lambda r: r.name.lower())
     finally:
         cleanup_custom_package_finder()
@@ -216,15 +225,12 @@ def install_requirements(requirements, install_prefix=ENVIRONMENT):
     python = os.path.join(install_prefix, 'bin', 'python')
     pip = os.path.join(install_prefix, 'bin', 'pip')
     for requirement in requirements:
-        if requirement.is_installed:
-            logger.info("Requirement already satisfied: %s.", requirement.pip_requirement)
-        else:
-            if os.system('%s uninstall --yes %s >/dev/null 2>&1' % (pipes.quote(pip), pipes.quote(requirement.name))) == 0:
-                logger.info("Uninstalled previously installed package %s.", requirement.name)
-            members = get_binary_dist(requirement.name, requirement.version,
-                                      requirement.source_directory,
-                                      prefix=install_prefix, python=python)
-            install_binary_dist(members, prefix=install_prefix, python=python)
+        if os.system('%s uninstall --yes %s >/dev/null 2>&1' % (pipes.quote(pip), pipes.quote(requirement.name))) == 0:
+            logger.info("Uninstalled previously installed package %s.", requirement.name)
+        members = get_binary_dist(requirement.name, requirement.version,
+                                  requirement.source_directory,
+                                  prefix=install_prefix, python=python)
+        install_binary_dist(members, prefix=install_prefix, python=python)
     logger.info("Finished installing all requirements in %s.", install_timer)
     return True
 
