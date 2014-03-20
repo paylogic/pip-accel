@@ -1,7 +1,7 @@
 # Simple wrapper for pip and pkg_resources Requirement objects.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: January 30, 2014
+# Last Change: March 20, 2014
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -80,6 +80,13 @@ class Requirement:
         :py:attr:`pip.req.InstallRequirement.installed_version`.
         """
         return self.pip_requirement.installed_version
+
+    @property
+    def url(self):
+        """
+        The URL of the package. Based on :py:attr:`pip.req.InstallRequirement.url`.
+        """
+        return self.pip_requirement.url
 
     @property
     def source_directory(self):

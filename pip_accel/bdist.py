@@ -1,7 +1,7 @@
 # Functions to manipulate Python binary distribution archives.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: August 14, 2013
+# Last Change: March 20, 2014
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -13,6 +13,7 @@ binary distribution archives.
 """
 
 # Standard library modules.
+import hashlib
 import logging
 import os
 import os.path
@@ -35,16 +36,19 @@ from pip_accel.utils import get_python_version
 # Initialize a logger for this module.
 logger = logging.getLogger(__name__)
 
-def get_binary_dist(package, version, directory, python='/usr/bin/python', prefix='/usr'):
+def get_binary_dist(package, version, directory, url=None, python='/usr/bin/python', prefix='/usr'):
     """
     Get the cached binary distribution archive that was previously built for
-    the given package (name, version). If no archive has been cached yet, a
-    new binary distribution archive is created and added to the cache.
+    the given package (name, version) (and optionally URL). If no archive has
+    been cached yet, a new binary distribution archive is created and added to
+    the cache.
 
     :param package: The name of the requirement to build.
     :param version: The version of the requirement to build.
     :param directory: The directory where the unpacked sources of the
                       requirement are available.
+    :param url: The URL of the requirement, optional. When given this is used
+                to generate the filename of the cached binary distribution.
     :param python: The pathname of the Python executable to use to run
                    ``setup.py`` (obviously this should point to a working
                    Python installation).
@@ -52,7 +56,8 @@ def get_binary_dist(package, version, directory, python='/usr/bin/python', prefi
     :returns: An iterable of tuples with two values each: A
               :py:class:`tarfile.TarInfo` object and a file-like object.
     """
-    cache_file = os.path.join(binary_index, '%s:%s:%s.tar.gz' % (package, version, get_python_version()))
+    tag = hashlib.sha1(version + url).hexdigest() if url else version
+    cache_file = os.path.join(binary_index, '%s:%s:%s.tar.gz' % (package, tag, get_python_version()))
     if not os.path.isfile(cache_file):
         logger.debug("%s (%s) hasn't been cached yet, doing so now.", package, version)
         # Build the binary distribution.
