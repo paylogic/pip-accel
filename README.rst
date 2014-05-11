@@ -1,6 +1,12 @@
 pip-accel: Accelerator for pip, the Python package manager
 ==========================================================
 
+.. image:: https://travis-ci.org/paylogic/pip-accel.svg?branch=master
+   :target: https://travis-ci.org/paylogic/pip-accel
+
+.. image:: https://coveralls.io/repos/paylogic/pip-accel/badge.png?branch=master
+   :target: https://coveralls.io/r/paylogic/pip-accel?branch=master
+
 The ``pip-accel`` program is a wrapper for pip_, the Python package manager. It
 accelerates the usage of ``pip`` to initialize `Python virtual environments`_
 given one or more `requirements files`_. It does so by combining the following
@@ -23,6 +29,9 @@ two approaches:
 In addition, since version 0.9 ``pip-accel`` contains a simple mechanism that
 detects missing system packages when a build fails and prompts the user whether
 to install the missing dependencies and retry the build.
+
+The ``pip-accel`` program is tested on Python 2.6, 2.7 and 3.4 although support
+for Python 3 is very new so may still have some issues.
 
 Status
 ------
