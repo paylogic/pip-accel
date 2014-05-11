@@ -30,13 +30,14 @@ import shutil
 import sys
 import tempfile
 import textwrap
-import urllib
 
 try:
     # Python 2.x.
+    from urllib import unquote
     from urlparse import urlparse
 except ImportError:
     # Python 3.x.
+    from urllib.parse import unquote
     from urllib.parse import urlparse
 
 # Modules included in our package.
@@ -330,7 +331,7 @@ def update_source_dists_index():
     link_timer = Timer()
     for download_name in os.listdir(download_cache):
         download_path = os.path.join(download_cache, download_name)
-        url = urllib.unquote(download_name)
+        url = unquote(download_name)
         if not url.endswith('.content-type'):
             components = urlparse(url)
             archive_name = os.path.basename(components.path)
