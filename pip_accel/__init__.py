@@ -205,7 +205,7 @@ def download_source_dists(arguments, build_directory):
     try:
         run_pip(arguments + ['--no-install'], use_remote_index=True, build_directory=build_directory)
         logger.info("Finished downloading source distributions in %s.", download_timer)
-    except Exception, e:
+    except Exception as e:
         logger.warn("pip raised an exception while downloading source distributions: %s.", e)
 
 def install_requirements(requirements, install_prefix=ENVIRONMENT):
@@ -312,7 +312,7 @@ class CustomInstallCommand(InstallCommand):
             self.intercepted_exception = None
             self.requirement_set = original_method(*args, **kw)
             return self.requirement_set
-        except (Exception, KeyboardInterrupt), e:
+        except (Exception, KeyboardInterrupt) as e:
             self.intercepted_exception = e
             raise
 

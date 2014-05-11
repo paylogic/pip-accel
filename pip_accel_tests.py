@@ -3,7 +3,7 @@
 # Tests for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: August 14, 2013
+# Last Change: May 11, 2014
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Test successful installation of iPython, because it used to break! (nested /lib/ directory)
@@ -65,7 +65,7 @@ class PipAccelTestCase(unittest.TestCase):
             requirements = self.pip_accel.unpack_source_dists(arguments, build_directory=self.build_directory)
             # This line should never be reached.
             self.assertTrue(False)
-        except Exception, e:
+        except Exception as e:
             self.assertTrue(isinstance(e, DistributionNotFound))
         # Download the source distribution from PyPI.
         self.pip_accel.download_source_dists(arguments, self.build_directory)
