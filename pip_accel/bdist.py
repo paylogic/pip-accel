@@ -1,7 +1,7 @@
 # Functions to manipulate Python binary distribution archives.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: March 20, 2014
+# Last Change: May 11, 2014
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -97,7 +97,7 @@ def build_binary_dist(package, version, directory, python='/usr/bin/python'):
     setup_script = os.path.join(directory, 'setup.py')
     if not os.path.isfile(setup_script):
         msg = "Directory %s (%s %s) doesn't contain a source distribution!"
-        raise InvalidSourceDistribution, msg % (directory, package, version)
+        raise InvalidSourceDistribution(msg % (directory, package, version))
     # Let the user know what's going on.
     build_text = "Building binary distribution of %s (%s) .." % (package, version)
     logger.info("%s", build_text)
@@ -128,12 +128,12 @@ def build_binary_dist(package, version, directory, python='/usr/bin/python'):
             logger.error("%s", msg)
             with open(temporary_file) as handle:
                 logger.info("Build output (will probably provide a hint as to what went wrong):\n%s", handle.read())
-            raise BuildFailed, msg
+            raise BuildFailed(msg)
         # Check if we can find the binary distribution archive.
         filenames = os.listdir(dist_directory)
         if len(filenames) != 1:
             msg = "Build process did not result in one binary distribution! (matches: %s)"
-            raise NoBuildOutput, msg % filenames
+            raise NoBuildOutput(msg % filenames)
         logger.info("Finished building %s (%s) in %s.", package, version, build_timer)
         return os.path.join(dist_directory, filenames[0])
     finally:

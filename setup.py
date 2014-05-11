@@ -3,7 +3,7 @@
 # Setup script for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: July 17, 2013
+# Last Change: May 11, 2014
 # URL: https://github.com/paylogic/pip-accel
 
 import re
@@ -21,7 +21,7 @@ for line in open(module, 'r'):
         version_string = match.group(1)
         break
 else:
-    raise Exception, "Failed to extract version from pip_accel/__init__.py!"
+    raise Exception("Failed to extract version from pip_accel/__init__.py!")
 
 # Fill in the long description (for the benefit of PyPI)
 # with the contents of README.rst (rendered by GitHub).

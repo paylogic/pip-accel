@@ -1,7 +1,7 @@
 # Extension of pip-accel that deals with dependencies on system packages.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: November 1, 2013
+# Last Change: May 11, 2014
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -65,8 +65,8 @@ def sanity_check_dependencies(project_name, auto_install=None):
             logger.info("%s: All known dependencies are already installed.", project_name)
         elif auto_install_forbidden:
             msg = "Missing %i system package%s (%s) required by %s but automatic installation is disabled!"
-            raise DependencyCheckFailed, msg % (len(missing_packages), '' if len(missing_packages) == 1 else 's',
-                                                ', '.join(missing_packages), project_name)
+            raise DependencyCheckFailed(msg % (len(missing_packages), '' if len(missing_packages) == 1 else 's',
+                                               ', '.join(missing_packages), project_name))
         else:
             command_line = ['sudo'] + current_platform.install_command(missing_packages)
             if not auto_install_allowed:
@@ -85,8 +85,8 @@ def sanity_check_dependencies(project_name, auto_install=None):
                              project_name, len(missing_packages),
                              len(missing_packages) == 1 and 'y' or 'ies')
                 msg = "Failed to install %i system package%s required by %s! (command failed: %s)"
-                raise DependencyInstallationFailed, msg % (len(missing_packages), '' if len(missing_packages) == 1 else 's',
-                                                           project_name, command_line)
+                raise DependencyInstallationFailed(msg % (len(missing_packages), '' if len(missing_packages) == 1 else 's',
+                                                          project_name, command_line))
 
 def confirm_installation(project_name, packages, command_line):
     """
@@ -120,7 +120,7 @@ def confirm_installation(project_name, packages, command_line):
     logger.error("%s: Refused installation of missing dependenc%s!",
                  project_name, len(packages) == 1 and 'y' or 'ies')
     msg = "%s: User canceled automatic installation of missing dependenc%s!"
-    raise RefusedAutomaticInstallation, msg % (project_name, 'y' if len(packages) == 1 else 'ies')
+    raise RefusedAutomaticInstallation(msg % (project_name, 'y' if len(packages) == 1 else 'ies'))
 
 class BasePlatform(object):
 
