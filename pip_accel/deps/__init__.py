@@ -14,9 +14,15 @@ are supported by this extension.
 """
 
 # Standard library modules.
-import ConfigParser
 import os
 import os.path
+
+try:
+    # Python 2.x.
+    import ConfigParser as configparser
+except ImportError:
+    # Python 3.x.
+    import configparser
 
 # Internal modules.
 from pip_accel.logger import logger
@@ -151,7 +157,7 @@ class BasePlatform(object):
             config_path = os.path.join(directory, '%s.ini' % config_name)
             if os.path.isfile(config_path):
                 logger.debug("Loading system package configuration from %s ..", config_path)
-                parser = ConfigParser.RawConfigParser()
+                parser = configparser.RawConfigParser()
                 parser.read(config_path)
                 if parser.has_section('dependencies'):
                     self.dependencies = dict((n.lower(), v.split()) for n, v in parser.items('dependencies'))
