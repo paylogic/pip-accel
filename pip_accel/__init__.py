@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: March 20, 2014
+# Last Change: May 11, 2014
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Permanently store logs in the pip-accel directory (think about log rotation).
@@ -122,7 +122,7 @@ def print_usage():
     """
     Report the usage of the pip-accel command to the console.
     """
-    print textwrap.dedent("""
+    print(textwrap.dedent("""
         Usage: pip-accel [ARGUMENTS TO PIP]
 
         The pip-accel program is a wrapper for pip, the Python package manager. It
@@ -133,7 +133,7 @@ def print_usage():
 
         For more information please refer to the GitHub project page
         at https://github.com/paylogic/pip-accel
-    """).strip()
+    """).strip())
 
 def clear_build_directory(directory):
     """
