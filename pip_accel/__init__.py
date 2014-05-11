@@ -362,7 +362,7 @@ def add_extension(download_path, archive_path):
     on PyPI, but that would add a binary dependency to ``pip-accel`` and I
     don't want that :-).
     """
-    handle = open(download_path)
+    handle = open(download_path, 'rb')
     header = handle.read(2)
     handle.close()
     if header.startswith('\x1f\x8b'):

@@ -15,7 +15,7 @@ source_directory = dirname(abspath(__file__))
 
 # Find the current version.
 module = join(source_directory, 'pip_accel', '__init__.py')
-for line in open(module, 'r'):
+for line in open(module):
     match = re.match(r'^__version__\s*=\s*["\']([^"\']+)["\']$', line)
     if match:
         version_string = match.group(1)
@@ -26,10 +26,10 @@ else:
 # Fill in the long description (for the benefit of PyPI)
 # with the contents of README.rst (rendered by GitHub).
 readme_file = join(source_directory, 'README.rst')
-readme_text = open(readme_file, 'r').read()
+readme_text = open(readme_file).read()
 
 # Fill in the "install_requires" field based on requirements.txt.
-requirements = [l.strip() for l in open(join(source_directory, 'requirements.txt'), 'r')]
+requirements = [l.strip() for l in open(join(source_directory, 'requirements.txt'))]
 
 setup(name='pip-accel',
       version=version_string,
