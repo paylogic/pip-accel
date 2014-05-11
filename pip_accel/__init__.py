@@ -31,7 +31,13 @@ import sys
 import tempfile
 import textwrap
 import urllib
-import urlparse
+
+try:
+    # Python 2.x.
+    from urlparse import urlparse
+except ImportError:
+    # Python 3.x.
+    from urllib.parse import urlparse
 
 # Modules included in our package.
 from pip_accel.bdist import get_binary_dist, install_binary_dist
@@ -326,7 +332,7 @@ def update_source_dists_index():
         download_path = os.path.join(download_cache, download_name)
         url = urllib.unquote(download_name)
         if not url.endswith('.content-type'):
-            components = urlparse.urlparse(url)
+            components = urlparse(url)
             archive_name = os.path.basename(components.path)
             archive_path = os.path.join(source_index, add_extension(download_path, archive_name))
             if not os.path.isfile(archive_path):
