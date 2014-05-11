@@ -219,9 +219,9 @@ def install_binary_dist(members, prefix, python='/usr/bin/python', enable_workar
             logger.debug("Creating directory: %s ..", directory)
             os.makedirs(directory)
         logger.debug("Creating file: %s ..", pathname)
-        with open(pathname, 'w') as to_handle:
+        with open(pathname, 'wb') as to_handle:
             contents = from_handle.read()
-            if contents.startswith('#!/'):
+            if contents.startswith(b'#!/'):
                 contents = fix_hashbang(python, contents)
             to_handle.write(contents)
         os.chmod(pathname, member.mode)
@@ -240,16 +240,16 @@ def fix_hashbang(python, contents):
     # Separate the first line in the file from the remainder of the contents
     # while preserving the end of line sequence (CR+LF or just an LF) and
     # without having to split all lines in the file (there's no point).
-    parts = re.split(r'(\r?\n)', contents, 1)
-    hashbang = parts[0]
+    lines = contents.splitlines()
+    hashbang = lines[0]
     # Get the base name of the command in the hashbang and deal with hashbangs
     # like `#!/usr/bin/env python'.
-    modified_name = re.sub('^env ', '', os.path.basename(hashbang))
+    modified_name = re.sub(b'^env ', b'', os.path.basename(hashbang))
     # Only rewrite hashbangs that actually involve Python.
-    if re.match(r'^python(\d+(\.\d+)*)?$', modified_name):
-        logger.debug("Hashbang %r looks like a Python hashbang! We'll rewrite it!", hashbang)
-        parts[0] = '#!%s' % python
-        contents = ''.join(parts)
+    if re.match(b'^python(\\d+(\\.\\d+)*)?$', modified_name):
+        lines[0] = b'#!' + python.encode('ascii')
+        logger.debug("Hashbang %r looks like a Python hashbang! Rewriting it to %r!", hashbang, lines[0])
+        contents = b'\n'.join(lines)
     else:
         logger.debug("Warning: Failed to match hashbang: %r.", hashbang)
     return contents

@@ -365,15 +365,15 @@ def add_extension(download_path, archive_path):
     handle = open(download_path, 'rb')
     header = handle.read(2)
     handle.close()
-    if header.startswith('\x1f\x8b'):
+    if header.startswith(b'\x1f\x8b'):
         # The gzip compression header is two bytes: 0x1F, 0x8B.
         if not archive_path.endswith(('.tgz', '.tar.gz')):
             archive_path += '.tar.gz'
-    elif header.startswith('BZ'):
+    elif header.startswith(b'BZ'):
         # The bzip2 compression header is two bytes: B, Z.
         if not archive_path.endswith('.bz2'):
             archive_path += '.bz2'
-    elif header.startswith('PK'):
+    elif header.startswith(b'PK'):
         # According to Wikipedia, ZIP archives don't have an official magic
         # number, but most of the time we'll find two bytes: P, K (for Phil
         # Katz, creator of the format).
