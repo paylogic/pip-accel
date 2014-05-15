@@ -1,7 +1,7 @@
 # Functions to manipulate Python binary distribution archives.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: May 11, 2014
+# Last Change: May 15, 2014
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -67,10 +67,14 @@ def get_binary_dist(package, version, directory, url=None, python='/usr/bin/pyth
             sanity_check_dependencies(package)
             raw_file = build_binary_dist(package, version, directory, python=python)
         # Transform the binary distribution archive into a form that we can re-use.
-        archive = tarfile.open(cache_file, 'w:gz')
+        transformed_file = '%s.tmp-%i' % (cache_file, os.getpid())
+        archive = tarfile.open(transformed_file, 'w:gz')
         for member, from_handle in transform_binary_dist(raw_file, prefix=prefix):
             archive.addfile(member, from_handle)
         archive.close()
+        # Try to avoid race conditions between multiple processes by atomically
+        # moving the transformed binary distribution into its final place.
+        os.rename(transformed_file, cache_file)
         logger.debug("%s (%s) cached as %s.", package, version, cache_file)
     archive = tarfile.open(cache_file, 'r:gz')
     for member in archive.getmembers():
