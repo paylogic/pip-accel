@@ -20,9 +20,10 @@ taking a look at the following functions:
 """
 
 # Semi-standard module versioning.
-__version__ = '0.12.3'
+__version__ = '0.12.4'
 
 # Standard library modules.
+import logging
 import os
 import os.path
 import pipes
@@ -45,7 +46,6 @@ from pip_accel.bdist import get_binary_dist, install_binary_dist
 from pip_accel.config import (binary_index, download_cache,
                               index_version_file, source_index)
 from pip_accel.req import Requirement
-from pip_accel.logger import logger
 
 # External dependencies.
 import coloredlogs
@@ -58,6 +58,9 @@ from pip.commands.install import InstallCommand
 from pip.exceptions import DistributionNotFound, InstallationError
 from pip.log import logger as pip_logger
 from pip.status_codes import SUCCESS
+
+# Initialize a logger for this module.
+logger = logging.getLogger(__name__)
 
 # Find the environment where requirements are to be installed.
 ENVIRONMENT = os.path.abspath(os.environ.get('VIRTUAL_ENV', sys.prefix))

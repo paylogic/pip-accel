@@ -1,7 +1,7 @@
 # Extension of pip-accel that deals with dependencies on system packages.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: May 11, 2014
+# Last Change: May 24, 2014
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -14,6 +14,7 @@ are supported by this extension.
 """
 
 # Standard library modules.
+import logging
 import os
 import os.path
 
@@ -24,8 +25,8 @@ except ImportError:
     # Python 3.x.
     import configparser
 
-# Internal modules.
-from pip_accel.logger import logger
+# Initialize a logger for this module.
+logger = logging.getLogger(__name__)
 
 def sanity_check_dependencies(project_name, auto_install=None):
     """
