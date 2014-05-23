@@ -56,7 +56,7 @@ def get_binary_dist(package, version, directory, url=None, python='/usr/bin/pyth
     :returns: An iterable of tuples with two values each: A
               :py:class:`tarfile.TarInfo` object and a file-like object.
     """
-    tag = hashlib.sha1(version + url).hexdigest() if url else version
+    tag = hashlib.sha1(str(version + url).encode()).hexdigest() if url else version
     cache_file = os.path.join(binary_index, '%s:%s:%s.tar.gz' % (package, tag, get_python_version()))
     if not os.path.isfile(cache_file):
         logger.debug("%s (%s) hasn't been cached yet, doing so now.", package, version)
