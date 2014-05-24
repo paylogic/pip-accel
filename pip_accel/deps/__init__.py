@@ -177,7 +177,23 @@ class BasePlatform(object):
         return self.dependencies.get(project_name.lower(), [])
 
     def find_installed(self):
+        """
+        Find the packages that are installed on the current system.
+
+        :returns: A list of strings with package names.
+        """
         return []
+
+    def install_command(self, missing_packages):
+        """
+        Determine the command line needed to install the given package(s).
+
+        :param missing_packages: A list with the names of one or more system
+                                 packages to be installed.
+
+        :returns: A list containing the program name and its arguments.
+        """
+        raise NotImplemented
 
 class DebianLinux(BasePlatform):
 
