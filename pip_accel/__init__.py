@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: May 24, 2014
+# Last Change: May 29, 2014
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Permanently store logs in the pip-accel directory (think about log rotation).
@@ -20,7 +20,7 @@ taking a look at the following functions:
 """
 
 # Semi-standard module versioning.
-__version__ = '0.12.5'
+__version__ = '0.12.6'
 
 # Standard library modules.
 import logging
@@ -456,7 +456,6 @@ class CustomPackageFinder(pip_index_module.PackageFinder):
 
     @property
     def index_urls(self):
-        logger.debug("Custom package finder forcing --no-index behavior (hiding 'index_urls') ..")
         return []
 
     @index_urls.setter
@@ -465,7 +464,6 @@ class CustomPackageFinder(pip_index_module.PackageFinder):
 
     @property
     def dependency_links(self):
-        logger.debug("Custom package finder forcing --no-index behavior (hiding 'dependency_links') ..")
         return []
 
     @dependency_links.setter
