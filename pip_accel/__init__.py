@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: June 5, 2014
+# Last Change: June 18, 2014
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Permanently store logs in the pip-accel directory (think about log rotation).
@@ -20,7 +20,7 @@ taking a look at the following functions:
 """
 
 # Semi-standard module versioning.
-__version__ = '0.12.7'
+__version__ = '0.12.8'
 
 # Standard library modules.
 import logging
@@ -72,7 +72,7 @@ MAX_RETRIES = 10
 # The version number of the binary distribution cache format in use. When we
 # break backwards compatibility we bump this number so that pip-accel knows it
 # should clear the cache before proceeding.
-CACHE_FORMAT_REVISION = 4
+CACHE_FORMAT_REVISION = 5
 
 def main():
     """

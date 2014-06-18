@@ -1,7 +1,7 @@
 # Functions to manipulate Python binary distribution archives.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: May 24, 2014
+# Last Change: June 18, 2014
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -176,6 +176,10 @@ def transform_binary_dist(archive_path, prefix='/usr'):
             else:
                 # Rewrite /usr/local to /usr (same goes for all prefixes of course).
                 modified_pathname = re.sub('^local/', '', modified_pathname)
+                # Rewrite /dist-packages/ to /site-packages/. For details see
+                # https://wiki.debian.org/Python#Deviations_from_upstream.
+                modified_pathname = modified_pathname.replace('/dist-packages/', '/site-packages/')
+                # Enable operators to debug the transformation process.
                 logger.debug("Transformed %r -> %r.", original_pathname, modified_pathname)
                 # Get the file data from the input archive.
                 handle = archive.extractfile(original_pathname)
