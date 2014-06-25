@@ -21,6 +21,7 @@ import pipes
 import re
 import shutil
 import subprocess
+import sys
 import tarfile
 import tempfile
 import time
@@ -212,6 +213,8 @@ def install_binary_dist(members, prefix, python='/usr/bin/python', virtualenv_co
     #  2. Using links? The plan: We can maintain a "seed" environment under
     #     $PIP_ACCEL_CACHE and use symbolic and/or hard links to populate other
     #     places based on the "seed" environment.
+    on_debian = os.path.exists('/etc/debian_version')
+    module_search_path = set(map(os.path.normpath, sys.path))
     for member, from_handle in members:
         pathname = member.name
         if virtualenv_compatible:
@@ -223,6 +226,16 @@ def install_binary_dist(members, prefix, python='/usr/bin/python', virtualenv_co
             # implement the same workaround that pip uses to avoid this
             # problem.
             pathname = re.sub('^include/', 'include/site/', pathname)
+        if on_debian and '/site-packages/' in pathname:
+            # On Debian based system wide Python installs the /site-packages/
+            # directory is not in Python's module search path while
+            # /dist-packages/ is. We try to be compatible with this.
+            match = re.match('^(.+?)/site-packages', pathname)
+            if match:
+                site_packages = os.path.normpath(os.path.join(prefix, match.group(0)))
+                dist_packages = os.path.normpath(os.path.join(prefix, match.group(1), 'dist-packages'))
+                if dist_packages in module_search_path and site_packages not in module_search_path:
+                    pathname = pathname.replace('/site-packages/', '/dist-packages/')
         pathname = os.path.join(prefix, pathname)
         directory = os.path.dirname(pathname)
         if not os.path.isdir(directory):

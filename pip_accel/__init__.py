@@ -20,7 +20,7 @@ taking a look at the following functions:
 """
 
 # Semi-standard module versioning.
-__version__ = '0.12.9'
+__version__ = '0.12.10'
 
 # Standard library modules.
 import logging
