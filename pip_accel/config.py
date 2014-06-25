@@ -1,7 +1,7 @@
 # Configuration defaults for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: August 12, 2013
+# Last Change: June 26, 2014
 # URL: https://github.com/paylogic/pip-accel
 
 # Standard library modules.
@@ -31,3 +31,6 @@ if 'PIP_ACCEL_CACHE' in os.environ:
 source_index = os.path.join(pip_accel_cache, 'sources')
 binary_index = os.path.join(pip_accel_cache, 'binaries')
 index_version_file = os.path.join(pip_accel_cache, 'version.txt')
+
+# Check if we're running on a Debian derived system.
+on_debian = os.path.exists('/etc/debian_version')

@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: June 25, 2014
+# Last Change: June 26, 2014
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Permanently store logs in the pip-accel directory (think about log rotation).
@@ -20,7 +20,7 @@ taking a look at the following functions:
 """
 
 # Semi-standard module versioning.
-__version__ = '0.12.10'
+__version__ = '0.12.11'
 
 # Standard library modules.
 import logging
@@ -43,8 +43,8 @@ except ImportError:
 
 # Modules included in our package.
 from pip_accel.bdist import get_binary_dist, install_binary_dist
-from pip_accel.config import (binary_index, download_cache,
-                              index_version_file, source_index)
+from pip_accel.config import (binary_index, download_cache, index_version_file,
+                              on_debian, source_index)
 from pip_accel.req import Requirement
 
 # External dependencies.
@@ -230,6 +230,16 @@ def install_requirements(requirements, install_prefix=ENVIRONMENT):
     :returns: ``True`` if it succeeds in installing all requirements from
               binary distribution archives, ``False`` otherwise.
     """
+    if on_debian and install_prefix == '/usr':
+        # On Debian derived systems only apt (dpkg) should be allowed to touch
+        # files in /usr/lib/pythonX.Y/dist-packages/ and `python setup.py
+        # install' knows this (see the `posix_local' installation scheme in
+        # /usr/lib/python2.7/sysconfig.py on Debian systems). Because
+        # pip-accel replaces `python setup.py install' we have to replicate
+        # this logic. Magically inferring this from the `sysconfig' module
+        # would be nice but Python versions before 3.2 don't even have that
+        # module (it appears to be a Debian addition in versions before 3.2).
+        install_prefix = '/usr/local'
     install_timer = Timer()
     logger.info("Installing from binary distributions ..")
     python = os.path.join(install_prefix, 'bin', 'python')

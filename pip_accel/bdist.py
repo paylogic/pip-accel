@@ -1,7 +1,7 @@
 # Functions to manipulate Python binary distribution archives.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: June 25, 2014
+# Last Change: June 26, 2014
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -30,7 +30,7 @@ import time
 from humanfriendly import Spinner, Timer
 
 # Modules included in our package.
-from pip_accel.config import binary_index
+from pip_accel.config import binary_index, on_debian
 from pip_accel.deps import sanity_check_dependencies
 from pip_accel.utils import get_python_version
 
@@ -213,7 +213,6 @@ def install_binary_dist(members, prefix, python='/usr/bin/python', virtualenv_co
     #  2. Using links? The plan: We can maintain a "seed" environment under
     #     $PIP_ACCEL_CACHE and use symbolic and/or hard links to populate other
     #     places based on the "seed" environment.
-    on_debian = os.path.exists('/etc/debian_version')
     module_search_path = set(map(os.path.normpath, sys.path))
     for member, from_handle in members:
         pathname = member.name

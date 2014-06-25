@@ -1,7 +1,7 @@
 # Extension of pip-accel that deals with dependencies on system packages.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: May 24, 2014
+# Last Change: June 26, 2014
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -24,6 +24,9 @@ try:
 except ImportError:
     # Python 3.x.
     import configparser
+
+# Modules included in our package.
+from pip_accel.config import on_debian
 
 # Initialize a logger for this module.
 logger = logging.getLogger(__name__)
@@ -213,12 +216,11 @@ class DebianLinux(BasePlatform):
 
         :returns: ``True`` if we are, ``False`` if we're not.
         """
-        filename = '/etc/debian_version'
-        if os.path.exists(filename):
-            logger.debug("Looks like we are on a Debian (derived) system (%s exists) ..", filename)
+        if on_debian:
+            logger.debug("Looks like we are on a Debian (derived) system ..")
             return True
         else:
-            logger.debug("Looks like we're not on a Debian (derived) system (%s doesn't exist) ..", filename)
+            logger.debug("Looks like we're not on a Debian (derived) system ..")
             return False
 
     def find_installed(self):
