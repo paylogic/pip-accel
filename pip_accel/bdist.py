@@ -24,6 +24,7 @@ import subprocess
 import tarfile
 import tempfile
 import time
+import sys
 
 # External dependencies.
 from humanfriendly import Spinner, Timer
@@ -178,9 +179,10 @@ def transform_binary_dist(archive_path, prefix='/usr'):
                 modified_pathname = re.sub('^local/', '', modified_pathname)
                 # Rewrite /dist-packages/ to /site-packages/. For details see
                 # https://wiki.debian.org/Python#Deviations_from_upstream.
-                modified_pathname = modified_pathname.replace('/dist-packages/', '/site-packages/')
-                # Enable operators to debug the transformation process.
-                logger.debug("Transformed %r -> %r.", original_pathname, modified_pathname)
+                if modified_pathname.replace('/dist-packages/', '/site-packages/') in sys.path:
+                  modified_pathname = modified_pathname.replace('/dist-packages/', '/site-packages/')
+                  # Enable operators to debug the transformation process.
+                  logger.debug("Transformed %r -> %r.", original_pathname, modified_pathname)
                 # Get the file data from the input archive.
                 handle = archive.extractfile(original_pathname)
                 # Yield the pathname, file mode and a handle to the data.
