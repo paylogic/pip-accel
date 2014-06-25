@@ -1,7 +1,7 @@
 # Functions to manipulate Python binary distribution archives.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: June 18, 2014
+# Last Change: June 25, 2014
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -188,7 +188,7 @@ def transform_binary_dist(archive_path, prefix='/usr'):
                 yield member, handle
     archive.close()
 
-def install_binary_dist(members, prefix, python='/usr/bin/python', enable_workarounds=True):
+def install_binary_dist(members, prefix, python='/usr/bin/python', virtualenv_compatible=True):
     """
     Install a binary distribution created with ``python setup.py bdist`` into
     the given prefix (a directory like ``/usr``, ``/usr/local`` or a virtual
@@ -202,8 +202,9 @@ def install_binary_dist(members, prefix, python='/usr/bin/python', enable_workar
     :param python: The pathname of the Python executable to use in the shebang
                    line of all executable Python scripts inside the binary
                    distribution.
-    :param enable_workarounds: Enable workarounds to make the resulting filenames
-                               compatible with virtual environments.
+    :param virtualenv_compatible: Enable workarounds to make the resulting
+                                  filenames compatible with virtual
+                                  environments.
     """
     # TODO This is quite slow for modules like Django. Speed it up! Two choices:
     #  1. Run the external tar program to unpack the archive. This will
@@ -213,13 +214,14 @@ def install_binary_dist(members, prefix, python='/usr/bin/python', enable_workar
     #     places based on the "seed" environment.
     for member, from_handle in members:
         pathname = member.name
-        # Some binary distributions include C header files (see for example the
-        # greenlet package) however the subdirectory of include/ in a virtual
-        # environment is a symbolic link to a subdirectory of /usr/include/ so
-        # we should never try to install C header files inside the directory
-        # pointed to by the symbolic link. Instead we implement the same
-        # workaround that pip uses to avoid this problem.
-        if enable_workarounds:
+        if virtualenv_compatible:
+            # Some binary distributions include C header files (see for example
+            # the greenlet package) however the subdirectory of include/ in a
+            # virtual environment is a symbolic link to a subdirectory of
+            # /usr/include/ so we should never try to install C header files
+            # inside the directory pointed to by the symbolic link. Instead we
+            # implement the same workaround that pip uses to avoid this
+            # problem.
             pathname = re.sub('^include/', 'include/site/', pathname)
         pathname = os.path.join(prefix, pathname)
         directory = os.path.dirname(pathname)
