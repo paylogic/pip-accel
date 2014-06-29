@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: June 26, 2014
+# Last Change: June 29, 2014
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Permanently store logs in the pip-accel directory (think about log rotation).
@@ -20,13 +20,12 @@ taking a look at the following functions:
 """
 
 # Semi-standard module versioning.
-__version__ = '0.12.11'
+__version__ = '0.13'
 
 # Standard library modules.
 import logging
 import os
 import os.path
-import pipes
 import shutil
 import sys
 import tempfile
@@ -46,6 +45,7 @@ from pip_accel.bdist import get_binary_dist, install_binary_dist
 from pip_accel.config import (binary_index, download_cache, index_version_file,
                               on_debian, source_index)
 from pip_accel.req import Requirement
+from pip_accel.utils import run
 
 # External dependencies.
 import coloredlogs
@@ -245,12 +245,18 @@ def install_requirements(requirements, install_prefix=ENVIRONMENT):
     python = os.path.join(install_prefix, 'bin', 'python')
     pip = os.path.join(install_prefix, 'bin', 'pip')
     for requirement in requirements:
-        if os.system('%s uninstall --yes %s >/dev/null 2>&1' % (pipes.quote(pip), pipes.quote(requirement.name))) == 0:
+        if run('{pip} uninstall --yes {package} >/dev/null 2>&1', pip=pip, package=requirement.name):
             logger.info("Uninstalled previously installed package %s.", requirement.name)
-        members = get_binary_dist(requirement.name, requirement.version,
-                                  requirement.source_directory, requirement.url,
-                                  prefix=install_prefix, python=python)
-        install_binary_dist(members, prefix=install_prefix, python=python)
+        if requirement.is_editable:
+            logger.debug("Installing requirement %s in editable form using pip.", requirement.name)
+            if not run('{pip} install --no-deps --editable {url} >/dev/null 2>&1', pip=pip, url=requirement.url):
+                msg = "Failed to install %s (%s) in editable form!"
+                raise Exception(msg % (requirement.name, requirement.url))
+        else:
+            members = get_binary_dist(requirement.name, requirement.version,
+                                      requirement.source_directory, requirement.url,
+                                      prefix=install_prefix, python=python)
+            install_binary_dist(members, prefix=install_prefix, python=python)
     logger.info("Finished installing all requirements in %s.", install_timer)
     return True
 

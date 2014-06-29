@@ -1,7 +1,7 @@
 # Simple wrapper for pip and pkg_resources Requirement objects.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: March 20, 2014
+# Last Change: June 29, 2014
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -122,3 +122,12 @@ class Requirement:
         The opposite of :py:attr:`Requirement.is_transitive`.
         """
         return not self.is_transitive
+
+    @property
+    def is_editable(self):
+        """
+        ``True`` when the requirement is to be installed in editable mode (i.e.
+        setuptools "develop mode"). Based on
+        :py:attr:`pip.req.InstallRequirement.editable`.
+        """
+        return self.pip_requirement.editable
