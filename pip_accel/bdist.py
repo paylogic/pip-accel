@@ -1,7 +1,7 @@
 # Functions to manipulate Python binary distribution archives.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: June 26, 2014
+# Last Change: July 11, 2014
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -48,7 +48,7 @@ def get_binary_dist(package, version, directory, url=None, python='/usr/bin/pyth
     :param version: The version of the requirement to build.
     :param directory: The directory where the unpacked sources of the
                       requirement are available.
-    :param url: The URL of the requirement, optional. When given this is used
+    :param url: The URL of the requirement (optional). When given this is used
                 to generate the filename of the cached binary distribution.
     :param python: The pathname of the Python executable to use to run
                    ``setup.py`` (obviously this should point to a working
@@ -56,7 +56,24 @@ def get_binary_dist(package, version, directory, url=None, python='/usr/bin/pyth
     :param prefix: The prefix that the original binary distribution was created for.
     :returns: An iterable of tuples with two values each: A
               :py:class:`tarfile.TarInfo` object and a file-like object.
+
+    .. note:: The ``url`` parameter is ignored if it contains a ``file://``
+              URL. The reason for this is as follows:
+
+              - When pip is passed the pathname of a directory containing an
+                unpacked source distribution it will set the URL of the
+                requirement to a ``file://`` URL pointing to the directory.
+
+              - Exporting source distributions from a VCS repository to a
+                temporary directory and installing them with pip-accel is a
+                very reasonable use case.
+
+              - The two previous points combined mean the "URL" of the package
+                would change with every run of pip-accel, triggering a time
+                consuming rebuild of the binary distribution.
     """
+    if url and url.startswith('file://'):
+        url = None
     tag = hashlib.sha1(str(version + url).encode()).hexdigest() if url else version
     cache_file = os.path.join(binary_index, '%s:%s:%s.tar.gz' % (package, tag, get_python_version()))
     if not os.path.isfile(cache_file):
