@@ -1,7 +1,7 @@
 # Functions to manipulate Python binary distribution archives.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: July 11, 2014
+# Last Change: July 16, 2014
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -20,6 +20,7 @@ import os.path
 import pipes
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tarfile
@@ -178,6 +179,19 @@ def transform_binary_dist(archive_path, prefix='/usr'):
     logger.debug("Using environment prefix: %s.", prefix)
     archive = tarfile.open(archive_path, 'r')
     for member in archive.getmembers():
+        # Some source distribution archives on PyPI that are distributed as ZIP
+        # archives contain really weird permissions: the world readable bit is
+        # missing. I've encountered this with the httplib2 (0.9) and
+        # google-api-python-client (1.2) packages. I assume this is a bug of
+        # some kind in the packaging process on "their" side.
+        if member.mode & stat.S_IXUSR:
+            # If the owner has execute permissions we'll give everyone read and
+            # execute permissions (only the owner gets write permissions).
+            member.mode = 0o755
+        else:
+            # If the owner doesn't have execute permissions we'll give everyone
+            # read permissions (only the owner gets write permissions).
+            member.mode = 0o644
         # In my testing the `dumb' tar files created with the `python setup.py
         # bdist' command contain pathnames that are relative to `/' which is
         # kind of awkward: I would like to use os.path.relpath() on them but
