@@ -14,6 +14,7 @@ from pip_accel.utils import expand_user
 # Select the default location of the download cache and other files based on
 # the user running the pip-accel command (root goes to /var/cache/pip-accel,
 # otherwise ~/.pip-accel).
+s3_cache_bucket = None
 if os.getuid() == 0:
     download_cache = '/root/.pip/download-cache'
     pip_accel_cache = '/var/cache/pip-accel'
@@ -22,6 +23,9 @@ else:
     pip_accel_cache = expand_user('~/.pip-accel')
 
 # Enable overriding the default locations with environment variables.
+if 'PIP_S3_CACHE_BUCKET' in os.environ:
+    s3_cache_bucket = expand_user(os.environ['PIP_S3_CACHE_BUCKET'])
+    s3_cache_prefix = expand_user(os.environ.get('PIP_S3_CACHE_PREFIX', ''))
 if 'PIP_DOWNLOAD_CACHE' in os.environ:
     download_cache = expand_user(os.environ['PIP_DOWNLOAD_CACHE'])
 if 'PIP_ACCEL_CACHE' in os.environ:
