@@ -20,7 +20,7 @@ taking a look at the following functions:
 """
 
 # Semi-standard module versioning.
-__version__ = '0.13.4'
+__version__ = '0.13.5'
 
 # Standard library modules.
 import logging
@@ -372,16 +372,17 @@ def update_source_dists_index():
     link_timer = Timer()
     for download_name in os.listdir(download_cache):
         download_path = os.path.join(download_cache, download_name)
-        url = unquote(download_name)
-        if not url.endswith('.content-type'):
-            components = urlparse(url)
-            archive_name = os.path.basename(components.path)
-            archive_path = os.path.join(source_index, add_extension(download_path, archive_name))
-            if not os.path.isfile(archive_path):
-                logger.debug("Linking files:")
-                logger.debug(" - Source: %s", download_path)
-                logger.debug(" - Target: %s", archive_path)
-                os.symlink(download_path, archive_path)
+        if os.path.isfile(download_path):
+            url = unquote(download_name)
+            if not url.endswith('.content-type'):
+                components = urlparse(url)
+                archive_name = os.path.basename(components.path)
+                archive_path = os.path.join(source_index, add_extension(download_path, archive_name))
+                if not os.path.isfile(archive_path):
+                    logger.debug("Linking files:")
+                    logger.debug(" - Source: %s", download_path)
+                    logger.debug(" - Target: %s", archive_path)
+                    os.symlink(download_path, archive_path)
     logger.debug("Updated source index links in %s.", link_timer)
 
 def add_extension(download_path, archive_path):
