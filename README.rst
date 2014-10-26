@@ -199,7 +199,7 @@ License
 This software is licensed under the `MIT license`_ just like pip_ (on which
 ``pip-accel`` is based).
 
-© 2013 Peter Odding and Paylogic_ International.
+© 2014 Peter Odding and Paylogic_ International.
 
 
 .. External references:
