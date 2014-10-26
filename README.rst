@@ -33,6 +33,8 @@ to install the missing dependencies and retry the build.
 The ``pip-accel`` program is tested on Python 2.6, 2.7 and 3.4 although support
 for Python 3 is very new so may still have some issues.
 
+.. contents::
+
 Status
 ------
 
@@ -141,6 +143,13 @@ Here's what it looks like in practice::
  2013-06-16 01:02:13 wheezy-vm INFO Building binary distribution of python-mcrypt (1.1) ..
  2013-06-16 01:02:14 wheezy-vm INFO Copying binary distribution python-mcrypt-1.1.linux-i686.tar.gz to cache as python-mcrypt:1.1:py2.7.tar.gz.
 
+Integrating with tox
+--------------------
+
+You can tell Tox_ to use pip-accel using a small shell script that first uses
+pip to install pip-accel, then uses pip-accel to bootstrap the virtual
+environment. You can find details about this in `issue #30 on GitHub`_.
+
 Control flow of pip-accel
 -------------------------
 
@@ -207,6 +216,7 @@ This software is licensed under the `MIT license`_ just like pip_ (on which
 .. _Binary distributions: http://docs.python.org/2/distutils/builtdist.html
 .. _GitHub project page: https://github.com/paylogic/pip-accel
 .. _hosted on Read The Docs: https://pip-accel.readthedocs.org/
+.. _issue #30 on GitHub: https://github.com/paylogic/pip-accel/issues/30
 .. _local index of source distribution archives: http://www.pip-installer.org/en/latest/cookbook.html#fast-local-installs
 .. _LXML: https://pypi.python.org/pypi/lxml
 .. _M2Crypto: https://pypi.python.org/pypi/M2Crypto
@@ -214,5 +224,6 @@ This software is licensed under the `MIT license`_ just like pip_ (on which
 .. _Paylogic: http://www.paylogic.com/
 .. _pip: http://www.pip-installer.org/
 .. _PyPI: http://pypi.python.org/
-.. _Python virtual environments: http://www.virtualenv.org/en/latest/
+.. _Python virtual environments: http://www.virtualenv.org/
 .. _requirements files: http://www.pip-installer.org/en/latest/cookbook.html#requirements-files
+.. _Tox: https://tox.readthedocs.org/
