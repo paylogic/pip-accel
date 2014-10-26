@@ -64,7 +64,7 @@ subcommand. So for example::
    pip-accel install -r requirements.txt
 
 If you pass a `-v` or `--verbose` option then ``pip`` and ``pip-accel`` will
-both use verbose output.
+both use verbose output. The `q` or `--quiet` option is also supported.
 
 Based on the user running ``pip-accel`` the following file locations are used
 by default:
