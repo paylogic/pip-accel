@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: July 16, 2014
+# Last Change: October 26, 2014
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Permanently store logs in the pip-accel directory (think about log rotation).
@@ -20,7 +20,7 @@ taking a look at the following functions:
 """
 
 # Semi-standard module versioning.
-__version__ = '0.13.3'
+__version__ = '0.13.4'
 
 # Standard library modules.
 import logging
@@ -91,9 +91,10 @@ def main():
     coloredlogs.install()
     # Increase verbosity based on -v, --verbose options.
     for argument in arguments:
-        if argument == '--verbose' or (len(argument) >= 2 and argument[0] ==
-                '-' and argument[1] != '-' and 'v' in argument):
+        if match_option(argument, '-v', '--verbose'):
             coloredlogs.increase_verbosity()
+        elif match_option(argument, '-q', '--quiet'):
+            coloredlogs.decrease_verbosity()
     # Make sure the prefix is the same as the environment.
     if not os.path.samefile(sys.prefix, ENVIRONMENT):
         logger.error("You are trying to install packages in environment #1 which is different from environment #2 where pip-accel is installed! Please install pip-accel under environment #1 to install packages there.")
@@ -110,13 +111,13 @@ def main():
             try:
                 requirements = unpack_source_dists(arguments, build_directory)
             except DistributionNotFound:
-                logger.warn("We don't have all source distributions yet!")
+                logger.info("We don't have all source distributions yet!")
                 download_source_dists(arguments, build_directory)
             else:
                 install_requirements(requirements)
                 logger.info("Done! Took %s to install %i package%s.", main_timer, len(requirements), '' if len(requirements) == 1 else 's')
                 return
-            logger.warn("pip failed, retrying (%i/%i) ..", i + 1, MAX_RETRIES)
+            logger.info("pip failed, retrying (%i/%i) ..", i + 1, MAX_RETRIES)
     except InstallationError:
         # Abort early when pip reports installation errors.
         logger.fatal("pip reported unrecoverable installation errors. Please fix and rerun!")
@@ -127,6 +128,26 @@ def main():
     # Abort when after N retries we still failed to download source distributions.
     logger.fatal("External command failed %i times, aborting!" % MAX_RETRIES)
     sys.exit(1)
+
+def match_option(argument, short_option, long_option):
+    """
+    Match a command line argument against a short and long option.
+
+    :param argument: The command line argument (a string).
+    :param short_option: The short option (a string).
+    :param long_option: The long option (a string).
+    :returns: ``True`` if the argument matches, ``False`` otherwise.
+    """
+    return short_option[1] in argument[1:] if is_short_option(argument) else argument == long_option
+
+def is_short_option(argument):
+    """
+    Check if a command line argument is a short option.
+
+    :param argument: The command line argument (a string).
+    :returns: ``True`` if the argument is a short option, ``False`` otherwise.
+    """
+    return len(argument) >= 2 and argument[0] == '-' and argument[1] != '-'
 
 def print_usage():
     """
