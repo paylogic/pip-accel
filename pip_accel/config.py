@@ -15,6 +15,8 @@ from pip_accel.utils import expand_user
 # the user running the pip-accel command (root goes to /var/cache/pip-accel,
 # otherwise ~/.pip-accel).
 s3_cache_bucket = None
+s3_cache_prefix = None
+
 if os.getuid() == 0:
     download_cache = '/root/.pip/download-cache'
     pip_accel_cache = '/var/cache/pip-accel'
