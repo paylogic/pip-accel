@@ -185,6 +185,29 @@ distributions).
    installations manually because ``easy_install`` nor ``pip`` support binary
    ``*.tar.gz`` distributions.
 
+Storing the Binary Cache on Amazon S3
+-------------------------------------
+
+``pip-accel`` can optionally store its binary cache files on Amazon S3. If configured,
+S3 is used as a second-level  cache - only used if the local filesystem cache does not
+have a required pre-built dependency. If the dependency is not found on S3, it is built
+and saved locally as usual, but then also saved to S3.
+
+This functionality can be useful for continuous integration build worker boxes that are
+ephemeral and don't have a persistent local storage to store the ``pip-accel`` cache.
+
+To configure, set the following environment variables:
+
+* ``PIP_S3_CACHE_BUCKET`` : the name of the S3 bucket to use
+* ``PIP_S3_CACHE_PREFIX`` : the prefix (analogous to folder path) for the root of the cache.
+ Since these are binary packages, this prefix should be unique for each machine-architecture.
+
+If these variables are not set, then the S3 cache is not used.
+
+You will also need to set AWS credentials - either in a
+[.boto](http://boto.readthedocs.org/en/latest/boto_config_tut.html) file or in the
+``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY`` environment variables.
+
 Contact
 -------
 
