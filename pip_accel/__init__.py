@@ -43,7 +43,7 @@ except ImportError:
 # Modules included in our package.
 from pip_accel.bdist import get_binary_dist, install_binary_dist
 from pip_accel.config import (binary_index, download_cache, index_version_file,
-                              on_debian, source_index)
+                              on_debian, source_index, s3_cache_bucket, s3_cache_prefix)
 from pip_accel.req import Requirement
 from pip_accel.utils import run
 
@@ -486,6 +486,54 @@ class CustomPackageFinder(pip_index_module.PackageFinder):
     @dependency_links.setter
     def dependency_links(self, value):
         logger.debug("Custom package finder ignoring 'dependency_links' value (%r) ..", value)
+
+
+def cache_file_exists(cache_file, binary_index):
+    """Check if S3 cache is configured; if so, check the cache to see if the file exists there.
+       If it does exist in the S3 cache, download it to the local cache so it can be used."""
+    if os.path.isfile(cache_file):
+        return True
+    if s3_cache_bucket is None:
+        return False
+    logger.debug("S3_CACHE_BUCKET is set, attempting to read file from S3 cache.")
+    try:
+        import boto
+        from boto.s3.key import Key
+        bucket = boto.connect_s3().get_bucket(s3_cache_bucket)
+        s3_key = get_s3_key_path(binary_index, cache_file)
+        logger.info("Downloading {} from S3 cache.".format(s3_key))
+        key = bucket.get_key(s3_key)
+        if key is not None:
+            key.get_contents_to_filename(cache_file)
+            return True
+    except ImportError:
+        logger.debug("boto module not found - cannot read file from S3 cache.")
+    return False
+
+
+def store_file_into_s3_cache(cache_file, binary_index):
+    """If the S3 cache is configured, store the file there."""
+    if s3_cache_bucket is None:
+        return False
+    logger.debug("S3_CACHE_BUCKET is set, attempting to store file in S3 cache.")
+    try:
+        import boto
+        from boto.s3.key import Key
+        bucket = boto.connect_s3().get_bucket(s3_cache_bucket)
+        s3_key = get_s3_key_path(binary_index, cache_file)
+        logger.info("Storing file {} into S3 cache at {}.".format(cache_file, s3_key))
+        key = Key(bucket)
+        key.key = s3_key
+        key.set_contents_from_filename(cache_file)
+        return True
+    except ImportError:
+        logger.debug("boto module not found - cannot store file into S3 cache.")
+    return False
+
+
+def get_s3_key_path(binary_index, cache_file):
+    return '/'.join([s3_cache_prefix, cache_file.replace(binary_index + '/', '')])
+
 
 if __name__ == '__main__':
     main()
