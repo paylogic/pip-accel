@@ -26,8 +26,8 @@ else:
 
 # Enable overriding the default locations with environment variables.
 if 'PIP_S3_CACHE_BUCKET' in os.environ:
-    s3_cache_bucket = expand_user(os.environ['PIP_S3_CACHE_BUCKET'])
-    s3_cache_prefix = expand_user(os.environ.get('PIP_S3_CACHE_PREFIX', ''))
+    s3_cache_bucket = os.environ['PIP_S3_CACHE_BUCKET']
+    s3_cache_prefix = os.environ.get('PIP_S3_CACHE_PREFIX', '')
 if 'PIP_DOWNLOAD_CACHE' in os.environ:
     download_cache = expand_user(os.environ['PIP_DOWNLOAD_CACHE'])
 if 'PIP_ACCEL_CACHE' in os.environ:
