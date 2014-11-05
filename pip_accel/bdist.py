@@ -333,27 +333,37 @@ def cache_file_exists(cache_file, binary_index):
         return True
     if s3_cache_bucket is None:
         return False
-    bucket = get_s3_bucket()
-    s3_key = get_s3_key_path(binary_index, cache_file)
-    logger.info("Downloading {} from S3 cache.".format(s3_key))
-    key = bucket.get_key(s3_key)
-    if key is not None:
-        key.get_contents_to_filename(cache_file)
-        return True
+    logger.debug("S3_CACHE_BUCKET is set, attempting to read file from S3 cache.")
+    try:
+        import boto
+        bucket = get_s3_bucket()
+        s3_key = get_s3_key_path(binary_index, cache_file)
+        logger.info("Downloading {} from S3 cache.".format(s3_key))
+        key = bucket.get_key(s3_key)
+        if key is not None:
+            key.get_contents_to_filename(cache_file)
+            return True
+    except ImportError:
+        logger.debug("boto module not found - cannot read file from S3 cache.")
     return False
 
 
 def store_file_into_s3_cache(cache_file, binary_index):
     if s3_cache_bucket is None:
         return False
-    logger.debug("Storing {} into S3 cache.".format(cache_file, binary_index))
-    bucket = get_s3_bucket()
-    s3_key = get_s3_key_path(binary_index, cache_file)
-    logger.info("Storing file {} into S3 cache at {}.".format(cache_file, s3_key))
-    key = Key(bucket)
-    key.key = s3_key
-    key.set_contents_from_filename(cache_file)
-    return True
+    logger.debug("S3_CACHE_BUCKET is set, attempting to store file in S3 cache.")
+    try:
+        import boto
+        bucket = get_s3_bucket()
+        s3_key = get_s3_key_path(binary_index, cache_file)
+        logger.info("Storing file {} into S3 cache at {}.".format(cache_file, s3_key))
+        key = Key(bucket)
+        key.key = s3_key
+        key.set_contents_from_filename(cache_file)
+        return True
+    except ImportError:
+        logger.debug("boto module not found - cannot store file into S3 cache.")
+    return False
 
 
 def get_s3_key_path(binary_index, cache_file):

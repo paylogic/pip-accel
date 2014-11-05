@@ -194,18 +194,21 @@ have a required pre-built dependency. If the dependency is not found on S3, it i
 and saved locally as usual, but then also saved to S3.
 
 This functionality can be useful for continuous integration build worker boxes that are
-ephemeral and don't have a persistent local storage to store the ``pip-accel`` cache.
+ephemeral and don't have a persistent local storage to store the ``pip-accel`` binary
+cache.
 
-To configure, set the following environment variables:
+To configure, install the `boto<https://github.com/boto/boto>`_ module in your environment,
+and then set the following environment variables:
 
 * ``PIP_S3_CACHE_BUCKET`` : the name of the S3 bucket to use
 * ``PIP_S3_CACHE_PREFIX`` : the prefix (analogous to folder path) for the root of the cache.
  Since these are binary packages, this prefix should be unique for each machine-architecture.
 
-If these variables are not set, then the S3 cache is not used.
+If these variables are not set, or if the ``boto`` module is not found, then the S3 cache is
+not used.
 
 You will also need to set AWS credentials - either in a
-[.boto](http://boto.readthedocs.org/en/latest/boto_config_tut.html) file or in the
+`.boto<http://boto.readthedocs.org/en/latest/boto_config_tut.html>`_ file or in the
 ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY`` environment variables.
 
 Contact
