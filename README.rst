@@ -197,7 +197,7 @@ This functionality can be useful for continuous integration build worker boxes t
 ephemeral and don't have a persistent local storage to store the ``pip-accel`` binary
 cache.
 
-To configure, install the `boto<https://github.com/boto/boto>`_ module in your environment,
+To configure, install the `boto <https://github.com/boto/boto>`_ module in your environment,
 and then set the following environment variables:
 
 * ``PIP_S3_CACHE_BUCKET`` : the name of the S3 bucket to use
@@ -208,7 +208,7 @@ If these variables are not set, or if the ``boto`` module is not found, then the
 not used.
 
 You will also need to set AWS credentials - either in a
-`.boto<http://boto.readthedocs.org/en/latest/boto_config_tut.html>`_ file or in the
+`.boto <http://boto.readthedocs.org/en/latest/boto_config_tut.html>`_ file or in the
 ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY`` environment variables.
 
 Contact
