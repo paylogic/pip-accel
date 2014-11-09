@@ -1,13 +1,16 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: October 26, 2014
+# Last Change: November 9, 2014
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Permanently store logs in the pip-accel directory (think about log rotation).
 # TODO Maybe we should save the output of `python setup.py bdist_dumb` somewhere as well?
 
 """
+:py:mod:`pip_accel` - Top level functions and command line interface
+====================================================================
+
 The Python module :py:mod:`pip_accel` defines the classes and functions that
 implement the functionality of the pip accelerator and the ``pip-accel``
 command. Instead of using the ``pip-accel`` command you can also use the pip
@@ -20,7 +23,7 @@ taking a look at the following functions:
 """
 
 # Semi-standard module versioning.
-__version__ = '0.13.5'
+__version__ = '0.14'
 
 # Standard library modules.
 import logging
@@ -42,8 +45,8 @@ except ImportError:
 
 # Modules included in our package.
 from pip_accel.bdist import get_binary_dist, install_binary_dist
-from pip_accel.config import (binary_index, download_cache, index_version_file,
-                              on_debian, source_index)
+from pip_accel.caches import CacheManager
+from pip_accel.config import binary_index, download_cache, index_version_file, on_debian, source_index
 from pip_accel.req import Requirement
 from pip_accel.utils import run
 
@@ -104,6 +107,7 @@ def main():
     main_timer = Timer()
     initialize_directories()
     build_directory = tempfile.mkdtemp()
+    cache = CacheManager()
     # Execute "pip install" in a loop in order to retry after intermittent
     # error responses from servers (which can happen quite frequently).
     try:
@@ -114,7 +118,7 @@ def main():
                 logger.info("We don't have all source distributions yet!")
                 download_source_dists(arguments, build_directory)
             else:
-                install_requirements(requirements)
+                install_requirements(requirements, cache)
                 logger.info("Done! Took %s to install %i package%s.", main_timer, len(requirements), '' if len(requirements) == 1 else 's')
                 return
             logger.info("pip failed, retrying (%i/%i) ..", i + 1, MAX_RETRIES)
@@ -239,11 +243,12 @@ def download_source_dists(arguments, build_directory):
     except Exception as e:
         logger.warn("pip raised an exception while downloading source distributions: %s.", e)
 
-def install_requirements(requirements, install_prefix=ENVIRONMENT):
+def install_requirements(requirements, cache, install_prefix=ENVIRONMENT):
     """
     Manually install all requirements from binary distributions.
 
     :param requirements: A list of :py:class:`pip_accel.req.Requirement` objects.
+    :param cache: A :py:class:`.CacheManager` object.
     :param install_prefix: The "prefix" under which the requirements should be
                            installed. This will be a pathname like ``/usr``,
                            ``/usr/local`` or the pathname of a virtual
@@ -276,7 +281,7 @@ def install_requirements(requirements, install_prefix=ENVIRONMENT):
         else:
             members = get_binary_dist(requirement.name, requirement.version,
                                       requirement.source_directory, requirement.url,
-                                      prefix=install_prefix, python=python)
+                                      cache=cache, prefix=install_prefix, python=python)
             install_binary_dist(members, prefix=install_prefix, python=python)
         requirement.pip_requirement.remove_temporary_source()
     logger.info("Finished installing all requirements in %s.", install_timer)
@@ -508,6 +513,3 @@ class CustomPackageFinder(pip_index_module.PackageFinder):
     @dependency_links.setter
     def dependency_links(self, value):
         logger.debug("Custom package finder ignoring 'dependency_links' value (%r) ..", value)
-
-if __name__ == '__main__':
-    main()

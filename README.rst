@@ -61,9 +61,11 @@ Usage
 
 The ``pip-accel`` command supports all subcommands and options supported by
 ``pip``, however it is of course only useful for the ``pip install``
-subcommand. So for example::
+subcommand. So for example:
 
-   pip-accel install -r requirements.txt
+.. code-block:: bash
+
+   $ pip-accel install -r requirements.txt
 
 If you pass a `-v` or `--verbose` option then ``pip`` and ``pip-accel`` will
 both use verbose output. The `q` or `--quiet` option is also supported.
@@ -98,6 +100,58 @@ pip        With download cache (second run)  318 seconds  72%
 pip-accel  First run                         397 seconds  89%
 pip-accel  Second run                        30 seconds   7%
 =========  ================================  ===========  ===============
+
+Alternative cache backends
+--------------------------
+
+Bundled with pip-accel are a local cache backend (which stores distribution
+archives on the local file system) and an Amazon S3 backend (see below).
+
+Both of these cache backends are registered with pip-accel using a generic
+pluggable cache backend registration mechanism. This mechanism makes it
+possible to register additional cache backends without modifying pip-accel. If
+you are interested in the details please refer to pip-accel's ``setup.py``
+script and the two simple Python modules that define the bundled backends.
+
+If you've written a cache backend that you think may be valuable to others,
+please feel free to open an issue or pull request on GitHub in order to get
+your backend bundled with pip-accel.
+
+Storing the binary cache on Amazon S3
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can configure pip-accel to store its binary cache files in an `Amazon S3`_
+bucket. In this case Amazon S3 is treated as a second level cache, only used if
+the local file system cache can't satisfy a dependency. If the dependency is
+not found in the Amazon S3 bucket, the package is built and cached locally (as
+usual) but then also saved to the Amazon S3 bucket. This functionality can be
+useful for continuous integration build worker boxes that are ephemeral and
+don't have persistent local storage to store the pip-accel binary cache.
+
+To get started you need to install pip-accel as follows:
+
+.. code-block:: bash
+
+   $ pip install 'pip-accel[s3]'
+
+The ``[s3]`` part enables the Amazon S3 cache backend by installing the Boto_
+package. Once installed you can use the following environment variables to
+configure the Amazon S3 cache backend:
+
+``$PIP_ACCEL_S3_BUCKET``
+ The name of the Amazon S3 bucket in which binary distribution archives should
+ be cached. This environment variable is required to enable the Amazon S3 cache
+ backend.
+
+``$PIP_ACCEL_S3_PREFIX``
+ The optional prefix to apply to all Amazon S3 keys. This enables name spacing
+ based on the environment in which pip-accel is running (to isolate the binary
+ caches of ABI incompatible systems). *The user is currently responsible for
+ choosing a suitable prefix.*
+
+You will also need to set AWS credentials, either in a `.boto file`_ or in the
+``$AWS_ACCESS_KEY_ID`` and ``$AWS_SECRET_ACCESS_KEY`` environment variables
+(refer to the Boto documentation for details).
 
 Dependencies on system packages
 -------------------------------
@@ -212,8 +266,11 @@ This software is licensed under the `MIT license`_ just like pip_ (on which
 
 
 .. External references:
+.. _.boto file: http://boto.readthedocs.org/en/latest/boto_config_tut.html
+.. _Amazon S3: http://aws.amazon.com/s3/
 .. _behind a CDN: http://mail.python.org/pipermail/distutils-sig/2013-May/020848.html
 .. _Binary distributions: http://docs.python.org/2/distutils/builtdist.html
+.. _Boto: https://github.com/boto/boto
 .. _GitHub project page: https://github.com/paylogic/pip-accel
 .. _hosted on Read The Docs: https://pip-accel.readthedocs.org/
 .. _issue #30 on GitHub: https://github.com/paylogic/pip-accel/issues/30

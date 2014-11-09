@@ -3,7 +3,7 @@
 # Tests for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: May 11, 2014
+# Last Change: November 9, 2014
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Test successful installation of iPython, because it used to break! (nested /lib/ directory)
@@ -19,6 +19,9 @@ import unittest
 
 # External dependency.
 import coloredlogs
+
+# Initialize a logger for this module.
+logger = logging.getLogger(__name__)
 
 class PipAccelTestCase(unittest.TestCase):
 
@@ -81,11 +84,14 @@ class PipAccelTestCase(unittest.TestCase):
         # pass "install_prefix" explicitly here because the Python process
         # running this test is not inside the virtual environment created to
         # run the tests...
-        self.pip_accel.install_requirements(requirements, install_prefix=self.virtual_environment)
+        self.pip_accel.install_requirements(requirements,
+                                            cache=self.pip_accel.caches.CacheManager(),
+                                            install_prefix=self.virtual_environment)
         # Check that the virtualenv command was installed.
         self.assertTrue(os.path.isfile(os.path.join(self.virtual_environment, 'bin', 'virtualenv')))
         # Check that the virtualenv command can be executed successfully.
-        command = '%s --help >/dev/null 2>&1' % pipes.quote(os.path.join(self.virtual_environment, 'bin', 'virtualenv'))
+        logger.debug("Checking that `virtualenv' command works ..")
+        command = '%s --help' % pipes.quote(os.path.join(self.virtual_environment, 'bin', 'virtualenv'))
         self.assertEqual(os.system(command), 0)
 
     def tearDown(self):

@@ -1,8 +1,17 @@
 # Utility functions for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: June 29, 2014
+# Last Change: November 9, 2014
 # URL: https://github.com/paylogic/pip-accel
+
+"""
+:py:mod:`pip_accel.utils` - Utility functions
+=============================================
+
+The :py:mod:`pip_accel.utils` module defines several miscellaneous/utility
+functions that are used throughout :py:mod:`pip_accel` but don't really belong
+with any single module.
+"""
 
 # Standard library modules.
 import os
@@ -15,17 +24,16 @@ import sys
 # pathnames relative to the home directory.
 HOME = pwd.getpwuid(os.getuid()).pw_dir
 
-def run(command, **params):
+def compact(text, **kw):
     """
-    Format command string with quoted parameters and execute external command.
+    Compact whitespace in a string and format any keyword arguments into the
+    resulting string.
 
-    :param command: The shell command line to run (a string).
-    :param params: Zero or more keyword arguments to be formatted into the
-                   command line as quoted arguments.
-    :returns: ``True`` if the command succeeds, ``False`` otherwise.
+    :param text: The text to compact (a string).
+    :param kw: Any keyword arguments to apply using :py:func:`str.format()`.
+    :returns: The compacted, formatted string.
     """
-    params = dict((k, pipes.quote(v)) for k, v in params.items())
-    return os.system(command.format(**params)) == 0
+    return ' '.join(text.split()).format(**kw)
 
 def expand_user(pathname):
     """
@@ -47,3 +55,15 @@ def get_python_version():
               prefix followed by the major and minor version numbers.
     """
     return "py%i.%i" % (sys.version_info[0], sys.version_info[1])
+
+def run(command, **params):
+    """
+    Format command string with quoted parameters and execute external command.
+
+    :param command: The shell command line to run (a string).
+    :param params: Zero or more keyword arguments to be formatted into the
+                   command line as quoted arguments.
+    :returns: ``True`` if the command succeeds, ``False`` otherwise.
+    """
+    params = dict((k, pipes.quote(v)) for k, v in params.items())
+    return os.system(command.format(**params)) == 0

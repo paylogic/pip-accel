@@ -55,7 +55,10 @@ pygments_style = 'sphinx'
 
 # Refer to the Python standard library.
 # From: http://twistedmatrix.com/trac/ticket/4582.
-intersphinx_mapping = {'python': ('http://docs.python.org', None)}
+intersphinx_mapping = {
+    'python': ('http://docs.python.org', None),
+    'boto': ('http://boto.readthedocs.org/en/latest/', None),
+}
 
 # -- Options for HTML output ---------------------------------------------------
 
@@ -63,10 +66,16 @@ intersphinx_mapping = {'python': ('http://docs.python.org', None)}
 # a list of builtin themes.
 html_theme = 'default'
 
-# Add any paths that contain custom static files (such as style sheets) here,
-# relative to this directory. They are copied after the builtin static files,
-# so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['static']
-
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'pip-acceldoc'
+
+def setup(app):
+    def skip_member(app, what, name, obj, skip, options):
+        """
+        Based on http://stackoverflow.com/a/5599712/788200.
+        """
+        if name == '__init__':
+            return not obj.__doc__
+        else:
+            return skip
+    app.connect('autodoc-skip-member', skip_member)

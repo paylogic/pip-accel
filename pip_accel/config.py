@@ -1,7 +1,7 @@
 # Configuration defaults for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: June 26, 2014
+# Last Change: November 9, 2014
 # URL: https://github.com/paylogic/pip-accel
 
 # Standard library modules.
@@ -26,6 +26,10 @@ if 'PIP_DOWNLOAD_CACHE' in os.environ:
     download_cache = expand_user(os.environ['PIP_DOWNLOAD_CACHE'])
 if 'PIP_ACCEL_CACHE' in os.environ:
     pip_accel_cache = expand_user(os.environ['PIP_ACCEL_CACHE'])
+
+# Get the S3 configuration options (if set).
+s3_cache_bucket = os.environ.get('PIP_ACCEL_S3_BUCKET')
+s3_cache_prefix = os.environ.get('PIP_ACCEL_S3_PREFIX', '')
 
 # Generate the absolute pathnames of the source/binary caches.
 source_index = os.path.join(pip_accel_cache, 'sources')

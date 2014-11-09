@@ -3,7 +3,7 @@
 # Setup script for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: May 11, 2014
+# Last Change: November 9, 2014
 # URL: https://github.com/paylogic/pip-accel
 
 import re
@@ -39,7 +39,16 @@ setup(name='pip-accel',
       author_email='peter.odding@paylogic.eu',
       url='https://github.com/paylogic/pip-accel',
       packages=find_packages(),
-      entry_points={'console_scripts': ['pip-accel = pip_accel:main']},
+      entry_points={
+          'console_scripts': ['pip-accel = pip_accel:main'],
+          'pip_accel.cache_backends': [
+              # The default cache backend (uses the local file system).
+              'local = pip_accel.caches.local',
+              # An optional cache backend that uses Amazon S3.
+              's3 = pip_accel.caches.s3 [s3]',
+          ],
+      },
+      extras_require={'s3': 'boto >= 2.32'},
       package_data={'pip_accel.deps': ['*.ini']},
       install_requires=requirements,
       tests_require=['virtualenv'],

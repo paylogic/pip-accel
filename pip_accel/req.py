@@ -1,12 +1,12 @@
 # Simple wrapper for pip and pkg_resources Requirement objects.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: June 29, 2014
+# Last Change: November 9, 2014
 # URL: https://github.com/paylogic/pip-accel
 
 """
-Requirement objects
-===================
+:py:mod:`pip_accel.req` - Requirement objects
+=============================================
 
 After downloading the specified requirement(s) pip reports a "requirement set"
 to pip-accel. In the past :py:func:`pip_accel.unpack_source_dists()` would

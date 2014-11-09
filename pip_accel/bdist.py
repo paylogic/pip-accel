@@ -1,19 +1,18 @@
 # Functions to manipulate Python binary distribution archives.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: July 16, 2014
+# Last Change: November 9, 2014
 # URL: https://github.com/paylogic/pip-accel
 
 """
-Binary distribution archive manipulation
-========================================
+:py:mod:`pip_accel.bdist` - Binary distribution archive manipulation
+====================================================================
 
 The functions in this module are used to create, transform and install from
 binary distribution archives.
 """
 
 # Standard library modules.
-import hashlib
 import logging
 import os
 import os.path
@@ -31,14 +30,13 @@ import time
 from humanfriendly import Spinner, Timer
 
 # Modules included in our package.
-from pip_accel.config import binary_index, on_debian
+from pip_accel.config import on_debian
 from pip_accel.deps import sanity_check_dependencies
-from pip_accel.utils import get_python_version
 
 # Initialize a logger for this module.
 logger = logging.getLogger(__name__)
 
-def get_binary_dist(package, version, directory, url=None, python='/usr/bin/python', prefix='/usr'):
+def get_binary_dist(package, version, directory, url, cache, python='/usr/bin/python', prefix='/usr'):
     """
     Get the cached binary distribution archive that was previously built for
     the given package (name, version) (and optionally URL). If no archive has
@@ -49,8 +47,9 @@ def get_binary_dist(package, version, directory, url=None, python='/usr/bin/pyth
     :param version: The version of the requirement to build.
     :param directory: The directory where the unpacked sources of the
                       requirement are available.
-    :param url: The URL of the requirement (optional). When given this is used
-                to generate the filename of the cached binary distribution.
+    :param url: The URL of the requirement (may be ``None``). This is used to
+                generate the filename of the cached binary distribution.
+    :param cache: A :py:class:`.CacheManager` object.
     :param python: The pathname of the Python executable to use to run
                    ``setup.py`` (obviously this should point to a working
                    Python installation).
@@ -73,11 +72,8 @@ def get_binary_dist(package, version, directory, url=None, python='/usr/bin/pyth
                 would change with every run of pip-accel, triggering a time
                 consuming rebuild of the binary distribution.
     """
-    if url and url.startswith('file://'):
-        url = None
-    tag = hashlib.sha1(str(version + url).encode()).hexdigest() if url else version
-    cache_file = os.path.join(binary_index, '%s:%s:%s.tar.gz' % (package, tag, get_python_version()))
-    if not os.path.isfile(cache_file):
+    cache_file = cache.get(package, version, url)
+    if not cache_file:
         logger.debug("%s (%s) hasn't been cached yet, doing so now.", package, version)
         # Build the binary distribution.
         try:
@@ -86,15 +82,18 @@ def get_binary_dist(package, version, directory, url=None, python='/usr/bin/pyth
             sanity_check_dependencies(package)
             raw_file = build_binary_dist(package, version, directory, python=python)
         # Transform the binary distribution archive into a form that we can re-use.
-        transformed_file = '%s.tmp-%i' % (cache_file, os.getpid())
+        transformed_file = os.path.join(tempfile.gettempdir(), os.path.basename(raw_file))
         archive = tarfile.open(transformed_file, 'w:gz')
         for member, from_handle in transform_binary_dist(raw_file, prefix=prefix):
             archive.addfile(member, from_handle)
         archive.close()
-        # Try to avoid race conditions between multiple processes by atomically
-        # moving the transformed binary distribution into its final place.
-        os.rename(transformed_file, cache_file)
-        logger.debug("%s (%s) cached as %s.", package, version, cache_file)
+        # Push the binary distribution archive to all available backends.
+        with open(transformed_file, 'rb') as handle:
+            cache.put(package, version, url, handle)
+        # Cleanup the temporary file.
+        os.remove(transformed_file)
+        # Get the absolute pathname of the file in the local cache.
+        cache_file = cache.get(package, version, url)
     archive = tarfile.open(cache_file, 'r:gz')
     for member in archive.getmembers():
         yield member, archive.extractfile(member.name)
@@ -323,3 +322,5 @@ class NoBuildOutput(Exception):
     Raised by :py:func:`build_binary_dist()` when a binary distribution build
     fails to produce a binary distribution archive.
     """
+
+
