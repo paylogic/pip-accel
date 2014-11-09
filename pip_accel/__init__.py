@@ -23,7 +23,7 @@ taking a look at the following functions:
 """
 
 # Semi-standard module versioning.
-__version__ = '0.14'
+__version__ = '0.14.1'
 
 # Standard library modules.
 import logging
@@ -75,7 +75,7 @@ MAX_RETRIES = 10
 # The version number of the binary distribution cache format in use. When we
 # break backwards compatibility we bump this number so that pip-accel knows it
 # should clear the cache before proceeding.
-CACHE_FORMAT_REVISION = 5
+CACHE_FORMAT_REVISION = 6
 
 def main():
     """

@@ -16,6 +16,7 @@ with any single module.
 # Standard library modules.
 import os
 import pipes
+import platform
 import pwd
 import re
 import sys
@@ -49,12 +50,25 @@ def expand_user(pathname):
 
 def get_python_version():
     """
-    Return a string identifying the currently running Python version.
+    Get a string identifying the currently running Python version.
 
-    :returns: A string like "py2.6" or "py2.7" containing a short mnemonic
-              prefix followed by the major and minor version numbers.
+    This function generates a string that uniquely identifies the currently
+    running Python implementation and version. The Python implementation is
+    discovered using :py:func:`platform.python_implementation()` and the major
+    and minor version numbers are extracted from :py:data:`sys.version_info`.
+
+    :returns: A string containing the name of the Python implementation
+              and the major and minor version numbers.
+
+    Example:
+
+    >>> from pip_accel.utils import get_python_version
+    >>> get_python_version()
+    'CPython-2.7'
     """
-    return "py%i.%i" % (sys.version_info[0], sys.version_info[1])
+    return '%s-%i.%i' % (platform.python_implementation(),
+                         sys.version_info[0],
+                         sys.version_info[1])
 
 def run(command, **params):
     """
