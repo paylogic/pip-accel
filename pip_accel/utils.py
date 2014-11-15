@@ -87,7 +87,7 @@ def makedirs(path, mode=0o777):
     try:
         os.makedirs(path, mode)
         return True
-    except OSError, e:
+    except OSError as e:
         if e.errno != errno.EEXIST:
             # We don't want to swallow errors other than EEXIST,
             # because we could be obscuring a real problem.

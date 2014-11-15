@@ -3,7 +3,7 @@
 # Authors:
 #  - Adam Feuer <adam@adamfeuer.com>
 #  - Peter Odding <peter.odding@paylogic.eu>
-# Last Change: November 9, 2014
+# Last Change: November 15, 2014
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -59,6 +59,7 @@ from humanfriendly import Timer
 # Modules included in our package.
 from pip_accel.caches import AbstractCacheBackend, CacheBackendDisabledError, CacheBackendError
 from pip_accel.config import binary_index, s3_cache_bucket, s3_cache_prefix
+from pip_accel.utils import makedirs
 
 # Initialize a logger for this module.
 logger = logging.getLogger(__name__)
@@ -74,8 +75,7 @@ class S3CacheBackend(AbstractCacheBackend):
         Download a cached distribution archive from the configured Amazon S3
         bucket to the local cache.
 
-        :param filename: The filename (without directory components) of the
-                         distribution archive (a string).
+        :param filename: The filename of the distribution archive (a string).
         :returns: The pathname of a distribution archive on the local file
                   system or ``None``.
         :raises: :py:exc:`.CacheBackendError` when any underlying method fails.
@@ -89,9 +89,12 @@ class S3CacheBackend(AbstractCacheBackend):
         if key is None:
             logger.debug("Distribution archive is not available in S3 bucket.")
         else:
-            # Download the distribution archive to the local index.
+            # Download the distribution archive to the local binary index.
+            # TODO Shouldn't this use LocalCacheBackend.put() instead of
+            #      implementing the same steps manually?!
             logger.info("Downloading distribution archive from S3 bucket ..")
             local_file = os.path.join(binary_index, filename)
+            makedirs(os.path.dirname(local_file))
             key.get_contents_to_filename(local_file)
             logger.debug("Finished downloading distribution archive from S3 bucket in %s.", timer)
             return local_file
@@ -100,8 +103,7 @@ class S3CacheBackend(AbstractCacheBackend):
         """
         Upload a distribution archive to the configured Amazon S3 bucket.
 
-        :param filename: The filename (without directory components) of the
-                         distribution archive (a string).
+        :param filename: The filename of the distribution archive (a string).
         :param handle: A file-like object that provides access to the
                        distribution archive.
         :raises: :py:exc:`.CacheBackendError` when any underlying method fails.
@@ -188,8 +190,7 @@ class S3CacheBackend(AbstractCacheBackend):
         """
         Compose an S3 cache key based on the configured prefix and the given filename.
 
-        :param filename: The filename (without directory components) of the
-                         distribution archive (a string).
+        :param filename: The filename of the distribution archive (a string).
         :returns: The cache key for the given filename (a string).
         """
         return '/'.join(filter(None, [s3_cache_prefix, filename]))

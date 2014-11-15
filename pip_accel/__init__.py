@@ -23,7 +23,7 @@ taking a look at the following functions:
 """
 
 # Semi-standard module versioning.
-__version__ = '0.14.2'
+__version__ = '0.15'
 
 # Standard library modules.
 import logging
@@ -71,11 +71,6 @@ ENVIRONMENT = os.path.abspath(os.environ.get('VIRTUAL_ENV', sys.prefix))
 # The main loop of pip-accel retries at most this many times to counter pip errors
 # due to connectivity issues with PyPI and/or linked distribution websites.
 MAX_RETRIES = 10
-
-# The version number of the binary distribution cache format in use. When we
-# break backwards compatibility we bump this number so that pip-accel knows it
-# should clear the cache before proceeding.
-CACHE_FORMAT_REVISION = 6
 
 def main():
     """
@@ -450,20 +445,9 @@ def initialize_directories():
     # download cache we can waste a lot of time. To avoid this we update the
     # symbolic links in pip-accel's source index before every run.
     update_source_dists_index()
-    # Invalidate the binary distribution cache when the
-    # format is changed in backwards incompatible ways.
+    # Cleanup the binary cache format revision marker file (no longer used).
     if os.path.isfile(index_version_file):
-        with open(index_version_file) as handle:
-            if int(handle.read()) == CACHE_FORMAT_REVISION:
-                logger.debug("Binary distribution cache format is compatible.")
-                return
-    logger.debug("Binary distribution cache format is incompatible; clearing cache ..")
-    for entry in sorted(os.listdir(binary_index)):
-        pathname = os.path.join(binary_index, entry)
-        logger.debug(" - Deleting %s.", pathname)
-        os.unlink(pathname)
-    with open(index_version_file, 'w') as handle:
-        handle.write("%i\n" % CACHE_FORMAT_REVISION)
+        os.unlink(index_version_file)
 
 ORIGINAL_PACKAGE_FINDER = None
 

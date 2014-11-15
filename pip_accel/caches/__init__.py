@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: November 9, 2014
+# Last Change: November 15, 2014
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -23,6 +23,7 @@ import hashlib
 import logging
 
 # Modules included in our package.
+from pip_accel.config import cache_format_revision
 from pip_accel.utils import compact, get_python_version
 
 # External dependencies.
@@ -66,8 +67,8 @@ class AbstractCacheBackend(object):
         distribution archive, in order to check whether a previously cached
         distribution archive is available for re-use.
 
-        :param filename: The expected filename (without directory components)
-                         of the distribution archive (a string).
+        :param filename: The expected filename of the distribution archive (a
+                         string).
         :returns: The absolute pathname of a local file or ``None`` when the
                   distribution archive hasn't been cached.
         """
@@ -78,8 +79,7 @@ class AbstractCacheBackend(object):
         This method is called by pip-accel after fetching or building a
         distribution archive, in order to cache the distribution archive.
 
-        :param filename: The filename (without directory components) of the
-                         distribution archive (a string).
+        :param filename: The filename of the distribution archive (a string).
         :param handle: A file-like object that provides access to the
                        distribution archive.
         """
@@ -176,13 +176,19 @@ class CacheManager(object):
         :param package: The name of the package (a string).
         :param version: The version of the package (a string).
         :param url: The URL of the requirement (a string or ``None``).
-        :returns: The filename (without directory components) of the
-                  distribution archive.
+        :returns: The filename of the distribution archive (a string)
+                  including a single leading directory component to indicate
+                  the cache format revision.
         """
         if url and url.startswith('file://'):
+            # Ignore the URL if it is a file:// URL because those frequently
+            # point to temporary directories whose pathnames change with every
+            # invocation of pip-accel. If we would include the file:// URL in
+            # the cache key we would be generating a unique cache key on
+            # every run (not good for performance ;-).
             url = None
         tag = hashlib.sha1(str(version + url).encode()).hexdigest() if url else version
-        return '%s:%s:%s.tar.gz' % (package, tag, get_python_version())
+        return 'v%i/%s:%s:%s.tar.gz' % (cache_format_revision, package, tag, get_python_version())
 
 class CacheBackendError(Exception):
 

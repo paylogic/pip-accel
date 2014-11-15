@@ -1,7 +1,7 @@
 # Configuration defaults for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: November 9, 2014
+# Last Change: November 15, 2014
 # URL: https://github.com/paylogic/pip-accel
 
 # Standard library modules.
@@ -10,6 +10,13 @@ import os.path
 
 # Modules included in our package.
 from pip_accel.utils import expand_user
+
+# The version number of the binary distribution cache format in use. This
+# version number is encoded in the directory name of the binary cache so that
+# multiple versions can peacefully coexist. When we break backwards
+# compatibility we bump this number so that pip-accel starts using a new
+# directory.
+cache_format_revision = 7
 
 # Select the default location of the download cache and other files based on
 # the user running the pip-accel command (root goes to /var/cache/pip-accel,

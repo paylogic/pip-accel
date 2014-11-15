@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: November 9, 2014
+# Last Change: November 15, 2014
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -20,6 +20,7 @@ import shutil
 # Modules included in our package.
 from pip_accel.caches import AbstractCacheBackend
 from pip_accel.config import binary_index
+from pip_accel.utils import makedirs
 
 # Initialize a logger for this module.
 logger = logging.getLogger(__name__)
@@ -34,8 +35,7 @@ class LocalCacheBackend(AbstractCacheBackend):
         """
         Check if a distribution archive exists in the local cache.
 
-        :param filename: The filename (without directory components) of the
-                         distribution archive (a string).
+        :param filename: The filename of the distribution archive (a string).
         :returns: The pathname of a distribution archive on the local file
                   system or ``None``.
         """
@@ -51,13 +51,13 @@ class LocalCacheBackend(AbstractCacheBackend):
         """
         Store a distribution archive in the local cache.
 
-        :param filename: The filename (without directory components) of the
-                         distribution archive (a string).
+        :param filename: The filename of the distribution archive (a string).
         :param handle: A file-like object that provides access to the
                        distribution archive.
         """
         file_in_cache = os.path.join(binary_index, filename)
         logger.debug("Storing distribution archive in local cache: %s", file_in_cache)
+        makedirs(os.path.dirname(file_in_cache))
         # Stream the contents of the distribution archive to a temporary file
         # to avoid race conditions (e.g. partial reads) between multiple
         # processes that are using the local cache at the same time.
