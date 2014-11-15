@@ -1,7 +1,7 @@
 # Utility functions for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: November 9, 2014
+# Last Change: November 15, 2014
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -14,6 +14,7 @@ with any single module.
 """
 
 # Standard library modules.
+import errno
 import os
 import pipes
 import platform
@@ -69,6 +70,29 @@ def get_python_version():
     return '%s-%i.%i' % (platform.python_implementation(),
                          sys.version_info[0],
                          sys.version_info[1])
+
+def makedirs(path, mode=0o777):
+    """
+    Create a directory if it doesn't already exist (keeping concurrency in mind).
+
+    :param path: The pathname of the directory to create (a string).
+    :param mode: The mode to apply to newly created directories (an integer,
+                 defaults to the octal number ``0777``).
+    :returns: ``True`` when the directory was created, ``False`` if it already
+              existed.
+    :raises: Any exceptions raised by :py:func:`os.makedirs()` except for
+             :py:data:`errno.EEXIST` (this error is swallowed and ``False`` is
+             returned instead).
+    """
+    try:
+        os.makedirs(path, mode)
+        return True
+    except OSError, e:
+        if e.errno != errno.EEXIST:
+            # We don't want to swallow errors other than EEXIST,
+            # because we could be obscuring a real problem.
+            raise
+        return False
 
 def run(command, **params):
     """

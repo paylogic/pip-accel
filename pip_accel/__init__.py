@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: November 9, 2014
+# Last Change: November 15, 2014
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Permanently store logs in the pip-accel directory (think about log rotation).
@@ -23,7 +23,7 @@ taking a look at the following functions:
 """
 
 # Semi-standard module versioning.
-__version__ = '0.14.1'
+__version__ = '0.14.2'
 
 # Standard library modules.
 import logging
@@ -48,7 +48,7 @@ from pip_accel.bdist import get_binary_dist, install_binary_dist
 from pip_accel.caches import CacheManager
 from pip_accel.config import binary_index, download_cache, index_version_file, on_debian, source_index
 from pip_accel.req import Requirement
-from pip_accel.utils import run
+from pip_accel.utils import makedirs, run
 
 # External dependencies.
 import coloredlogs
@@ -183,7 +183,7 @@ def clear_build_directory(directory):
     logger.debug("Clearing build directory ..")
     if os.path.isdir(directory):
         shutil.rmtree(directory)
-    os.makedirs(directory)
+    makedirs(directory)
 
 def unpack_source_dists(arguments, build_directory):
     """
@@ -436,8 +436,7 @@ def initialize_directories():
     """
     # Create all required directories on the fly.
     for directory in [download_cache, source_index, binary_index]:
-        if not os.path.isdir(directory):
-            os.makedirs(directory)
+        makedirs(directory)
     # When files are removed from pip's download cache, broken symbolic links
     # remain in pip-accel's source index. This results in very confusing error
     # messages. To avoid this we cleanup broken symbolic links.

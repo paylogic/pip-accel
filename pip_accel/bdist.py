@@ -1,7 +1,7 @@
 # Functions to manipulate Python binary distribution archives.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: November 9, 2014
+# Last Change: November 15, 2014
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -32,6 +32,7 @@ from humanfriendly import Spinner, Timer
 # Modules included in our package.
 from pip_accel.config import on_debian
 from pip_accel.deps import sanity_check_dependencies
+from pip_accel.utils import makedirs
 
 # Initialize a logger for this module.
 logger = logging.getLogger(__name__)
@@ -269,7 +270,7 @@ def install_binary_dist(members, prefix, python='/usr/bin/python', virtualenv_co
         directory = os.path.dirname(pathname)
         if not os.path.isdir(directory):
             logger.debug("Creating directory: %s ..", directory)
-            os.makedirs(directory)
+            makedirs(directory)
         logger.debug("Creating file: %s ..", pathname)
         with open(pathname, 'wb') as to_handle:
             contents = from_handle.read()
