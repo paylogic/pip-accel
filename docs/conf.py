@@ -11,7 +11,12 @@ sys.path.insert(0, os.path.abspath('..'))
 # -- General configuration -----------------------------------------------------
 
 # Sphinx extension module names.
-extensions = ['sphinx.ext.autodoc', 'sphinx.ext.intersphinx']
+extensions = [
+    'sphinx.ext.autodoc',
+    'sphinx.ext.graphviz',
+    'sphinx.ext.inheritance_diagram',
+    'sphinx.ext.intersphinx',
+]
 
 # Paths that contain templates, relative to this directory.
 templates_path = ['templates']
@@ -57,6 +62,7 @@ pygments_style = 'sphinx'
 # From: http://twistedmatrix.com/trac/ticket/4582.
 intersphinx_mapping = {
     'python': ('http://docs.python.org', None),
+    'humanfriendly': ('http://humanfriendly.readthedocs.org/en/latest/', None),
     'boto': ('http://boto.readthedocs.org/en/latest/', None),
 }
 

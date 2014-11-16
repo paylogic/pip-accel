@@ -37,6 +37,6 @@ extend and/or embed the functionality of ``pip-accel``. Here are the contents
 of the API documentation:
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
 
    developers.rst

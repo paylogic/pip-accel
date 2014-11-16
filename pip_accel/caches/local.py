@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: November 15, 2014
+# Last Change: November 16, 2014
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -9,7 +9,14 @@
 ======================================================
 
 This module implements the local cache backend which stores distribution
-archives on the local file system.
+archives on the local file system. This is a very simple cache backend, all it
+does is create directories and write local files. The only trick here is that
+new binary distribution archives are written to temporary files which are
+then moved into place atomically using :py:func:`os.rename()` to avoid partial
+reads caused by running multiple invocations of pip-accel at the same time
+(which happened in `issue 25`_).
+
+.. _issue 25: https://github.com/paylogic/pip-accel/issues/25
 """
 
 # Standard library modules.
@@ -19,7 +26,6 @@ import shutil
 
 # Modules included in our package.
 from pip_accel.caches import AbstractCacheBackend
-from pip_accel.config import binary_index
 from pip_accel.utils import makedirs
 
 # Initialize a logger for this module.
@@ -39,7 +45,7 @@ class LocalCacheBackend(AbstractCacheBackend):
         :returns: The pathname of a distribution archive on the local file
                   system or ``None``.
         """
-        pathname = os.path.join(binary_index, filename)
+        pathname = os.path.join(self.config.binary_cache, filename)
         if os.path.isfile(pathname):
             logger.debug("Distribution archive exists in local cache (%s).", pathname)
             return pathname
@@ -55,7 +61,7 @@ class LocalCacheBackend(AbstractCacheBackend):
         :param handle: A file-like object that provides access to the
                        distribution archive.
         """
-        file_in_cache = os.path.join(binary_index, filename)
+        file_in_cache = os.path.join(self.config.binary_cache, filename)
         logger.debug("Storing distribution archive in local cache: %s", file_in_cache)
         makedirs(os.path.dirname(file_in_cache))
         # Stream the contents of the distribution archive to a temporary file

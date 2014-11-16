@@ -3,7 +3,7 @@
 # Setup script for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: November 9, 2014
+# Last Change: November 16, 2014
 # URL: https://github.com/paylogic/pip-accel
 
 import re
@@ -21,7 +21,7 @@ for line in open(module):
         version_string = match.group(1)
         break
 else:
-    raise Exception("Failed to extract version from pip_accel/__init__.py!")
+    raise Exception("Failed to extract version from %s!" % module)
 
 # Fill in the long description (for the benefit of PyPI)
 # with the contents of README.rst (rendered by GitHub).
@@ -40,7 +40,7 @@ setup(name='pip-accel',
       url='https://github.com/paylogic/pip-accel',
       packages=find_packages(),
       entry_points={
-          'console_scripts': ['pip-accel = pip_accel:main'],
+          'console_scripts': ['pip-accel = pip_accel.cli:main'],
           'pip_accel.cache_backends': [
               # The default cache backend (uses the local file system).
               'local = pip_accel.caches.local',
@@ -52,4 +52,4 @@ setup(name='pip-accel',
       package_data={'pip_accel.deps': ['*.ini']},
       install_requires=requirements,
       tests_require=['virtualenv'],
-      test_suite='pip_accel_tests')
+      test_suite='pip_accel.tests')

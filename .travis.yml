@@ -6,6 +6,9 @@ python:
 install:
   - pip install coveralls
   - python setup.py install
+env:
+  global:
+    - PIP_ACCEL_TEST_AUTO_INSTALL=true
 script:
   coverage run --source=pip_accel setup.py test
 after_success:

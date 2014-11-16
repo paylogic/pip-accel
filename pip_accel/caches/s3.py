@@ -3,8 +3,13 @@
 # Authors:
 #  - Adam Feuer <adam@adamfeuer.com>
 #  - Peter Odding <peter.odding@paylogic.eu>
-# Last Change: November 15, 2014
+# Last Change: November 16, 2014
 # URL: https://github.com/paylogic/pip-accel
+#
+# A word of warning: Do *not* use the cached_property decorator here, because
+# it interacts badly with the metaclass magic performed by the base class. I
+# wasted about an hour trying to get it to work but it became more and more
+# apparent that it was never going to work the way I wanted it to :-)
 
 """
 :py:mod:`pip_accel.caches.s3` - Amazon S3 cache backend
@@ -12,16 +17,9 @@
 
 This module implements a cache backend that stores distribution archives in a
 user defined `Amazon S3 <http://aws.amazon.com/s3/>`_ bucket. To enable this
-backend you need to define one or more environment variables:
-
-``$PIP_ACCEL_S3_BUCKET``
- The Amazon S3 bucket in which distribution archives should be cached.
-
-``$PIP_ACCEL_S3_PREFIX``
- The optional prefix to apply to all Amazon S3 keys. This enables name spacing
- based on the environment in which pip-accel is running (to isolate the binary
- caches of ABI incompatible systems). *The user is currently responsible for
- choosing a suitable prefix.*
+backend you need to define the configuration option :py:attr:`.Config.s3_cache_bucket`
+and configure your Amazon S3 API credentials (see the readme for
+details).
 
 A note about robustness
 -----------------------
@@ -43,10 +41,12 @@ errors such as:
   because the bucket doesn't exist or the configured credentials don't provide
   access to the bucket).
 
-Additionally :py:class:`pip_accel.caches.CacheManager` automatically disables
-cache backends that raise exceptions on ``get()`` and ``put()`` operations. The
-end result is that when the Amazon S3 backend fails you will just revert to
-using the cache on the local file system.
+Additionally :py:class:`~pip_accel.caches.CacheManager` automatically disables
+cache backends that raise exceptions on
+:py:class:`~pip_accel.caches.AbstractCacheBackend.get()` and
+:py:class:`~pip_accel.caches.AbstractCacheBackend.put()` operations. The end
+result is that when the Amazon S3 backend fails you will just revert to using
+the cache on the local file system.
 """
 
 # Standard library modules.
@@ -57,8 +57,8 @@ import os
 from humanfriendly import Timer
 
 # Modules included in our package.
-from pip_accel.caches import AbstractCacheBackend, CacheBackendDisabledError, CacheBackendError
-from pip_accel.config import binary_index, s3_cache_bucket, s3_cache_prefix
+from pip_accel.caches import AbstractCacheBackend
+from pip_accel.exceptions import CacheBackendDisabledError, CacheBackendError
 from pip_accel.utils import makedirs
 
 # Initialize a logger for this module.
@@ -81,11 +81,10 @@ class S3CacheBackend(AbstractCacheBackend):
         :raises: :py:exc:`.CacheBackendError` when any underlying method fails.
         """
         timer = Timer()
-        bucket = self.connect_to_bucket()
         # Check if the distribution archive is available.
         raw_key = self.get_cache_key(filename)
         logger.info("Checking if distribution archive is available in S3 bucket: %s", raw_key)
-        key = bucket.get_key(raw_key)
+        key = self.s3_bucket.get_key(raw_key)
         if key is None:
             logger.debug("Distribution archive is not available in S3 bucket.")
         else:
@@ -93,7 +92,7 @@ class S3CacheBackend(AbstractCacheBackend):
             # TODO Shouldn't this use LocalCacheBackend.put() instead of
             #      implementing the same steps manually?!
             logger.info("Downloading distribution archive from S3 bucket ..")
-            local_file = os.path.join(binary_index, filename)
+            local_file = os.path.join(self.config.binary_cache, filename)
             makedirs(os.path.dirname(local_file))
             key.get_contents_to_filename(local_file)
             logger.debug("Finished downloading distribution archive from S3 bucket in %s.", timer)
@@ -109,46 +108,52 @@ class S3CacheBackend(AbstractCacheBackend):
         :raises: :py:exc:`.CacheBackendError` when any underlying method fails.
         """
         timer = Timer()
-        bucket = self.connect_to_bucket()
         raw_key = self.get_cache_key(filename)
         logger.info("Uploading distribution archive to S3 bucket: %s", raw_key)
-        key = self.boto.s3.key.Key(bucket)
+        key = self.boto.s3.key.Key(self.s3_bucket)
         key.key = raw_key
         key.set_contents_from_file(handle)
         logger.info("Finished uploading distribution archive to S3 bucket in %s.", timer)
 
-    def connect_to_bucket(self):
+    @property
+    def s3_bucket(self):
         """
         Connect to the user defined Amazon S3 bucket.
 
+        Called on demand by :py:func:`get()` and :py:func:`put()`. Caches its
+        return value so that only a single connection is created.
+
         :returns: A :py:class:`boto.s3.bucket.Bucket` object.
+        :raises: :py:exc:`.CacheBackendDisabledError` when the user hasn't
+                 defined :py:attr:`.Config.s3_cache_bucket`.
         :raises: :py:exc:`.CacheBackendError` when the connection to the Amazon
                  S3 bucket fails.
         """
-        if not hasattr(self, 'cached_s3_bucket'):
-            if not s3_cache_bucket:
+        if not hasattr(self, 'cached_bucket'):
+            self.ensure_boto_installed()
+            if not self.config.s3_cache_bucket:
                 raise CacheBackendDisabledError("""
                     To use Amazon S3 as a cache you have to set the environment
                     variable $PIP_ACCEL_S3_BUCKET and configure your Amazon S3
                     API credentials (see the documentation for details).
                 """)
-            s3_api = self.connect_to_s3()
-            # Connect to the user defined Amazon S3 bucket.
             try:
-                logger.debug("Connecting to Amazon S3 bucket: %s", s3_cache_bucket)
-                self.cached_s3_bucket = s3_api.get_bucket(s3_cache_bucket)
+                logger.debug("Connecting to Amazon S3 bucket: %s", self.config.s3_cache_bucket)
+                self.cached_bucket = self.connect_to_s3().get_bucket(self.config.s3_cache_bucket)
             except (self.boto.exception.BotoClientError, self.boto.exception.BotoServerError):
                 raise CacheBackendError("""
                     Failed to connect to the configured Amazon S3 bucket
                     {bucket}! Are you sure the bucket exists and is accessible
                     using the provided credentials? The Amazon S3 cache backend
                     will be disabled for now.
-                """, bucket=repr(s3_cache_bucket))
-        return self.cached_s3_bucket
+                """, bucket=repr(self.config.s3_cache_bucket))
+        return self.cached_bucket
 
     def connect_to_s3(self):
         """
         Connect to the Amazon S3 API.
+
+        Called on demand by :py:attr:`s3_bucket`.
 
         :returns: A :py:class:`boto.s3.connection.S3Connection` object.
         :raises: :py:exc:`.CacheBackendError` when the connection to the Amazon
@@ -167,11 +172,12 @@ class S3CacheBackend(AbstractCacheBackend):
 
     def ensure_boto_installed(self):
         """
-        Ensure that :py:mod:`boto` is installed.
+        Dynamically import the :py:mod:`boto` module.
 
-        Sets ``self.boto`` to point to the top level :py:mod:`boto` module.
-        This allows references to variables defined by the :py:mod:`boto`
-        module without having to import :py:mod:`boto` everywhere.
+        Called on demand by :py:attr:`s3_connection`. This allows references to
+        variables defined by the :py:mod:`boto` module without having to import
+        Boto everywhere (that would break importing of the
+        :py:mod:`pip_accel.caches.s3` module when Boto is not installed).
 
         :raises: :py:exc:`.CacheBackendError` when :py:mod:`boto` is not installed.
         """
@@ -188,9 +194,10 @@ class S3CacheBackend(AbstractCacheBackend):
 
     def get_cache_key(self, filename):
         """
-        Compose an S3 cache key based on the configured prefix and the given filename.
+        Compose an S3 cache key based on :py:attr:`.Config.s3_cache_prefix` and
+        the given filename.
 
         :param filename: The filename of the distribution archive (a string).
         :returns: The cache key for the given filename (a string).
         """
-        return '/'.join(filter(None, [s3_cache_prefix, filename]))
+        return '/'.join(filter(None, [self.config.s3_cache_prefix, filename]))

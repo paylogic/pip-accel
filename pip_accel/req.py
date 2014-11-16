@@ -1,7 +1,7 @@
 # Simple wrapper for pip and pkg_resources Requirement objects.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: November 9, 2014
+# Last Change: November 16, 2014
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -9,10 +9,10 @@
 =============================================
 
 After downloading the specified requirement(s) pip reports a "requirement set"
-to pip-accel. In the past :py:func:`pip_accel.unpack_source_dists()` would
-summarize this requirement set into a list of tuples, where each tuple would
-contain a requirement's project name, version and source directory (basically
-only the information required by pip-accel remained).
+to pip-accel. In the past pip-accel would summarize this requirement set into a
+list of tuples, where each tuple would contain a requirement's project name,
+version and source directory (basically only the information required by
+pip-accel remained).
 
 Recently I've started using pip-accel as a library in another project I'm
 working on (not yet public) and in that project I am very interested in whether
@@ -29,11 +29,9 @@ basically undocumented AFAIK).
 
 from pip.req import InstallRequirement
 
-class Requirement:
+class Requirement(object):
 
-    """
-    Simple wrapper for the requirement objects defined by pip and setuptools.
-    """
+    """Simple wrapper for the requirement objects defined by pip and setuptools."""
 
     def __init__(self, requirement):
         """

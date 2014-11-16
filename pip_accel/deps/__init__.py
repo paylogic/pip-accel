@@ -1,22 +1,29 @@
 # Extension of pip-accel that deals with dependencies on system packages.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: November 9, 2014
+# Last Change: November 16, 2014
 # URL: https://github.com/paylogic/pip-accel
 
 """
 :py:mod:`pip_accel.deps` - System package dependency handling
 =============================================================
 
-Extension of the pip accelerator that deals with dependencies on system
-packages. Currently only Debian Linux and derivative Linux distributions
-are supported by this extension.
+The :py:mod:`pip_accel.deps` module is an extension of pip-accel that deals
+with dependencies on system packages. Currently only Debian Linux and
+derivative Linux distributions are supported by this extension but it should be
+fairly easy to add support for other platforms.
+
+The interface between pip-accel and :py:class:`SystemPackageManager` focuses on
+:py:func:`~SystemPackageManager.install_dependencies()` (the other methods are
+used internally).
 """
 
 # Standard library modules.
 import logging
 import os
-import os.path
+import shlex
+import subprocess
+import sys
 
 try:
     # Python 2.x.
@@ -26,249 +33,194 @@ except ImportError:
     import configparser
 
 # Modules included in our package.
-from pip_accel.config import on_debian
+from pip_accel.exceptions import DependencyInstallationFailed, DependencyInstallationRefused, SystemDependencyError
+
+# External dependencies.
+from humanfriendly import Timer, concatenate, pluralize
 
 # Initialize a logger for this module.
 logger = logging.getLogger(__name__)
 
-def sanity_check_dependencies(project_name, auto_install=None):
-    """
-    If ``pip-accel`` fails to build a binary distribution, it will call this
-    function as a last chance to install missing dependencies. If this function
-    does not raise an exception, ``pip-accel`` will retry the build once.
+class SystemPackageManager(object):
 
-    :param project_name: The project name of a requirement as found on PyPI.
-    :param auto_install: ``True`` if dependencies on system packages may be
-                         automatically installed, ``False`` if missing system
-                         packages should raise an error, ``None`` if the
-                         decision should be based on the environment variable
-                         ``PIP_ACCEL_AUTO_INSTALL``.
+    """Interface to the system's package manager."""
 
-    If missing system packages are found, this function will try to install
-    them. If anything "goes wrong" an exception is raised:
-
-    - If ``auto_install=False`` then :py:class:`DependencyCheckFailed` is
-      raised
-    - If installation of missing packages fails
-      :py:class:`DependencyInstallationFailed` is raised
-    - If the user refuses to let pip-accel install missing packages
-      :py:class:`RefusedAutomaticInstallation` is raised.
-
-    If all goes well nothing is raised, nor is anything returned.
-    """
-    # Has the caller forbidden us from automatic installation?
-    auto_install_forbidden = (auto_install == False)
-    if auto_install is not None:
-        # If the caller made an explicit choice, we'll respect that.
-        auto_install_allowed = auto_install
-    else:
-        # Otherwise we check the environment variable.
-        auto_install_allowed = 'PIP_ACCEL_AUTO_INSTALL' in os.environ
-    logger.info("%s: Checking for missing dependencies ..", project_name)
-    known_dependencies = current_platform.find_dependencies(project_name)
-    if not known_dependencies:
-        logger.info("%s: No known dependencies... Maybe you have a suggestion?", project_name)
-    else:
-        installed_packages = set(current_platform.find_installed())
-        missing_packages = [p for p in known_dependencies if p not in installed_packages]
-        if not missing_packages:
-            logger.info("%s: All known dependencies are already installed.", project_name)
-        elif auto_install_forbidden:
-            msg = "Missing %i system package%s (%s) required by %s but automatic installation is disabled!"
-            raise DependencyCheckFailed(msg % (len(missing_packages), '' if len(missing_packages) == 1 else 's',
-                                               ', '.join(missing_packages), project_name))
-        else:
-            command_line = ['sudo'] + current_platform.install_command(missing_packages)
-            if not auto_install_allowed:
-                confirm_installation(project_name, missing_packages, command_line)
-            logger.info("%s: Missing %i dependenc%s: %s",
-                        project_name, len(missing_packages),
-                        'y' if len(missing_packages) == 1 else 'ies',
-                        " ".join(missing_packages))
-            exit_code = os.spawnvp(os.P_WAIT, 'sudo', command_line)
-            if exit_code == 0:
-                logger.info("%s: Successfully installed %i missing dependenc%s.",
-                            project_name, len(missing_packages),
-                            len(missing_packages) == 1 and 'y' or 'ies')
-            else:
-                logger.error("%s: Failed to install %i missing dependenc%s!",
-                             project_name, len(missing_packages),
-                             len(missing_packages) == 1 and 'y' or 'ies')
-                msg = "Failed to install %i system package%s required by %s! (command failed: %s)"
-                raise DependencyInstallationFailed(msg % (len(missing_packages), '' if len(missing_packages) == 1 else 's',
-                                                          project_name, command_line))
-
-def confirm_installation(project_name, packages, command_line):
-    """
-    Notify the user that there are missing dependencies and how they can be
-    installed. Then ask the user whether we are allowed to install the
-    dependencies.
-
-    :param packages: A list of strings with the names of the packages that are
-                     missing.
-    :param command_line: A list of strings with the command line needed to
-                         install the packages.
-
-    Raises :py:class:`RefusedAutomaticInstallation` when the user refuses to
-    let pip-accel install any missing dependencies.
-    """
-    logger.info("%s: You seem to be missing %i dependenc%s: %s",  project_name,
-                len(packages), len(packages) == 1 and 'y' or 'ies', " ".join(packages))
-    logger.info("%s: I can install %s for you with this command: %s",
-                project_name, len(packages) == 1 and 'it' or 'them',
-                " ".join(command_line))
-    try:
-        prompt = "Do you want me to install %s dependenc%s? [y/N] "
-        choice = raw_input(prompt % (len(packages) == 1 and 'this' or 'these',
-                                     len(packages) == 1 and 'y' or 'ies'))
-        if choice.lower().strip() == 'y':
-            logger.info("Got permission to install missing dependenc%s.",
-                        len(packages) == 1 and 'y' or 'ies')
-            return
-    except:
-        pass
-    logger.error("%s: Refused installation of missing dependenc%s!",
-                 project_name, len(packages) == 1 and 'y' or 'ies')
-    msg = "%s: User canceled automatic installation of missing dependenc%s!"
-    raise RefusedAutomaticInstallation(msg % (project_name, 'y' if len(packages) == 1 else 'ies'))
-
-class BasePlatform(object):
-
-    """
-    Base class for system package manager interfaces. Also implements the mock
-    interface for platforms which are not (yet) supported by the pip
-    accelerator.
-    """
-
-    @staticmethod
-    def is_supported():
+    def __init__(self, config):
         """
-        Check whether the current system supports the implemented package
-        manager.
-        """
-        logger.debug("Falling back to dummy package manager interface ..")
-        return True
+        Initialize the system package dependency manager.
 
-    def __init__(self):
+        :param config: The pip-accel configuration (a :py:class:`.Config`
+                       object).
         """
-        Load any predefined dependencies for the platform from a configuration
-        file bundled with the pip accelerator.
-        """
-        config_name = getattr(self, 'config', '')
-        if config_name:
-            script = os.path.abspath(__file__)
-            directory = os.path.dirname(script)
-            config_path = os.path.join(directory, '%s.ini' % config_name)
-            if os.path.isfile(config_path):
-                logger.debug("Loading system package configuration from %s ..", config_path)
+        # Defaults for unsupported systems.
+        self.list_command = 'true'
+        self.install_command = 'true'
+        self.dependencies = {}
+        # Keep a reference to the pip-accel configuration.
+        self.config = config
+        # Initialize the platform specific package manager interface.
+        directory = os.path.dirname(os.path.abspath(__file__))
+        for filename in sorted(os.listdir(directory)):
+            pathname = os.path.join(directory, filename)
+            if filename.endswith('.ini') and os.path.isfile(pathname):
+                logger.debug("Loading configuration from %s ..", pathname)
                 parser = configparser.RawConfigParser()
-                parser.read(config_path)
-                if parser.has_section('dependencies'):
-                    self.dependencies = dict((n.lower(), v.split()) for n, v in parser.items('dependencies'))
+                parser.read(pathname)
+                # Check if the package manager is supported.
+                supported_command = parser.get('commands', 'supported')
+                logger.debug("Checking if configuration is supported: %s", supported_command)
+                if subprocess.call(supported_command, shell=True) == 0:
+                    logger.debug("System package manager configuration is supported!")
+                    # Get the commands to list and install system packages.
+                    self.list_command = parser.get('commands', 'list')
+                    self.install_command = parser.get('commands', 'install')
+                    # Get the known dependencies.
+                    self.dependencies = dict((n.lower(), v.split()) for n, v
+                                             in parser.items('dependencies'))
+                    logger.debug("Loaded dependencies of %s: %s",
+                                 pluralize(len(self.dependencies), "Python package"),
+                                 concatenate(sorted(self.dependencies)))
+                else:
+                    logger.debug("Command failed, assuming configuration doesn't apply ..")
 
-    def find_dependencies(self, project_name):
+    def install_dependencies(self, requirement):
         """
-        Find the system packages that should be installed to compile and run a
-        known project from PyPI.
+        If :py:mod:`pip_accel` fails to build a binary distribution, it will
+        call this method as a last chance to install missing dependencies. If
+        this function does not raise an exception, :py:mod:`pip_accel` will
+        retry the build once.
 
-        :param project_name: The name of the project as given on PyPI.
-
-        :returns: A list with the names of the system packages that should be
-                  installed in order to compile and run the project. For
-                  unknown projects an empty list is returned.
+        :param requirement: A :py:class:`.Requirement` object.
+        :returns: ``True`` when missing system packages were installed,
+                  ``False`` otherwise.
+        :raises: :py:exc:`.DependencyInstallationRefused` when automatic
+                 installation is disabled or refused by the operator.
+        :raises: :py:exc:`.DependencyInstallationFailed` when the installation
+                 of missing system packages fails.
         """
-        return self.dependencies.get(project_name.lower(), [])
+        install_timer = Timer()
+        missing_dependencies = self.find_missing_dependencies(requirement)
+        if missing_dependencies:
+            # Compose the command line for the install command.
+            install_command = shlex.split(self.install_command) + missing_dependencies
+            if os.getuid() != 0:
+                # Prepend `sudo' to the command line.
+                install_command.insert(0, 'sudo')
+            # Always suggest the installation command to the operator.
+            logger.info("You seem to be missing %s: %s",
+                        pluralize(len(missing_dependencies), "dependency", "dependencies"),
+                        concatenate(missing_dependencies))
+            logger.info("You can install %s with this command: %s",
+                        "it" if len(missing_dependencies) == 1 else "them", " ".join(install_command))
+            if self.config.auto_install is False:
+                # Refuse automatic installation and don't prompt the operator when the configuration says no.
+                self.installation_refused(requirement, missing_dependencies, "automatic installation is disabled")
+            # Get the operator's permission to install the missing package(s).
+            if self.config.auto_install or self.confirm_installation(requirement, missing_dependencies, install_command):
+                logger.info("Got permission to install %s.",
+                            pluralize(len(missing_dependencies), "dependency", "dependencies"))
+            else:
+                logger.error("Refused installation of missing %s!",
+                             "dependency" if len(missing_dependencies) == 1 else "dependencies")
+                self.installation_refused(requirement, missing_dependencies, "manual installation was refused")
+            if subprocess.call(install_command) == 0:
+                logger.info("Successfully installed %s in %s.",
+                            pluralize(len(missing_dependencies), "dependency", "dependencies"),
+                            install_timer)
+                return True
+            else:
+                logger.error("Failed to install %s.",
+                             pluralize(len(missing_dependencies), "dependency", "dependencies"))
+                msg = "Failed to install %s required by Python package %s! (%s)"
+                raise DependencyInstallationFailed(msg % (pluralize(len(missing_dependencies), "system package", "system packages"),
+                                                          requirement.name, concatenate(missing_dependencies)))
+        return False
 
-    def find_installed(self):
+    def find_missing_dependencies(self, requirement):
         """
-        Find the packages that are installed on the current system.
+        Find missing dependencies of a Python package.
 
-        :returns: A list of strings with package names.
+        :param requirement: A :py:class:`.Requirement` object.
+        :returns: A list of strings with system package names.
         """
-        return []
+        known_dependencies = self.find_known_dependencies(requirement)
+        if known_dependencies:
+            installed_packages = self.find_installed_packages()
+            logger.debug("Checking for missing dependencies of %s ..", requirement.name)
+            missing_dependencies = sorted(set(known_dependencies).difference(installed_packages))
+            if missing_dependencies:
+                logger.debug("Found %s: %s",
+                             pluralize(len(missing_dependencies), "missing dependency", "missing dependencies"),
+                             concatenate(missing_dependencies))
+            else:
+                logger.info("All known dependencies are already installed.")
+            return missing_dependencies
 
-    def install_command(self, missing_packages):
+    def find_known_dependencies(self, requirement):
         """
-        Determine the command line needed to install the given package(s).
+        Find the known dependencies of a Python package.
 
-        :param missing_packages: A list with the names of one or more system
-                                 packages to be installed.
-
-        :returns: A list containing the program name and its arguments.
+        :param requirement: A :py:class:`.Requirement` object.
+        :returns: A list of strings with system package names.
         """
-        raise NotImplemented
-
-class DebianLinux(BasePlatform):
-
-    """
-    Simple interface to the package management system of Debian Linux and
-    derivative distributions like Ubuntu Linux.
-    """
-
-    config = 'debian'
-
-    @staticmethod
-    def is_supported():
-        """
-        Find out if we are running on a Debian (derived) system by checking if
-        the file ``/etc/debian_version`` exists (this file is installed by the
-        Debian system package ``base-files``).
-
-        :returns: ``True`` if we are, ``False`` if we're not.
-        """
-        if on_debian:
-            logger.debug("Looks like we are on a Debian (derived) system ..")
-            return True
+        logger.info("Checking for known dependencies of %s ..", requirement.name)
+        known_dependencies = sorted(self.dependencies.get(requirement.name.lower(), []))
+        if known_dependencies:
+            logger.info("Found %s: %s", pluralize(len(known_dependencies), "known dependency", "known dependencies"),
+                        concatenate(known_dependencies))
         else:
-            logger.debug("Looks like we're not on a Debian (derived) system ..")
-            return False
+            logger.info("No known dependencies... Maybe you have a suggestion?")
+        return known_dependencies
 
-    def find_installed(self):
+    def find_installed_packages(self):
         """
-        Find the packages that are installed on the current system.
+        Find the installed system packages.
 
-        :returns: A list of strings with package names.
+        :returns: A list of strings with system package names.
+        :raises: :py:exc:`.SystemDependencyError` when the command to list the
+                 installed system packages fails.
         """
-        installed_packages = []
-        handle = os.popen('dpkg -l')
-        for line in handle:
-            tokens = line.split()
-            if len(tokens) >= 2 and tokens[0] == 'ii':
-                installed_packages.append(tokens[1])
+        list_command = subprocess.Popen(self.list_command, shell=True, stdout=subprocess.PIPE)
+        stdout, stderr = list_command.communicate()
+        if list_command.returncode != 0:
+            raise SystemDependencyError("The command to list the installed system packages failed! ({command})",
+                                        command=self.list_command)
+        installed_packages = sorted(stdout.decode().split())
+        logger.debug("Found %i installed system package(s): %s", len(installed_packages), installed_packages)
         return installed_packages
 
-    def install_command(self, missing_packages):
+    def installation_refused(self, requirement, missing_dependencies, reason):
         """
-        Determine the command line needed to install the given package(s).
+        Raise :py:exc:`.DependencyInstallationRefused` with a user friendly message.
 
-        :param missing_packages: A list with the names of one or more system
-                                 packages to be installed.
-
-        :returns: A list containing the program name and its arguments.
+        :param requirement: A :py:class:`.Requirement` object.
+        :param missing_dependencies: A list of strings with missing dependencies.
+        :param reason: The reason why installation was refused (a string).
         """
-        return ['apt-get', 'install', '--yes'] + missing_packages
+        msg = "Missing %s (%s) required by Python package %s (%s) but %s!"
+        raise DependencyInstallationRefused(msg % (pluralize(len(missing_dependencies), "system package", "system packages"),
+                                                   concatenate(missing_dependencies), requirement.name, requirement.version,
+                                                   reason))
 
-class DependencyCheckFailed(Exception):
-    """
-    Custom exception type raised by :py:func:`sanity_check_dependencies()` when
-    one or more known to be required system packages are missing and automatic
-    installation of missing dependencies is explicitly disabled.
-    """
+    def confirm_installation(self, requirement, missing_dependencies, install_command):
+        """
+        Ask the operator's permission to install missing system packages.
 
-class RefusedAutomaticInstallation(Exception):
-    """
-    Custom exception type raised by :py:func:`confirm_installation()` when the
-    user refuses to install missing system packages.
-    """
-
-class DependencyInstallationFailed(Exception):
-    """
-    Custom exception type raised by :py:func:`sanity_check_dependencies()` when
-    installation of missing system packages fails.
-    """
-
-# Select the interface to the package manager of the current platform.
-for Interface in [DebianLinux, BasePlatform]:
-    if Interface.is_supported():
-        current_platform = Interface()
-        break
+        :param requirement: A :py:class:`.Requirement` object.
+        :param missing_dependencies: A list of strings with missing dependencies.
+        :param install_command: A list of strings with the command line needed
+                                to install the missing dependencies.
+        :raises: :py:exc:`.DependencyInstallationRefused` when the operator refuses.
+        """
+        terminal = "\n"
+        try:
+            prompt = "\n  Do you want me to install %s %s? [Y/n] "
+            choice = raw_input(prompt % ("this" if len(missing_dependencies) == 1 else "these",
+                                         "dependency" if len(missing_dependencies) == 1 else "dependencies"))
+            return choice.lower().strip() in ('y', '')
+        except (Exception, KeyboardInterrupt):
+            # Swallow regular exceptions and KeyBoardInterrupt but not SystemExit.
+            terminal = "\n\n"
+            return False
+        finally:
+            sys.stdout.write(terminal)
