@@ -41,6 +41,9 @@ errors such as:
   because the bucket doesn't exist or the configured credentials don't provide
   access to the bucket).
 
+Optionally if you are using Read Only credentials you can disable put() by setting
+the environment variable PIP_ACCEL_S3_READONLY to any value.
+
 Additionally :py:class:`~pip_accel.caches.CacheManager` automatically disables
 cache backends that raise exceptions on
 :py:class:`~pip_accel.caches.AbstractCacheBackend.get()` and
@@ -107,6 +110,12 @@ class S3CacheBackend(AbstractCacheBackend):
                        distribution archive.
         :raises: :py:exc:`.CacheBackendError` when any underlying method fails.
         """
+
+        # Early exit if readonly enabled
+        if self.config.s3_readonly:
+            logger.info('Skipping S3 Upload, S3 Readonly enabled')
+            return
+
         timer = Timer()
         raw_key = self.get_cache_key(filename)
         logger.info("Uploading distribution archive to S3 bucket: %s", raw_key)

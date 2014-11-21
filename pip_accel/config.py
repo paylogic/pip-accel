@@ -149,6 +149,17 @@ class Config(object):
         return coerce_boolean(value) if value else None
 
     @cached_property
+    def s3_readonly(self):
+        """
+        The name of the Amazon S3 bucket where binary distribution archives are
+        cached (a string or ``None``). You can set this configuration option
+        using the environment variable ``$PIP_ACCEL_S3_BUCKET``.
+
+        For details please refer to the :py:mod:`pip_accel.caches.s3` module.
+        """
+        return os.environ.get('PIP_ACCEL_S3_READONLY')
+
+    @cached_property
     def s3_cache_bucket(self):
         """
         The name of the Amazon S3 bucket where binary distribution archives are
