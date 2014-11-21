@@ -151,9 +151,9 @@ class Config(object):
     @cached_property
     def s3_readonly(self):
         """
-        The name of the Amazon S3 bucket where binary distribution archives are
-        cached (a string or ``None``). You can set this configuration option
-        using the environment variable ``$PIP_ACCEL_S3_BUCKET``.
+        This property toggles the cache manager into read only mode for S3. 
+        You can set this configuration option using the environment
+        variable ``$PIP_ACCEL_S3_READONLY``.
 
         For details please refer to the :py:mod:`pip_accel.caches.s3` module.
         """
