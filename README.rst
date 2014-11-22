@@ -149,6 +149,15 @@ configure the Amazon S3 cache backend:
  caches of ABI incompatible systems). *The user is currently responsible for
  choosing a suitable prefix.*
 
+``$PIP_ACCEL_S3_READONLY``
+ If this option is set pip-accel will skip uploading to the Amazon S3 bucket.
+ This means pip-accel will use the configured Amazon S3 bucket to "warm up"
+ your local cache but it will never write to the bucket, so you can use read
+ only credentials. Of course you will need to run at least one instance of
+ pip-accel that does have write permissions, so this setup is best suited to
+ teams working around e.g. a continuous integration (CI) server, where the CI
+ server primes the cache and developers use the cache in read only mode.
+
 You will also need to set AWS credentials, either in a `.boto file`_ or in the
 ``$AWS_ACCESS_KEY_ID`` and ``$AWS_SECRET_ACCESS_KEY`` environment variables
 (refer to the Boto documentation for details).

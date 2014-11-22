@@ -46,11 +46,12 @@ Here is an example of the available options:
         .. code-block:: ini
 
            [pip-accel]
-           auto-install = on
+           auto-install = yes
            data-directory = ~/.pip-accel
            download-cache = ~/.pip/download-cache
            s3-bucket = my-shared-pip-accel-binary-cache
            s3-prefix = ubuntu-trusty-amd64
+           s3-readonly = yes
 
 Note that the configuration options shown above are just examples, they are not
 meant to represent the configuration defaults.
@@ -194,7 +195,7 @@ class Config(object):
 
         - Environment variable: ``$PIP_ACCEL_CACHE``
         - Configuration option: ``data-directory``
-        - Default: ``/var/cache/pip-accel`` if running as ``root``, ``~/.pip-accel`` otherwise.
+        - Default: ``/var/cache/pip-accel`` if running as ``root``, ``~/.pip-accel`` otherwise
         """
         return parse_path(self.get(environment_variable='PIP_ACCEL_CACHE',
                                    configuration_option='data-directory',
@@ -235,14 +236,14 @@ class Config(object):
         """
         ``True`` if automatic installation of missing system packages is
         enabled, ``False`` if it disabled, ``None`` otherwise (in this case the
-        user will be prompted at the appropriate time). The default is ``None``.
+        user will be prompted at the appropriate time).
 
         - Environment variable:  ``$PIP_ACCEL_AUTO_INSTALL`` (refer to
           :py:func:`~humanfriendly.coerce_boolean()` for details on how the
-          value of the environment variable is interpreted).
+          value of the environment variable is interpreted)
         - Configuration option: ``auto-install`` (also parsed using
-          :py:func:`~humanfriendly.coerce_boolean()`).
-        - Default: 
+          :py:func:`~humanfriendly.coerce_boolean()`)
+        - Default: ``None``
         """
         value = self.get(environment_variable='PIP_ACCEL_AUTO_INSTALL',
                          configuration_option='auto-install')
@@ -253,8 +254,11 @@ class Config(object):
     def s3_cache_bucket(self):
         """
         The name of the Amazon S3 bucket where binary distribution archives are
-        cached (a string or ``None``). You can set this configuration option
-        using the environment variable ``$PIP_ACCEL_S3_BUCKET``.
+        cached (a string or ``None``).
+
+        - Environment variable:  ``$PIP_ACCEL_S3_BUCKET``
+        - Configuration option: ``s3-bucket``
+        - Default: ``None``
 
         For details please refer to the :py:mod:`pip_accel.caches.s3` module.
         """
@@ -265,10 +269,34 @@ class Config(object):
     def s3_cache_prefix(self):
         """
         The cache prefix for binary distribution archives in the Amazon S3
-        bucket (a string).  You can set this configuration option using the
-        environment variable ``$PIP_ACCEL_S3_PREFIX``.
+        bucket (a string or ``None``).
+
+        - Environment variable:  ``$PIP_ACCEL_S3_PREFIX``
+        - Configuration option: ``s3-prefix``
+        - Default: ``None``
 
         For details please refer to the :py:mod:`pip_accel.caches.s3` module.
         """
         return self.get(environment_variable='PIP_ACCEL_S3_PREFIX',
                         configuration_option='s3-prefix')
+
+    @cached_property
+    def s3_cache_readonly(self):
+        """
+        If this is ``True`` then the Amazon S3 bucket will only be used for
+        :py:class:`~pip_accel.caches.s3.S3CacheBackend.get()` operations (all
+        :py:class:`~pip_accel.caches.s3.S3CacheBackend.put()` operations will
+        be disabled).
+
+        - Environment variable:  ``$PIP_ACCEL_S3_READONLY`` (refer to
+          :py:func:`~humanfriendly.coerce_boolean()` for details on how the
+          value of the environment variable is interpreted)
+        - Configuration option: ``s3-readonly`` (also parsed using
+          :py:func:`~humanfriendly.coerce_boolean()`)
+        - Default: ``False``
+
+        For details please refer to the :py:mod:`pip_accel.caches.s3` module.
+        """
+        return coerce_boolean(self.get(environment_variable='PIP_ACCEL_S3_READONLY',
+                                       configuration_option='s3-readonly',
+                                       default=False))

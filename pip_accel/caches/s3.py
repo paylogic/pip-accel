@@ -3,7 +3,7 @@
 # Authors:
 #  - Adam Feuer <adam@adamfeuer.com>
 #  - Peter Odding <peter.odding@paylogic.eu>
-# Last Change: November 16, 2014
+# Last Change: November 22, 2014
 # URL: https://github.com/paylogic/pip-accel
 #
 # A word of warning: Do *not* use the cached_property decorator here, because
@@ -17,9 +17,9 @@
 
 This module implements a cache backend that stores distribution archives in a
 user defined `Amazon S3 <http://aws.amazon.com/s3/>`_ bucket. To enable this
-backend you need to define the configuration option :py:attr:`.Config.s3_cache_bucket`
-and configure your Amazon S3 API credentials (see the readme for
-details).
+backend you need to define the configuration option
+:py:attr:`~.Config.s3_cache_bucket` and configure your Amazon S3 API
+credentials (see the readme for details).
 
 A note about robustness
 -----------------------
@@ -28,8 +28,8 @@ The Amazon S3 cache backend implemented in :py:mod:`pip_accel.caches.s3` is
 specifically written to gracefully disable itself when it encounters known
 errors such as:
 
-- The environment variable ``$PIP_ACCEL_S3_BUCKET`` is not set (i.e. the user
-  hasn't configured the backend yet).
+- The configuration option :py:attr:`~.Config.s3_cache_bucket` is not set (i.e.
+  the user hasn't configured the backend yet).
 
 - The :py:mod:`boto` package is not installed (i.e. the user ran ``pip install
   pip-accel`` instead of ``pip install 'pip-accel[s3]'``).
@@ -47,6 +47,10 @@ cache backends that raise exceptions on
 :py:class:`~pip_accel.caches.AbstractCacheBackend.put()` operations. The end
 result is that when the Amazon S3 backend fails you will just revert to using
 the cache on the local file system.
+
+Optionally if you are using read only credentials you can disable
+:py:class:`~S3CacheBackend.put()` operations by setting the configuration
+option :py:attr:`~.Config.s3_cache_readonly`.
 """
 
 # Standard library modules.
@@ -102,18 +106,24 @@ class S3CacheBackend(AbstractCacheBackend):
         """
         Upload a distribution archive to the configured Amazon S3 bucket.
 
+        If the :py:attr:`~.Config.s3_cache_readonly` configuration option is
+        enabled this method does nothing.
+
         :param filename: The filename of the distribution archive (a string).
         :param handle: A file-like object that provides access to the
                        distribution archive.
         :raises: :py:exc:`.CacheBackendError` when any underlying method fails.
         """
-        timer = Timer()
-        raw_key = self.get_cache_key(filename)
-        logger.info("Uploading distribution archive to S3 bucket: %s", raw_key)
-        key = self.boto.s3.key.Key(self.s3_bucket)
-        key.key = raw_key
-        key.set_contents_from_file(handle)
-        logger.info("Finished uploading distribution archive to S3 bucket in %s.", timer)
+        if self.config.s3_cache_readonly:
+            logger.info('Skipping upload to S3 bucket (using S3 in read only mode).')
+        else:
+            timer = Timer()
+            raw_key = self.get_cache_key(filename)
+            logger.info("Uploading distribution archive to S3 bucket: %s", raw_key)
+            key = self.boto.s3.key.Key(self.s3_bucket)
+            key.key = raw_key
+            key.set_contents_from_file(handle)
+            logger.info("Finished uploading distribution archive to S3 bucket in %s.", timer)
 
     @property
     def s3_bucket(self):

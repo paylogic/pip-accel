@@ -19,7 +19,7 @@ the :py:class:`PipAccelerator` class.
 """
 
 # Semi-standard module versioning.
-__version__ = '0.17'
+__version__ = '0.18'
 
 # Standard library modules.
 import logging
