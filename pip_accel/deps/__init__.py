@@ -1,7 +1,7 @@
 # Extension of pip-accel that deals with dependencies on system packages.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: November 16, 2014
+# Last Change: November 22, 2014
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -25,14 +25,8 @@ import shlex
 import subprocess
 import sys
 
-try:
-    # Python 2.x.
-    import ConfigParser as configparser
-except ImportError:
-    # Python 3.x.
-    import configparser
-
 # Modules included in our package.
+from pip_accel.compat import configparser
 from pip_accel.exceptions import DependencyInstallationFailed, DependencyInstallationRefused, SystemDependencyError
 
 # External dependencies.
