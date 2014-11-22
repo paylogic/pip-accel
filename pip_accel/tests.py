@@ -3,7 +3,7 @@
 # Tests for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: November 16, 2014
+# Last Change: November 22, 2014
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Test successful installation of iPython, because it used to break! (nested /lib/ directory)
@@ -113,6 +113,11 @@ class PipAccelTestCase(unittest.TestCase):
         os.unlink(os.path.join(self.download_cache, os.listdir(self.download_cache)[0]))
         accelerator = PipAccelerator(Config(), validate=False)
         accelerator.install_from_arguments(arguments)
+        # Verify that pip-accel properly handles setup.py scripts that break
+        # the `bdist_dumb' action but support the `bdist' action as a fall
+        # back.
+        accelerator = PipAccelerator(Config(), validate=False)
+        accelerator.install_from_arguments(['paver==1.2.3'])
         # I'm not yet sure how to effectively test the command line interface,
         # because this test suite abuses validate=False which the command line
         # interface does not expose. That's why the following will report an

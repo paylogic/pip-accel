@@ -1,7 +1,7 @@
 # Functions to manipulate Python binary distribution archives.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: November 16, 2014
+# Last Change: November 22, 2014
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -59,6 +59,12 @@ class BinaryDistributionManager(object):
         given requirement. If no binary distribution has been cached yet, a new
         binary distribution is built and added to the cache.
 
+        Uses :py:func:`build_binary_dist()` to build binary distribution
+        archives. If this fails with a build error :py:func:`get_binary_dist()`
+        will use :py:class:`.SystemPackageManager` to check for and install
+        missing system packages and retry the build when missing system
+        packages were installed.
+
         :param requirement: A :py:class:`.Requirement` object.
         :returns: An iterable of tuples with two values each: A
                   :py:class:`tarfile.TarInfo` object and a file-like object.
@@ -70,7 +76,7 @@ class BinaryDistributionManager(object):
             try:
                 raw_file = self.build_binary_dist(requirement)
             except BuildFailed:
-                logger.warning("Build of %s (%s) failed!", requirement.name, requirement.version)
+                logger.warning("Build of %s (%s) failed, checking for missing dependencies ..", requirement.name, requirement.version)
                 if self.system_package_manager.install_dependencies(requirement):
                     raw_file = self.build_binary_dist(requirement)
                 else:
@@ -95,22 +101,61 @@ class BinaryDistributionManager(object):
 
     def build_binary_dist(self, requirement):
         """
-        Convert a single, unpacked source distribution to a binary
-        distribution. Raises an exception if it fails to create the binary
-        distribution (probably because of missing binary dependencies like
-        system libraries).
+        Build a binary distribution archive from an unpacked source distribution.
 
         :param requirement: A :py:class:`.Requirement` object.
-        :returns: The pathname of the resulting binary distribution (a string).
-        :raises: :py:exc:`.BuildFailed` when the build reports an error.
-        :raises: :py:exc:`.NoBuildOutput` when the build does not produce the
-                 expected binary distribution archive.
+        :returns: The pathname of a binary distribution archive (a string).
+        :raises: :py:exc:`.BinaryDistributionError` when the original command
+                and the fall back both fail to produce a binary distribution
+                archive.
 
         This method uses the following command to build binary distributions:
 
         .. code-block:: sh
 
            $ python setup.py bdist_dumb --format=tar
+
+        This command can fail for two main reasons:
+
+        1. The package is missing binary dependencies.
+        2. The ``setup.py`` script doesn't (properly) implement ``bdist_dumb``
+           binary distribution format support.
+
+        The first case is dealt with in :py:func:`get_binary_dist()`. To deal
+        with the second case this method falls back to the following command:
+
+        .. code-block:: sh
+
+           $ python setup.py bdist
+
+        This fall back is almost never needed, but there are Python packages
+        out there which require this fall back (this method was added because
+        the installation of ``Paver==1.2.3`` failed, see `issue 37`_ for
+        details about that).
+
+        .. _issue 37: https://github.com/paylogic/pip-accel/issues/37
+        """
+        try:
+            return self.build_binary_dist_helper(requirement, ['bdist_dumb', '--format=tar'])
+        except (BuildFailed, NoBuildOutput):
+            logger.warning("Build of %s (%s) failed, falling back to alternative method ..",
+                           requirement.name, requirement.version)
+            return self.build_binary_dist_helper(requirement, ['bdist'])
+
+    def build_binary_dist_helper(self, requirement, setup_command):
+        """
+        Convert a single, unpacked source distribution to a binary
+        distribution. Raises an exception if it fails to create the binary
+        distribution (probably because of missing binary dependencies like
+        system libraries).
+
+        :param requirement: A :py:class:`.Requirement` object.
+        :param setup_command: A list of strings with the arguments to
+                              ``setup.py``.
+        :returns: The pathname of the resulting binary distribution (a string).
+        :raises: :py:exc:`.BuildFailed` when the build reports an error.
+        :raises: :py:exc:`.NoBuildOutput` when the build does not produce the
+                 expected binary distribution archive.
         """
         build_timer = Timer()
         # Make sure the source distribution contains a setup script.
@@ -127,7 +172,7 @@ class BinaryDistributionManager(object):
             logger.debug("Cleaning up previously generated distributions in %s ..", dist_directory)
             shutil.rmtree(dist_directory)
         # Compose the command line needed to build the binary distribution.
-        command_line = '%s setup.py bdist_dumb --format=tar' % pipes.quote(self.config.python_executable)
+        command_line = ' '.join(pipes.quote(t) for t in [self.config.python_executable, 'setup.py'] + setup_command)
         logger.debug("Executing external command: %s", command_line)
         # Redirect all output of the build to a temporary file.
         fd, temporary_file = tempfile.mkstemp()
@@ -190,7 +235,7 @@ class BinaryDistributionManager(object):
 
         :param archive_path: The pathname of the original binary distribution archive.
         :returns: An iterable of tuples with two values each:
-        
+
                   1. A :py:class:`tarfile.TarInfo` object.
                   2. A file-like object.
         """
@@ -247,7 +292,7 @@ class BinaryDistributionManager(object):
         virtual environment).
 
         :param members: An iterable of tuples with two values each:
-        
+
                         1. A :py:class:`tarfile.TarInfo` object.
                         2. A file-like object.
         :param prefix: The "prefix" under which the requirements should be
