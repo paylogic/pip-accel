@@ -3,7 +3,7 @@
 # Authors:
 #  - Adam Feuer <adam@adamfeuer.com>
 #  - Peter Odding <peter.odding@paylogic.eu>
-# Last Change: November 22, 2014
+# Last Change: November 28, 2014
 # URL: https://github.com/paylogic/pip-accel
 #
 # A word of warning: Do *not* use the cached_property decorator here, because
@@ -140,13 +140,13 @@ class S3CacheBackend(AbstractCacheBackend):
                  S3 bucket fails.
         """
         if not hasattr(self, 'cached_bucket'):
-            self.ensure_boto_installed()
             if not self.config.s3_cache_bucket:
                 raise CacheBackendDisabledError("""
                     To use Amazon S3 as a cache you have to set the environment
                     variable $PIP_ACCEL_S3_BUCKET and configure your Amazon S3
                     API credentials (see the documentation for details).
                 """)
+            self.ensure_boto_installed()
             try:
                 logger.debug("Connecting to Amazon S3 bucket: %s", self.config.s3_cache_bucket)
                 self.cached_bucket = self.connect_to_s3().get_bucket(self.config.s3_cache_bucket)
