@@ -1,7 +1,7 @@
 # Functions to manipulate Python binary distribution archives.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: November 22, 2014
+# Last Change: November 28, 2014
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -306,8 +306,6 @@ class BinaryDistributionManager(object):
                                       resulting filenames compatible with
                                       virtual environments (defaults to
                                       ``True``).
-        :raises: :py:exc:`~exceptions.ValueError` when the Python executable is
-                 not located inside the installation prefix.
         """
         # TODO This is quite slow for modules like Django. Speed it up! Two choices:
         #  1. Run the external tar program to unpack the archive. This will
@@ -315,17 +313,9 @@ class BinaryDistributionManager(object):
         #  2. Using links? The plan: We can maintain a "seed" environment under
         #     $PIP_ACCEL_CACHE and use symbolic and/or hard links to populate other
         #     places based on the "seed" environment.
+        module_search_path = set(map(os.path.normpath, sys.path))
         prefix = os.path.normpath(prefix or self.config.install_prefix)
         python = os.path.normpath(python or self.config.python_executable)
-        # Make sure the installation prefix and Python executable match.
-        if os.path.commonprefix([prefix, python]) != prefix:
-            raise ValueError(compact("""
-                The configured Python executable ({executable}) is not located
-                inside the installation prefix ({prefix}). I don't think this
-                can work, so please make sure that if you override one
-                configuration option you also set the other one!
-            """, executable=python, prefix=prefix))
-        module_search_path = set(map(os.path.normpath, sys.path))
         for member, from_handle in members:
             pathname = member.name
             if virtualenv_compatible:
