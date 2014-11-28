@@ -1,7 +1,7 @@
 # Configuration defaults for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: November 22, 2014
+# Last Change: November 28, 2014
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -28,6 +28,14 @@ as a Python API the person embedding or extending pip-accel is responsible for
 providing the configuration object. This is intended as a form of `dependency
 injection`_ that enables non-default configurations to be injected into
 pip-accel.
+
+Support for runtime configuration
+---------------------------------
+
+The properties of the :py:class:`Config` class can be set at runtime using
+regular attribute assignment syntax. This overrides the default values of the
+properties (whether based on environment variables, configuration files or hard
+coded defaults).
 
 Support for configuration files
 -------------------------------
@@ -94,6 +102,7 @@ class Config(object):
                                            environment variables are used to
                                            initialize the configuration.
         """
+        self.overrides = {}
         self.configuration = {}
         self.environment = os.environ if load_environment_variables else {}
         if load_configuration_files:
@@ -129,10 +138,25 @@ class Config(object):
         else:
             self.configuration.update(parser.items('pip-accel'))
 
-    def get(self, environment_variable, configuration_option, default=None):
+    def __setattr__(self, name, value):
+        """
+        Override the value of a property at runtime.
+
+        :param name: The name of the property to override (a string).
+        :param value: The overridden value of the property.
+        """
+        attribute = getattr(self, name, None)
+        if isinstance(attribute, (property, cached_property)):
+            self.overrides[name] = value
+        else:
+            self.__dict__[name] = value
+
+    def get(self, property_name=None, environment_variable=None, configuration_option=None, default=None):
         """
         Internal shortcut to get a configuration option's value.
 
+        :param property_name: The name of the property that users can set on
+                              the :py:class:`Config` class (a string).
         :param environment_variable: The name of the environment variable (a
                                      string).
         :param configuration_option: The name of the option in the
@@ -141,9 +165,14 @@ class Config(object):
         :returns: The value of the environment variable or configuration file
                   option or the default value.
         """
-        return (self.environment.get(environment_variable) or
-                self.configuration.get(configuration_option) or
-                default)
+        if self.overrides.get(property_name) is not None:
+            return self.overrides[property_name]
+        elif environment_variable and self.environment.get(environment_variable):
+            return self.environment[environment_variable]
+        elif self.configuration.get(configuration_option) is not None:
+            return self.configuration[configuration_option]
+        else:
+            return default
 
     @cached_property
     def cache_format_revision(self):
@@ -166,7 +195,8 @@ class Config(object):
         - Configuration option: ``download-cache``
         - Default: ``~/.pip/download-cache``
         """
-        return parse_path(self.get(environment_variable='PIP_DOWNLOAD_CACHE',
+        return parse_path(self.get(property_name='download_cache',
+                                   environment_variable='PIP_DOWNLOAD_CACHE',
                                    configuration_option='download-cache',
                                    default='~/.pip/download-cache'))
 
@@ -177,7 +207,8 @@ class Config(object):
 
         This is the ``sources`` subdirectory of :py:data:`data_directory`.
         """
-        return os.path.join(self.data_directory, 'sources')
+        return self.get(property_name='source_index',
+                        default=os.path.join(self.data_directory, 'sources'))
 
     @cached_property
     def binary_cache(self):
@@ -186,7 +217,8 @@ class Config(object):
 
         This is the ``binaries`` subdirectory of :py:data:`data_directory`.
         """
-        return os.path.join(self.data_directory, 'binaries')
+        return self.get(property_name='binary_cache',
+                        default=os.path.join(self.data_directory, 'binaries'))
 
     @cached_property
     def data_directory(self):
@@ -197,14 +229,16 @@ class Config(object):
         - Configuration option: ``data-directory``
         - Default: ``/var/cache/pip-accel`` if running as ``root``, ``~/.pip-accel`` otherwise
         """
-        return parse_path(self.get(environment_variable='PIP_ACCEL_CACHE',
+        return parse_path(self.get(property_name='data_directory',
+                                   environment_variable='PIP_ACCEL_CACHE',
                                    configuration_option='data-directory',
                                    default='/var/cache/pip-accel' if os.getuid() == 0 else '~/.pip-accel'))
 
     @cached_property
     def on_debian(self):
         """``True`` if running on a Debian derived system, ``False`` otherwise."""
-        return os.path.exists('/etc/debian_version')
+        return self.get(property_name='on_debian',
+                        default=os.path.exists('/etc/debian_version'))
 
     @cached_property
     def install_prefix(self):
@@ -224,19 +258,21 @@ class Config(object):
         the :py:mod:`sysconfig` module would be nice but that module wasn't
         available in Python 2.6.
         """
-        return '/usr/local' if sys.prefix == '/usr' and self.on_debian else sys.prefix
+        return self.get(property_name='install_prefix',
+                        default='/usr/local' if sys.prefix == '/usr' and self.on_debian else sys.prefix)
 
     @cached_property
     def python_executable(self):
         """The absolute pathname of the Python executable (a string)."""
-        return sys.executable or os.path.join(self.install_prefix, 'bin', 'python')
+        return self.get(property_name='python_executable',
+                        default=sys.executable or os.path.join(self.install_prefix, 'bin', 'python'))
 
     @cached_property
     def auto_install(self):
         """
         ``True`` if automatic installation of missing system packages is
-        enabled, ``False`` if it disabled, ``None`` otherwise (in this case the
-        user will be prompted at the appropriate time).
+        enabled, ``False`` if it is disabled, ``None`` otherwise (in this case
+        the user will be prompted at the appropriate time).
 
         - Environment variable:  ``$PIP_ACCEL_AUTO_INSTALL`` (refer to
           :py:func:`~humanfriendly.coerce_boolean()` for details on how the
@@ -245,7 +281,8 @@ class Config(object):
           :py:func:`~humanfriendly.coerce_boolean()`)
         - Default: ``None``
         """
-        value = self.get(environment_variable='PIP_ACCEL_AUTO_INSTALL',
+        value = self.get(property_name='auto_install',
+                         environment_variable='PIP_ACCEL_AUTO_INSTALL',
                          configuration_option='auto-install')
         if value is not None:
             return coerce_boolean(value)
@@ -262,7 +299,8 @@ class Config(object):
 
         For details please refer to the :py:mod:`pip_accel.caches.s3` module.
         """
-        return self.get(environment_variable='PIP_ACCEL_S3_BUCKET',
+        return self.get(property_name='s3_cache_bucket',
+                        environment_variable='PIP_ACCEL_S3_BUCKET',
                         configuration_option='s3-bucket')
 
     @cached_property
@@ -277,7 +315,8 @@ class Config(object):
 
         For details please refer to the :py:mod:`pip_accel.caches.s3` module.
         """
-        return self.get(environment_variable='PIP_ACCEL_S3_PREFIX',
+        return self.get(property_name='s3_cache_prefix',
+                        environment_variable='PIP_ACCEL_S3_PREFIX',
                         configuration_option='s3-prefix')
 
     @cached_property
@@ -297,6 +336,7 @@ class Config(object):
 
         For details please refer to the :py:mod:`pip_accel.caches.s3` module.
         """
-        return coerce_boolean(self.get(environment_variable='PIP_ACCEL_S3_READONLY',
+        return coerce_boolean(self.get(property_name='s3_cache_readonly',
+                                       environment_variable='PIP_ACCEL_S3_READONLY',
                                        configuration_option='s3-readonly',
                                        default=False))
