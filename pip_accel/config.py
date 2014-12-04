@@ -1,7 +1,7 @@
 # Configuration defaults for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: November 28, 2014
+# Last Change: December 4, 2014
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -274,7 +274,7 @@ class Config(object):
         enabled, ``False`` if it is disabled, ``None`` otherwise (in this case
         the user will be prompted at the appropriate time).
 
-        - Environment variable:  ``$PIP_ACCEL_AUTO_INSTALL`` (refer to
+        - Environment variable: ``$PIP_ACCEL_AUTO_INSTALL`` (refer to
           :py:func:`~humanfriendly.coerce_boolean()` for details on how the
           value of the environment variable is interpreted)
         - Configuration option: ``auto-install`` (also parsed using
@@ -288,12 +288,32 @@ class Config(object):
             return coerce_boolean(value)
 
     @cached_property
+    def s3_cache_url(self):
+        """
+        The URL of the Amazon S3 API endpoint to use.
+
+        By default this points to the official Amazon S3 API endpoint. You can
+        change this option if you're running a local Amazon S3 compatible
+        storage service that you want pip-accel to use.
+
+        - Environment variable: ``$PIP_ACCEL_S3_URL``
+        - Configuration option: ``s3-url``
+        - Default: ``https://s3.amazonaws.com``
+
+        For details please refer to the :py:mod:`pip_accel.caches.s3` module.
+        """
+        return self.get(property_name='s3_cache_url',
+                        environment_variable='PIP_ACCEL_S3_URL',
+                        configuration_option='s3-url',
+                        default='https://s3.amazonaws.com')
+
+    @cached_property
     def s3_cache_bucket(self):
         """
         The name of the Amazon S3 bucket where binary distribution archives are
         cached (a string or ``None``).
 
-        - Environment variable:  ``$PIP_ACCEL_S3_BUCKET``
+        - Environment variable: ``$PIP_ACCEL_S3_BUCKET``
         - Configuration option: ``s3-bucket``
         - Default: ``None``
 
@@ -304,12 +324,28 @@ class Config(object):
                         configuration_option='s3-bucket')
 
     @cached_property
+    def s3_cache_create_bucket(self):
+        """
+        Whether to automatically create the Amazon S3 bucket when it's missing.
+
+        - Environment variable: ``$PIP_ACCEL_S3_CREATE_BUCKET``
+        - Configuration option: ``s3-create-bucket``
+        - Default: ``False``
+
+        For details please refer to the :py:mod:`pip_accel.caches.s3` module.
+        """
+        return coerce_boolean(self.get(property_name='s3_cache_create_bucket',
+                                       environment_variable='PIP_ACCEL_S3_CREATE_BUCKET',
+                                       configuration_option='s3-create-bucket',
+                                       default=False))
+
+    @cached_property
     def s3_cache_prefix(self):
         """
         The cache prefix for binary distribution archives in the Amazon S3
         bucket (a string or ``None``).
 
-        - Environment variable:  ``$PIP_ACCEL_S3_PREFIX``
+        - Environment variable: ``$PIP_ACCEL_S3_PREFIX``
         - Configuration option: ``s3-prefix``
         - Default: ``None``
 
@@ -327,7 +363,7 @@ class Config(object):
         :py:class:`~pip_accel.caches.s3.S3CacheBackend.put()` operations will
         be disabled).
 
-        - Environment variable:  ``$PIP_ACCEL_S3_READONLY`` (refer to
+        - Environment variable: ``$PIP_ACCEL_S3_READONLY`` (refer to
           :py:func:`~humanfriendly.coerce_boolean()` for details on how the
           value of the environment variable is interpreted)
         - Configuration option: ``s3-readonly`` (also parsed using

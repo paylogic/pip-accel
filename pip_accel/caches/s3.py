@@ -3,7 +3,7 @@
 # Authors:
 #  - Adam Feuer <adam@adamfeuer.com>
 #  - Peter Odding <peter.odding@paylogic.eu>
-# Last Change: November 28, 2014
+# Last Change: December 4, 2014
 # URL: https://github.com/paylogic/pip-accel
 #
 # A word of warning: Do *not* use the cached_property decorator here, because
@@ -62,6 +62,7 @@ from humanfriendly import Timer
 
 # Modules included in our package.
 from pip_accel.caches import AbstractCacheBackend
+from pip_accel.compat import urlparse
 from pip_accel.exceptions import CacheBackendDisabledError, CacheBackendError
 from pip_accel.utils import makedirs
 
@@ -85,6 +86,7 @@ class S3CacheBackend(AbstractCacheBackend):
         :raises: :py:exc:`.CacheBackendError` when any underlying method fails.
         """
         timer = Timer()
+        self.check_prerequisites()
         # Check if the distribution archive is available.
         raw_key = self.get_cache_key(filename)
         logger.info("Checking if distribution archive is available in S3 bucket: %s", raw_key)
@@ -118,9 +120,11 @@ class S3CacheBackend(AbstractCacheBackend):
             logger.info('Skipping upload to S3 bucket (using S3 in read only mode).')
         else:
             timer = Timer()
+            self.check_prerequisites()
+            from boto.s3.key import Key
             raw_key = self.get_cache_key(filename)
             logger.info("Uploading distribution archive to S3 bucket: %s", raw_key)
-            key = self.boto.s3.key.Key(self.s3_bucket)
+            key = Key(self.s3_bucket)
             key.key = raw_key
             key.set_contents_from_file(handle)
             logger.info("Finished uploading distribution archive to S3 bucket in %s.", timer)
@@ -140,17 +144,24 @@ class S3CacheBackend(AbstractCacheBackend):
                  S3 bucket fails.
         """
         if not hasattr(self, 'cached_bucket'):
-            if not self.config.s3_cache_bucket:
-                raise CacheBackendDisabledError("""
-                    To use Amazon S3 as a cache you have to set the environment
-                    variable $PIP_ACCEL_S3_BUCKET and configure your Amazon S3
-                    API credentials (see the documentation for details).
-                """)
-            self.ensure_boto_installed()
+            from boto.exception import BotoClientError, BotoServerError, S3ResponseError
+            # The following try/except block translates unexpected exceptions
+            # raised by Boto into a CacheBackendError exception.
             try:
-                logger.debug("Connecting to Amazon S3 bucket: %s", self.config.s3_cache_bucket)
-                self.cached_bucket = self.connect_to_s3().get_bucket(self.config.s3_cache_bucket)
-            except (self.boto.exception.BotoClientError, self.boto.exception.BotoServerError):
+                # The following try/except block handles the expected exception
+                # raised by Boto when an Amazon S3 bucket does not exist.
+                try:
+                    logger.debug("Connecting to Amazon S3 bucket: %s", self.config.s3_cache_bucket)
+                    self.cached_bucket = self.s3_connection.get_bucket(self.config.s3_cache_bucket)
+                except S3ResponseError as e:
+                    if e.status == 404 and self.config.s3_cache_create_bucket:
+                        logger.info("Amazon S3 bucket doesn't exist yet, creating it now: %s", self.config.s3_cache_bucket)
+                        self.s3_connection.create_bucket(self.config.s3_cache_bucket)
+                        self.cached_bucket = self.s3_connection.get_bucket(self.config.s3_cache_bucket)
+                    else:
+                        # Don't swallow exceptions we can't handle.
+                        raise
+            except (BotoClientError, BotoServerError):
                 raise CacheBackendError("""
                     Failed to connect to the configured Amazon S3 bucket
                     {bucket}! Are you sure the bucket exists and is accessible
@@ -159,7 +170,8 @@ class S3CacheBackend(AbstractCacheBackend):
                 """, bucket=repr(self.config.s3_cache_bucket))
         return self.cached_bucket
 
-    def connect_to_s3(self):
+    @property
+    def s3_connection(self):
         """
         Connect to the Amazon S3 API.
 
@@ -169,38 +181,27 @@ class S3CacheBackend(AbstractCacheBackend):
         :raises: :py:exc:`.CacheBackendError` when the connection to the Amazon
                  S3 API fails.
         """
-        self.ensure_boto_installed()
-        try:
-            logger.debug("Connecting to Amazon S3 API ..")
-            return self.boto.connect_s3()
-        except (self.boto.exception.BotoClientError, self.boto.exception.BotoServerError):
-            raise CacheBackendError("""
-                Failed to connect to the Amazon S3 API! Most likely your
-                credentials are not correctly configured. The Amazon S3
-                cache backend will be disabled for now.
-            """)
-
-    def ensure_boto_installed(self):
-        """
-        Dynamically import the :py:mod:`boto` module.
-
-        Called on demand by :py:attr:`s3_connection`. This allows references to
-        variables defined by the :py:mod:`boto` module without having to import
-        Boto everywhere (that would break importing of the
-        :py:mod:`pip_accel.caches.s3` module when Boto is not installed).
-
-        :raises: :py:exc:`.CacheBackendError` when :py:mod:`boto` is not installed.
-        """
-        try:
-            logger.debug("Checking if Boto is installed ..")
-            self.boto = __import__('boto')
-        except ImportError:
-            raise CacheBackendError("""
-                Boto is required to use Amazon S3 as a cache but it looks like
-                Boto is not installed! You can resolve this issue by installing
-                pip-accel using the command `pip install pip-accel[s3]'. The
-                Amazon S3 cache backend will be disabled for now.
-            """)
+        if not hasattr(self, 'cached_connection'):
+            from boto.exception import BotoClientError, BotoServerError
+            from boto.s3.connection import S3Connection, SubdomainCallingFormat, OrdinaryCallingFormat
+            try:
+                logger.debug("Connecting to Amazon S3 API ..")
+                endpoint = urlparse(self.config.s3_cache_url)
+                host, _, port = endpoint.netloc.partition(':')
+                is_secure = (endpoint.scheme == 'https')
+                self.cached_connection = S3Connection(host=host,
+                                                      port=int(port) if port else 443 if is_secure else 80,
+                                                      is_secure=is_secure,
+                                                      calling_format=SubdomainCallingFormat()
+                                                                     if host == 's3.amazonaws.com'
+                                                                     else OrdinaryCallingFormat())
+            except (BotoClientError, BotoServerError):
+                raise CacheBackendError("""
+                    Failed to connect to the Amazon S3 API! Most likely your
+                    credentials are not correctly configured. The Amazon S3
+                    cache backend will be disabled for now.
+                """)
+        return self.cached_connection
 
     def get_cache_key(self, filename):
         """
@@ -211,3 +212,29 @@ class S3CacheBackend(AbstractCacheBackend):
         :returns: The cache key for the given filename (a string).
         """
         return '/'.join(filter(None, [self.config.s3_cache_prefix, filename]))
+
+    def check_prerequisites(self):
+        """
+        Validate the prerequisites required to use the Amazon S3 cache backend.
+
+        Makes sure the Amazon S3 cache backend is configured
+        (:py:attr:`.Config.s3_cache_bucket` is defined by the user) and
+        :py:mod:`boto` is available for use.
+
+        :raises: :py:exc:`.CacheBackendDisabledError` when a prerequisite fails.
+        """
+        if not self.config.s3_cache_bucket:
+            raise CacheBackendDisabledError("""
+                To use Amazon S3 as a cache you have to set the environment
+                variable $PIP_ACCEL_S3_BUCKET and configure your Amazon S3 API
+                credentials (see the documentation for details).
+            """)
+        try:
+            __import__('boto')
+        except ImportError:
+            raise CacheBackendDisabledError("""
+                Boto is required to use Amazon S3 as a cache but it looks like
+                Boto is not installed! You can resolve this issue by installing
+                pip-accel using the command `pip install pip-accel[s3]'. The
+                Amazon S3 cache backend will be disabled for now.
+            """)

@@ -3,12 +3,19 @@ python:
   - "2.6"
   - "2.7"
   - "3.4"
-install:
-  - pip install coveralls
-  - python setup.py install
 env:
   global:
+    - PIP_ACCEL_S3_CREATE_BUCKET=true
+    - PIP_ACCEL_S3_URL="http://localhost:12345"
     - PIP_ACCEL_TEST_AUTO_INSTALL=true
+  matrix:
+    - PIP_ACCEL_S3_BUCKET=
+    - PIP_ACCEL_S3_BUCKET=pip-accel-test-bucket
+install:
+  - pip install coveralls --editable "file://${PWD}[s3]"
+  - sudo apt-get install --yes rubygems
+  - sudo gem install fakes3
+  - start-stop-daemon --start --quiet --pidfile /tmp/fakes3.pid --make-pidfile --background --exec fakes3 -- --root=/tmp/fakes3 --port=12345
 script:
   coverage run --source=pip_accel setup.py test
 after_success:
