@@ -8,6 +8,8 @@ env:
     - PIP_ACCEL_S3_CREATE_BUCKET=true
     - PIP_ACCEL_S3_URL="http://localhost:12345"
     - PIP_ACCEL_TEST_AUTO_INSTALL=true
+    - AWS_ACCESS_KEY_ID=foo
+    - AWS_SECRET_ACCESS_KEY=bar
   matrix:
     - PIP_ACCEL_S3_BUCKET=
     - PIP_ACCEL_S3_BUCKET=pip-accel-test-bucket
