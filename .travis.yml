@@ -10,8 +10,7 @@ before_install:
   - sudo apt-get update
 install:
   - pip install coveralls --editable "file://${PWD}[s3]"
-  - sudo apt-get install --yes rubygems
-  - sudo gem install fakes3
+  - gem install fakes3
 script:
   ./.travis.sh
 after_success:
