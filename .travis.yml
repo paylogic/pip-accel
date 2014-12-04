@@ -17,7 +17,7 @@ install:
   - pip install coveralls --editable "file://${PWD}[s3]"
   - sudo apt-get install --yes rubygems
   - sudo gem install fakes3
-  - start-stop-daemon --start --quiet --pidfile /tmp/fakes3.pid --make-pidfile --background --exec fakes3 -- --root=/tmp/fakes3 --port=12345
+  - start-stop-daemon --start --quiet --pidfile /tmp/fakes3.pid --make-pidfile --background --exec /usr/local/bin/fakes3 -- --root=/tmp/fakes3 --port=12345
 script:
   coverage run --source=pip_accel setup.py test
 after_success:
