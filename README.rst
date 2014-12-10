@@ -67,8 +67,8 @@ example:
 
    $ pip-accel install -r requirements.txt
 
-If you pass a `-v` or `--verbose` option then pip and pip-accel will both use
-verbose output. The `q` or `--quiet` option is also supported.
+If you pass a ``-v`` or ``--verbose`` option then pip and pip-accel will both
+use verbose output. The ``-q`` or ``--quiet`` option is also supported.
 
 Based on the user running pip-accel the following file locations are used by
 default:
@@ -82,6 +82,18 @@ Root user                      All other users            Purpose
 
 These defaults can be overridden by defining the environment variables
 ``PIP_DOWNLOAD_CACHE`` and/or ``PIP_ACCEL_CACHE``.
+
+Configuration
+~~~~~~~~~~~~~
+
+For most users the default configuration of pip-accel should be fine. If you do
+want to change pip-accel's defaults you do so by setting environment variables
+and/or adding configuration options to a configuration file. This is because
+pip-accel shares its command line interface with pip and adding support for
+command line options specific to pip-accel is non trivial and may end up
+causing more confusion than it's worth :-). For an overview of the available
+configuration options and corresponding environment variables please refer to
+the `documentation of the pip_accel.config module`_.
 
 How fast is it?
 ---------------
@@ -105,7 +117,7 @@ Alternative cache backends
 --------------------------
 
 Bundled with pip-accel are a local cache backend (which stores distribution
-archives on the local file system) and an Amazon S3 backend (see below).
+archives on the local file system) and an `Amazon S3`_ backend (see below).
 
 Both of these cache backends are registered with pip-accel using a generic
 pluggable cache backend registration mechanism. This mechanism makes it
@@ -158,9 +170,22 @@ configure the Amazon S3 cache backend:
  teams working around e.g. a continuous integration (CI) server, where the CI
  server primes the cache and developers use the cache in read only mode.
 
-You will also need to set AWS credentials, either in a `.boto file`_ or in the
-``$AWS_ACCESS_KEY_ID`` and ``$AWS_SECRET_ACCESS_KEY`` environment variables
-(refer to the Boto documentation for details).
+You can also set these options from a configuration file, please refer to the
+`documentation of the pip_accel.config module`_. You will also need to set AWS
+credentials, either in a `.boto file`_ or in the ``$AWS_ACCESS_KEY_ID`` and
+``$AWS_SECRET_ACCESS_KEY`` environment variables (refer to the Boto
+documentation for details).
+
+Using S3 compatible storage services
+````````````````````````````````````
+
+If you want to point pip-accel at an `S3 compatible storage service`_ that is
+*not* Amazon S3 you can `override the S3 API URL`_ using a configuration option
+or environment variable. For example the pip-accel test suite first installs
+and starts FakeS3_ and then sets ``PIP_ACCEL_S3_URL=http://localhost:12345`` to
+point pip-accel at the FakeS3 server (in order to test the Amazon S3 cache
+backend without actually having to pay for an Amazon S3 bucket :-). For more
+details please refer to the documentation of the `Amazon S3 cache backend`_.
 
 Dependencies on system packages
 -------------------------------
@@ -276,10 +301,13 @@ pip-accel is based).
 
 .. External references:
 .. _.boto file: http://boto.readthedocs.org/en/latest/boto_config_tut.html
+.. _Amazon S3 cache backend: http://pip-accel.readthedocs.org/en/latest/developers.html#module-pip_accel.caches.s3
 .. _Amazon S3: http://aws.amazon.com/s3/
 .. _behind a CDN: http://mail.python.org/pipermail/distutils-sig/2013-May/020848.html
 .. _Binary distributions: http://docs.python.org/2/distutils/builtdist.html
 .. _Boto: https://github.com/boto/boto
+.. _documentation of the pip_accel.config module: http://pip-accel.readthedocs.org/en/latest/developers.html#module-pip_accel.config
+.. _FakeS3: https://github.com/jubos/fake-s3
 .. _GitHub project page: https://github.com/paylogic/pip-accel
 .. _hosted on Read The Docs: https://pip-accel.readthedocs.org/
 .. _issue #30 on GitHub: https://github.com/paylogic/pip-accel/issues/30
@@ -287,9 +315,11 @@ pip-accel is based).
 .. _LXML: https://pypi.python.org/pypi/lxml
 .. _M2Crypto: https://pypi.python.org/pypi/M2Crypto
 .. _MIT license: http://en.wikipedia.org/wiki/MIT_License
+.. _override the S3 API URL: http://pip-accel.readthedocs.org/en/latest/developers.html#pip_accel.config.Config.s3_cache_url
 .. _Paylogic: http://www.paylogic.com/
 .. _pip: http://www.pip-installer.org/
 .. _PyPI: http://pypi.python.org/
 .. _Python virtual environments: http://www.virtualenv.org/
 .. _requirements files: http://www.pip-installer.org/en/latest/cookbook.html#requirements-files
+.. _S3 compatible storage service: http://en.wikipedia.org/wiki/Amazon_S3#S3_API_and_competing_services
 .. _Tox: https://tox.readthedocs.org/

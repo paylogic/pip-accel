@@ -1,7 +1,7 @@
 # Configuration defaults for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: December 4, 2014
+# Last Change: December 11, 2014
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -63,6 +63,8 @@ Here is an example of the available options:
 
 Note that the configuration options shown above are just examples, they are not
 meant to represent the configuration defaults.
+
+----
 
 .. _dependency injection: http://en.wikipedia.org/wiki/Dependency_injection
 """

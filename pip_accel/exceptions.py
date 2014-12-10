@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: November 16, 2014
+# Last Change: December 11, 2014
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -28,6 +28,8 @@ by pip-accel the following diagram may help by visualizing the hierarchy:
 
 .. inheritance-diagram:: EnvironmentMismatchError InvalidSourceDistribution BuildFailed NoBuildOutput CacheBackendError CacheBackendDisabledError DependencyInstallationRefused DependencyInstallationFailed
    :parts: 1
+
+----
 """
 
 from pip_accel.utils import compact

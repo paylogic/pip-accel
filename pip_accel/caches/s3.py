@@ -3,7 +3,7 @@
 # Authors:
 #  - Adam Feuer <adam@adamfeuer.com>
 #  - Peter Odding <peter.odding@paylogic.eu>
-# Last Change: December 4, 2014
+# Last Change: December 11, 2014
 # URL: https://github.com/paylogic/pip-accel
 #
 # A word of warning: Do *not* use the cached_property decorator here, because
@@ -21,6 +21,42 @@ backend you need to define the configuration option
 :py:attr:`~.Config.s3_cache_bucket` and configure your Amazon S3 API
 credentials (see the readme for details).
 
+Using S3 compatible storage services
+------------------------------------
+
+The Amazon S3 API has been implemented in several open source projects and
+dozens of online services. To use pip-accel with an S3 compatible storage
+service you can override the :py:attr:`~.Config.s3_cache_url` option. The
+pip-accel test suite actually uses this option to test the S3 cache backend by
+running FakeS3_ in the background and pointing pip-accel at the FakeS3 server.
+Below are some usage notes that may be relevant for people evaluating this
+option.
+
+**Secure connections**
+ Boto_ has to be told whether to make a "secure" connection to the S3 API and
+ pip-accel assumes the ``https://`` URL scheme implies a secure connection
+ while the ``http://`` URL scheme implies a non-secure connection.
+
+**Calling formats**
+ Boto_ has the concept of "calling formats" for the S3 API and to connect to
+ the official Amazon S3 API pip-accel needs to specify the "sub-domain calling
+ format" or the API calls will fail. When you specify a nonstandard S3 API URL
+ pip-accel tells Boto to use the "ordinary calling format" instead. This
+ differentiation will undoubtedly not be correct in all cases. If this is
+ bothering you then feel free to open an issue on GitHub to make pip-accel more
+ flexible in this regard.
+
+**Credentials**
+ Boto_ was written with the official Amazon APIs in mind so using it against an
+ alternative API has some quirks. One of those quirks is that if you don't
+ specify any S3 API credentials Boto will try to fetch the credentials from the
+ EC2 metadata service (which is obviously not available outside Amazon EC2)
+ instead of assuming that it should just connect without credentials. This
+ means that if you use e.g. FakeS3_ you need to specify bogus credentials just
+ to prevent Boto from trying to connect to a non existing EC2 metadata service.
+ It's not yet clear to me what pip-accel's role in this is: should it try to
+ hide these ugly details or is it just not worth the effort?
+
 A note about robustness
 -----------------------
 
@@ -34,23 +70,28 @@ errors such as:
 - The :py:mod:`boto` package is not installed (i.e. the user ran ``pip install
   pip-accel`` instead of ``pip install 'pip-accel[s3]'``).
 
-- The connection to the Amazon S3 API can't be established (e.g. because API
+- The connection to the S3 API can't be established (e.g. because API
   credentials haven't been correctly configured).
 
-- The connection to the configured Amazon S3 bucket can't be established (e.g.
-  because the bucket doesn't exist or the configured credentials don't provide
-  access to the bucket).
+- The connection to the configured S3 bucket can't be established (e.g. because
+  the bucket doesn't exist or the configured credentials don't provide access to
+  the bucket).
 
 Additionally :py:class:`~pip_accel.caches.CacheManager` automatically disables
 cache backends that raise exceptions on
 :py:class:`~pip_accel.caches.AbstractCacheBackend.get()` and
 :py:class:`~pip_accel.caches.AbstractCacheBackend.put()` operations. The end
-result is that when the Amazon S3 backend fails you will just revert to using
-the cache on the local file system.
+result is that when the S3 backend fails you will just revert to using the
+cache on the local file system.
 
 Optionally if you are using read only credentials you can disable
 :py:class:`~S3CacheBackend.put()` operations by setting the configuration
 option :py:attr:`~.Config.s3_cache_readonly`.
+
+----
+
+.. _FakeS3: https://github.com/jubos/fake-s3
+.. _Boto: https://github.com/boto/boto
 """
 
 # Standard library modules.
@@ -190,10 +231,10 @@ class S3CacheBackend(AbstractCacheBackend):
                 host, _, port = endpoint.netloc.partition(':')
                 is_secure = (endpoint.scheme == 'https')
                 self.cached_connection = S3Connection(host=host,
-                                                      port=int(port) if port else 443 if is_secure else 80,
+                                                      port=int(port) if port else None,
                                                       is_secure=is_secure,
                                                       calling_format=SubdomainCallingFormat()
-                                                                     if host == 's3.amazonaws.com'
+                                                                     if host == S3Connection.DefaultHost
                                                                      else OrdinaryCallingFormat())
             except (BotoClientError, BotoServerError):
                 raise CacheBackendError("""
