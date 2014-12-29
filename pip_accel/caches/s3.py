@@ -3,7 +3,7 @@
 # Authors:
 #  - Adam Feuer <adam@adamfeuer.com>
 #  - Peter Odding <peter.odding@paylogic.eu>
-# Last Change: December 11, 2014
+# Last Change: December 30, 2014
 # URL: https://github.com/paylogic/pip-accel
 #
 # A word of warning: Do *not* use the cached_property decorator here, because
@@ -47,15 +47,11 @@ option.
  flexible in this regard.
 
 **Credentials**
- Boto_ was written with the official Amazon APIs in mind so using it against an
- alternative API has some quirks. One of those quirks is that if you don't
- specify any S3 API credentials Boto will try to fetch the credentials from the
- EC2 metadata service (which is obviously not available outside Amazon EC2)
- instead of assuming that it should just connect without credentials. This
- means that if you use e.g. FakeS3_ you need to specify bogus credentials just
- to prevent Boto from trying to connect to a non existing EC2 metadata service.
- It's not yet clear to me what pip-accel's role in this is: should it try to
- hide these ugly details or is it just not worth the effort?
+ If you don't specify S3 API credentials and the connection attempt to S3 fails
+ with "NoAuthHandlerFound: No handler was ready to authenticate" pip-accel will
+ fall back to an anonymous connection attempt. If that fails as well the S3
+ cache backend is disabled. It may be useful to note here that the pip-accel
+ test suite uses FakeS3_ and the anonymous connection fall back works fine.
 
 A note about robustness
 -----------------------
@@ -216,6 +212,9 @@ class S3CacheBackend(AbstractCacheBackend):
         """
         Connect to the Amazon S3 API.
 
+        If the connection attempt fails because Boto can't find credentials the
+        attempt is retried once with an anonymous connection.
+
         Called on demand by :py:attr:`s3_bucket`.
 
         :returns: A :py:class:`boto.s3.connection.S3Connection` object.
@@ -223,19 +222,26 @@ class S3CacheBackend(AbstractCacheBackend):
                  S3 API fails.
         """
         if not hasattr(self, 'cached_connection'):
-            from boto.exception import BotoClientError, BotoServerError
+            from boto.exception import BotoClientError, BotoServerError, NoAuthHandlerFound
             from boto.s3.connection import S3Connection, SubdomainCallingFormat, OrdinaryCallingFormat
             try:
                 logger.debug("Connecting to Amazon S3 API ..")
                 endpoint = urlparse(self.config.s3_cache_url)
                 host, _, port = endpoint.netloc.partition(':')
                 is_secure = (endpoint.scheme == 'https')
-                self.cached_connection = S3Connection(host=host,
-                                                      port=int(port) if port else None,
-                                                      is_secure=is_secure,
-                                                      calling_format=SubdomainCallingFormat()
-                                                                     if host == S3Connection.DefaultHost
-                                                                     else OrdinaryCallingFormat())
+                calling_format = SubdomainCallingFormat() if host == S3Connection.DefaultHost else OrdinaryCallingFormat()
+                try:
+                    self.cached_connection = S3Connection(host=host,
+                                                          port=int(port) if port else None,
+                                                          is_secure=is_secure,
+                                                          calling_format=calling_format)
+                except NoAuthHandlerFound:
+                    logger.debug("Amazon S3 API credentials missing, retrying with anonymous connection ..")
+                    self.cached_connection = S3Connection(host=host,
+                                                          port=int(port) if port else None,
+                                                          is_secure=is_secure,
+                                                          calling_format=calling_format,
+                                                          anon=True)
             except (BotoClientError, BotoServerError):
                 raise CacheBackendError("""
                     Failed to connect to the Amazon S3 API! Most likely your
