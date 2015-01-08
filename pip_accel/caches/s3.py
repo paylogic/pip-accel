@@ -3,7 +3,7 @@
 # Authors:
 #  - Adam Feuer <adam@adamfeuer.com>
 #  - Peter Odding <peter.odding@paylogic.eu>
-# Last Change: December 30, 2014
+# Last Change: January 8, 2015
 # URL: https://github.com/paylogic/pip-accel
 #
 # A word of warning: Do *not* use the cached_property decorator here, because
@@ -95,7 +95,7 @@ import logging
 import os
 
 # External dependencies.
-from humanfriendly import Timer
+from humanfriendly import coerce_boolean, Timer
 
 # Modules included in our package.
 from pip_accel.caches import AbstractCacheBackend
@@ -105,6 +105,23 @@ from pip_accel.utils import makedirs
 
 # Initialize a logger for this module.
 logger = logging.getLogger(__name__)
+
+# The `coloredlogs' package installs a logging handler on the root logger which
+# means all loggers automatically write their log messages to the standard
+# error stream. In the case of Boto this is a bit confusing because Boto logs
+# messages with the ERROR severity even when nothing is wrong, because it
+# tries to connect to the Amazon EC2 metadata service which is (obviously) not
+# available outside of Amazon EC2:
+#
+#   boto[6851] DEBUG Retrieving credentials from metadata server.
+#   boto[6851] ERROR Caught exception reading instance data
+#
+# To avoid confusing users of pip-accel (i.e. this is not an error because it's
+# properly handled) we silence the Boto logger. To avoid annoying people who
+# actually want to debug Boto we'll also provide an escape hatch in the form of
+# an environment variable.
+if coerce_boolean(os.environ.get('PIP_ACCEL_SILENCE_BOTO', 'true')):
+    logging.getLogger('boto').setLevel(logging.FATAL)
 
 class S3CacheBackend(AbstractCacheBackend):
 
