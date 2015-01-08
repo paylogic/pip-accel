@@ -180,8 +180,13 @@ class S3CacheBackend(AbstractCacheBackend):
             logger.info("Uploading distribution archive to S3 bucket: %s", raw_key)
             key = Key(self.s3_bucket)
             key.key = raw_key
-            key.set_contents_from_file(handle)
-            logger.info("Finished uploading distribution archive to S3 bucket in %s.", timer)
+            try:
+                key.set_contents_from_file(handle)
+            except Exception as e:
+                logger.info("Encountered error writing to S3 bucket, falling back to read only mode (exception: %s)", e)
+                self.config.s3_cache_readonly = True
+            else:
+                logger.info("Finished uploading distribution archive to S3 bucket in %s.", timer)
 
     @property
     def s3_bucket(self):
