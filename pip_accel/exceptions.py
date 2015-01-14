@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: December 11, 2014
+# Last Change: January 14, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -44,6 +44,13 @@ class PipAcceleratorError(Exception):
     def __init__(self, text, **kw):
         """Accepts the same arguments as :py:func:`.compact()`."""
         super(PipAcceleratorError, self).__init__(compact(text, **kw))
+
+class NothingToDoError(PipAcceleratorError):
+    """
+    Raised by :py:func:`~pip_accel.PipAccelerator.get_pip_requirement_set()`
+    when pip doesn't report an error but also doesn't generate a requirement
+    set (this happens when the user specifies an empty requirements file).
+    """
 
 class EnvironmentMismatchError(PipAcceleratorError):
     """

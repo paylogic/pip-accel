@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: January 8, 2015
+# Last Change: January 14, 2015
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Permanently store logs in the pip-accel directory (think about log rotation).
@@ -19,7 +19,7 @@ the :py:class:`PipAccelerator` class.
 """
 
 # Semi-standard module versioning.
-__version__ = '0.22.2'
+__version__ = '0.22.3'
 
 # Standard library modules.
 import logging
@@ -32,7 +32,7 @@ import tempfile
 # Modules included in our package.
 from pip_accel.bdist import BinaryDistributionManager
 from pip_accel.compat import unquote, urlparse
-from pip_accel.exceptions import EnvironmentMismatchError
+from pip_accel.exceptions import EnvironmentMismatchError, NothingToDoError
 from pip_accel.req import Requirement
 from pip_accel.utils import add_archive_extension, makedirs, run
 
@@ -313,7 +313,13 @@ class PipAccelerator(object):
         # after the local source index has been updated.
         if exit_status != SUCCESS:
             raise pip.intercepted_exception
-        return self.transform_pip_requirement_set(pip.requirement_set)
+        elif pip.requirement_set is None:
+            raise NothingToDoError("""
+                pip didn't generate a requirement set, most likely you
+                specified an empty requirements file?
+            """)
+        else:
+            return self.transform_pip_requirement_set(pip.requirement_set)
 
     def transform_pip_requirement_set(self, requirement_set):
         """
