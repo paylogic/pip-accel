@@ -19,7 +19,7 @@ the :py:class:`PipAccelerator` class.
 """
 
 # Semi-standard module versioning.
-__version__ = '0.22.3'
+__version__ = '0.22.4'
 
 # Standard library modules.
 import logging
@@ -65,7 +65,7 @@ class PipAccelerator(object):
     def __init__(self, config, validate=True):
         """
         Initialize the pip accelerator.
-        
+
         :param config: The pip-accel configuration (a :py:class:`.Config`
                        object).
         :param validate: ``True`` to run :py:func:`validate_environment()`,
@@ -176,7 +176,7 @@ class PipAccelerator(object):
         :param kw: Any keyword arguments are passed on to
                    :py:func:`install_requirements()`.
         """
-        requirements = self.get_requirements(arguments)
+        requirements = self.get_requirements(arguments, self.config.max_retries)
         self.install_requirements(requirements, **kw)
         self.cleanup_temporary_directories()
 

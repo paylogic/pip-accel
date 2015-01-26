@@ -1,7 +1,7 @@
 # Configuration defaults for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: December 11, 2014
+# Last Change: January 26, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -55,6 +55,7 @@ Here is an example of the available options:
 
            [pip-accel]
            auto-install = yes
+           max-retries = 10
            data-directory = ~/.pip-accel
            download-cache = ~/.pip/download-cache
            s3-bucket = my-shared-pip-accel-binary-cache
@@ -288,6 +289,26 @@ class Config(object):
                          configuration_option='auto-install')
         if value is not None:
             return coerce_boolean(value)
+
+    @cached_property
+    def max_retries(self):
+        """
+        The number of times to retry building a package if it fails.
+
+        - Environment variable: ``$PIP_ACCEL_MAX_RETRIES`` should be
+          a nonnegative integer, e.g. 10.
+        - Configuration option: ``max-retries``
+        - Default: ``10``
+        """
+        value = self.get(property_name='max_retries',
+                         environment_variable='PIP_ACCEL_MAX_RETRIES',
+                         configuration_option='max-retries')
+        try:
+            n = int(value)
+            if n >= 0:
+                return n
+        except:
+            return 10
 
     @cached_property
     def s3_cache_url(self):
