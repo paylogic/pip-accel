@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: January 14, 2015
+# Last Change: February 13, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -53,9 +53,11 @@ def main():
         accelerator = PipAccelerator(Config())
         accelerator.install_from_arguments(arguments)
     except NothingToDoError as e:
-        # Don't print a traceback for this (it's not very user friendly).
-        logger.error("%s", e)
-        sys.exit(1)
+        # Don't print a traceback for this (it's not very user friendly) and
+        # exit with status zero to stay compatible with pip. For more details
+        # please refer to https://github.com/paylogic/pip-accel/issues/47.
+        logger.warning("%s", e)
+        sys.exit(0)
     except Exception:
         logger.exception("Caught unhandled exception!")
         sys.exit(1)
