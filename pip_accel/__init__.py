@@ -44,7 +44,7 @@ installed from wheels (their metadata is different).
 """
 
 # Semi-standard module versioning.
-__version__ = '0.24'
+__version__ = '0.25'
 
 # Standard library modules.
 import logging
@@ -460,6 +460,8 @@ class PipAccelerator(object):
         if any(req.is_wheel for req in requirements):
             install_types.append('wheel')
         logger.info("Installing from %s distributions ..", concatenate(install_types))
+        # Track installed files by default (unless the caller specifically opted out).
+        kw.setdefault('track_installed_files', True)
         num_installed = 0
         num_already_satisfied = 0
         for requirement in requirements:

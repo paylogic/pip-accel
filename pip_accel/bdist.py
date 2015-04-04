@@ -13,6 +13,7 @@ binary distribution archives.
 """
 
 # Standard library modules.
+import fnmatch
 import logging
 import os
 import os.path
@@ -284,7 +285,7 @@ class BinaryDistributionManager(object):
                     yield member, handle
         archive.close()
 
-    def install_binary_dist(self, members, virtualenv_compatible=True, prefix=None, python=None):
+    def install_binary_dist(self, members, virtualenv_compatible=True, prefix=None, python=None, track_installed_files=False):
         """
         Install a binary distribution created by :py:class:`build_binary_dist()`
         into the given prefix (a directory like ``/usr``, ``/usr/local`` or a
@@ -305,6 +306,11 @@ class BinaryDistributionManager(object):
                                       resulting filenames compatible with
                                       virtual environments (defaults to
                                       ``True``).
+        :param track_installed_files: If this is ``True`` (not the default for
+                                      this method because of backwards
+                                      compatibility) pip-accel will create
+                                      ``installed-files.txt`` as required by
+                                      pip to properly uninstall packages.
         """
         # TODO This is quite slow for modules like Django. Speed it up! Two choices:
         #  1. Run the external tar program to unpack the archive. This will
@@ -315,6 +321,7 @@ class BinaryDistributionManager(object):
         module_search_path = set(map(os.path.normpath, sys.path))
         prefix = os.path.normpath(prefix or self.config.install_prefix)
         python = os.path.normpath(python or self.config.python_executable)
+        installed_files = []
         for member, from_handle in members:
             pathname = member.name
             if virtualenv_compatible:
@@ -337,6 +344,9 @@ class BinaryDistributionManager(object):
                     if dist_packages in module_search_path and site_packages not in module_search_path:
                         pathname = pathname.replace('/site-packages/', '/dist-packages/')
             pathname = os.path.join(prefix, pathname)
+            if track_installed_files:
+                # Track the installed file's absolute pathname.
+                installed_files.append(pathname)
             directory = os.path.dirname(pathname)
             if not os.path.isdir(directory):
                 logger.debug("Creating directory: %s ..", directory)
@@ -348,6 +358,8 @@ class BinaryDistributionManager(object):
                     contents = self.fix_hashbang(contents, python)
                 to_handle.write(contents)
             os.chmod(pathname, member.mode)
+        if track_installed_files:
+            self.update_installed_files(installed_files)
 
     def fix_hashbang(self, contents, python):
         """
@@ -375,3 +387,25 @@ class BinaryDistributionManager(object):
                 logger.debug("Rewriting hashbang %r to %r!", hashbang, lines[0])
                 contents = b'\n'.join(lines)
         return contents
+
+    def update_installed_files(self, installed_files):
+        """
+        Track the files installed by a package so pip knows how to remove the package.
+
+        :param installed_files: A list of absolute pathnames (strings) with the
+                                files that were just installed.
+        """
+        # Find the *.egg-info directory where installed-files.txt should be created.
+        pkg_info_files = [fn for fn in installed_files if fnmatch.fnmatch(fn, '*.egg-info/PKG-INFO')]
+        # I'm not (yet) sure how reliable the above logic is, so for now
+        # I'll err on the side of caution and only act when the results
+        # seem to be reliable.
+        if len(pkg_info_files) != 1:
+            logger.warning("Not tracking installed files (couldn't reliably determine *.egg-info directory)")
+        else:
+            egg_info_directory = os.path.dirname(pkg_info_files[0])
+            installed_files_path = os.path.join(egg_info_directory, 'installed-files.txt')
+            logger.debug("Tracking installed files in %s ..", installed_files_path)
+            with open(installed_files_path, 'w') as handle:
+                for pathname in installed_files:
+                    handle.write('%s\n' % os.path.relpath(pathname, egg_info_directory))
