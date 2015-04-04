@@ -44,7 +44,7 @@ installed from wheels (their metadata is different).
 """
 
 # Semi-standard module versioning.
-__version__ = '0.23'
+__version__ = '0.24'
 
 # Standard library modules.
 import logging
@@ -87,7 +87,7 @@ class PipAccelerator(object):
     def __init__(self, config, validate=True):
         """
         Initialize the pip accelerator.
-        
+
         :param config: The pip-accel configuration (a :py:class:`.Config`
                        object).
         :param validate: ``True`` to run :py:func:`validate_environment()`,
@@ -255,15 +255,17 @@ class PipAccelerator(object):
             # We need to install setuptools >= 0.8.
             return True
 
-    def get_requirements(self, arguments, max_retries=3, use_wheels=False):
+    def get_requirements(self, arguments, max_retries=None, use_wheels=False):
         """
         Use pip to download and unpack the requested source distribution archives.
 
         :param arguments: The command line arguments to ``pip install ...`` (a
                           list of strings).
         :param max_retries: The maximum number of times that pip will be asked
-                            to download source distribution archives (this
-                            helps to deal with intermittent failures).
+                            to download distribution archives (this helps to
+                            deal with intermittent failures). If this is
+                            ``None`` then :py:attr:`~.Config.max_retries` is
+                            used.
         :param use_wheels: Whether pip and pip-accel are allowed to use wheels_
                            (``False`` by default for backwards compatibility
                            with callers that use pip-accel as a Python API).
@@ -277,6 +279,10 @@ class PipAccelerator(object):
             return self.unpack_source_dists(arguments, use_wheels=use_wheels)
         except DistributionNotFound:
             logger.info("We don't have all distribution archives yet!")
+        # Get the maximum number of retries from the configuration if the
+        # caller didn't specify a preference.
+        if max_retries is None:
+            max_retries = self.config.max_retries
         # If not all requirements are available locally we use pip to download
         # the missing source distribution archives from PyPI (we retry a couple
         # of times in case pip reports recoverable errors).
