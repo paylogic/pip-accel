@@ -1,1 +1,24 @@
+# This pip requirements file is used by Read the Docs to build pip-accel's
+# online documentation available at http://pip-accel.readthedocs.org/. For now
+# it only contains one very specific *hack* documented below.
+#
+# On April 5, 2015 I released pip-accel 0.23. The Read the Docs build for
+# release 0.23 went fine [1] but the build of 0.24 [2] later that same day
+# failed. The curious thing is that 0.23 introduced large changes while 0.24
+# contains only minimal changes that don't look like they could have caused
+# the issue at hand! The actual issue in the failing build seems to be an
+# obscure version conflict:
+#
+# 1. pip-accel >= 0.23 uses pip >= 0.6.8.
+# 2. pip 6.x bundles `retrying and `six' in pip._vendor modules.
+# 3. retrying.retry() expects six.wraps() to exist, but it doesn't.
+#
+# Because pip bundles both `retrying' and `six' and has modified `retrying' to
+# import from the bundled `six' this should never be a problem, but somehow it
+# is, specifically and only on Read the Docs... This may have something to do
+# with the way Read the Docs manages their Python build environments?!
+#
+# [1] https://readthedocs.org/builds/pip-accel/2532860/
+# [2] https://readthedocs.org/builds/pip-accel/2532985/
+
 six >= 1.7.0
