@@ -3,7 +3,7 @@
 # Tests for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: November 28, 2014
+# Last Change: March 18, 2015
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Test successful installation of iPython, because it used to break! (nested /lib/ directory)
@@ -44,7 +44,6 @@ class PipAccelTestCase(unittest.TestCase):
         coloredlogs.install(level=logging.DEBUG)
         # Create a temporary working directory.
         self.working_directory = tempfile.mkdtemp()
-        self.download_cache = os.path.join(self.working_directory, 'download-cache')
         # Create a temporary build directory.
         self.build_directory = os.path.join(self.working_directory, 'build')
         # Create a temporary virtual environment.
@@ -55,7 +54,6 @@ class PipAccelTestCase(unittest.TestCase):
         os.environ['PATH'] = '%s:%s' % (os.path.join(self.virtual_environment, 'bin'), os.environ['PATH'])
         os.environ['VIRTUAL_ENV'] = self.virtual_environment
         # Make pip and pip-accel use the temporary working directory.
-        os.environ['PIP_DOWNLOAD_CACHE'] = self.download_cache
         os.environ['PIP_ACCEL_CACHE'] = self.working_directory
 
     def runTest(self):
@@ -77,7 +75,11 @@ class PipAccelTestCase(unittest.TestCase):
             self.assertTrue(False)
         except Exception as e:
             # We expect a `DistributionNotFound' exception.
-            self.assertTrue(isinstance(e, DistributionNotFound))
+            if not isinstance(e, DistributionNotFound):
+                # If we caught a different type of exception something went
+                # wrong so we want to propagate the original exception, not
+                # obscure it!
+                raise
         # Download the source distribution from PyPI.
         requirements = accelerator.download_source_dists(arguments)
         self.assertTrue(isinstance(requirements, list))
@@ -101,11 +103,6 @@ class PipAccelTestCase(unittest.TestCase):
         # We now have a non-empty download cache and source index so this
         # should not raise an exception (it should use the source index).
         accelerator.unpack_source_dists(arguments)
-        # Verify that pip-accel properly deals with broken symbolic links
-        # pointing from the source index to the download cache.
-        os.unlink(os.path.join(self.download_cache, os.listdir(self.download_cache)[0]))
-        accelerator = PipAccelerator(Config(), validate=False)
-        accelerator.install_from_arguments(arguments)
         # Verify that pip-accel properly handles setup.py scripts that break
         # the `bdist_dumb' action but support the `bdist' action as a fall
         # back.

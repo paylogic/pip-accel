@@ -1,7 +1,7 @@
 # Functions to manipulate Python binary distribution archives.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: November 28, 2014
+# Last Change: April 4, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -71,12 +71,12 @@ class BinaryDistributionManager(object):
         """
         cache_file = self.cache.get(requirement)
         if not cache_file:
-            logger.debug("%s (%s) hasn't been cached yet, doing so now.", requirement.name, requirement.version)
+            logger.debug("%s hasn't been cached yet, doing so now.", requirement)
             # Build the binary distribution.
             try:
                 raw_file = self.build_binary_dist(requirement)
             except BuildFailed:
-                logger.warning("Build of %s (%s) failed, checking for missing dependencies ..", requirement.name, requirement.version)
+                logger.warning("Build of %s failed, checking for missing dependencies ..", requirement)
                 if self.system_package_manager.install_dependencies(requirement):
                     raw_file = self.build_binary_dist(requirement)
                 else:
@@ -138,8 +138,7 @@ class BinaryDistributionManager(object):
         try:
             return self.build_binary_dist_helper(requirement, ['bdist_dumb', '--format=tar'])
         except (BuildFailed, NoBuildOutput):
-            logger.warning("Build of %s (%s) failed, falling back to alternative method ..",
-                           requirement.name, requirement.version)
+            logger.warning("Build of %s failed, falling back to alternative method ..", requirement)
             return self.build_binary_dist_helper(requirement, ['bdist'])
 
     def build_binary_dist_helper(self, requirement, setup_command):
@@ -164,7 +163,7 @@ class BinaryDistributionManager(object):
             msg = "Directory %s (%s %s) doesn't contain a source distribution!"
             raise InvalidSourceDistribution(msg % (requirement.source_directory, requirement.name, requirement.version))
         # Let the user know what's going on.
-        build_text = "Building %s (%s) binary distribution" % (requirement.name, requirement.version)
+        build_text = "Building %s binary distribution" % requirement
         logger.info("%s ..", build_text)
         # Cleanup previously generated distributions.
         dist_directory = os.path.join(requirement.source_directory, 'dist')
@@ -221,7 +220,7 @@ class BinaryDistributionManager(object):
                      output=build_output.strip())
                 e.args = (enhanced_message,)
                 raise
-            logger.info("Finished building %s (%s) in %s.", requirement.name, requirement.version, build_timer)
+            logger.info("Finished building %s in %s.", requirement.name, build_timer)
             return os.path.join(dist_directory, filenames[0])
         finally:
             os.unlink(temporary_file)

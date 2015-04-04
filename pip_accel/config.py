@@ -1,7 +1,7 @@
 # Configuration defaults for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: December 11, 2014
+# Last Change: March 18, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -56,7 +56,6 @@ Here is an example of the available options:
            [pip-accel]
            auto-install = yes
            data-directory = ~/.pip-accel
-           download-cache = ~/.pip/download-cache
            s3-bucket = my-shared-pip-accel-binary-cache
            s3-prefix = ubuntu-trusty-amd64
            s3-readonly = yes
@@ -187,20 +186,6 @@ class Config(object):
         using a new directory.
         """
         return 7
-
-    @cached_property
-    def download_cache(self):
-        """
-        The absolute pathname of pip's download cache directory (a string).
-
-        - Environment variable: ``$PIP_DOWNLOAD_CACHE``
-        - Configuration option: ``download-cache``
-        - Default: ``~/.pip/download-cache``
-        """
-        return parse_path(self.get(property_name='download_cache',
-                                   environment_variable='PIP_DOWNLOAD_CACHE',
-                                   configuration_option='download-cache',
-                                   default='~/.pip/download-cache'))
 
     @cached_property
     def source_index(self):

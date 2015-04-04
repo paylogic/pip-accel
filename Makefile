@@ -1,7 +1,7 @@
 # Makefile for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: November 16, 2014
+# Last Change: January 14, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 WORKON_HOME ?= $(HOME)/.virtualenvs
@@ -25,10 +25,8 @@ default:
 install:
 	test -d "$(VIRTUAL_ENV)" || virtualenv "$(VIRTUAL_ENV)"
 	test -x "$(VIRTUAL_ENV)/bin/pip" || ($(ACTIVATE) && easy_install pip)
-	test -x "$(VIRTUAL_ENV)/bin/pip-accel" || ($(ACTIVATE) && pip install pip-accel)
 	$(ACTIVATE) && pip uninstall -y pip-accel || true
-	$(ACTIVATE) && pip install --no-deps --editable .
-	$(ACTIVATE) && pip-accel install -r requirements.txt
+	$(ACTIVATE) && pip install --editable .
 
 reset:
 	rm -Rf "$(VIRTUAL_ENV)"

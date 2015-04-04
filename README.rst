@@ -76,12 +76,11 @@ default:
 =============================  =========================  =======================================
 Root user                      All other users            Purpose
 =============================  =========================  =======================================
-``/root/.pip/download-cache``  ``~/.pip/download-cache``  Assumed to be pip's download cache
 ``/var/cache/pip-accel``       ``~/.pip-accel``           Used to store the source/binary indexes
 =============================  =========================  =======================================
 
-These defaults can be overridden by defining the environment variables
-``PIP_DOWNLOAD_CACHE`` and/or ``PIP_ACCEL_CACHE``.
+This default can be overridden by defining the environment variable
+``PIP_ACCEL_CACHE``.
 
 Configuration
 ~~~~~~~~~~~~~
@@ -247,7 +246,7 @@ notice that the steps below are all embedded in a loop that retries several
 times. This is mostly because of step 2 (downloading the source
 distributions).
 
-1. Run ``pip install --no-index --no-install -r requirements.txt`` to unpack
+1. Run ``pip install --download=... --no-index -r requirements.txt`` to unpack
    source distributions available in the local source index. This is the first
    step because pip-accel should accept `requirements.txt` files as input but
    it will manually install dependencies from cached binary distributions
@@ -262,7 +261,7 @@ distributions).
   - If the command fails it probably means not all dependencies are available
     as local source distributions yet so we should download them. Go to step 2.
 
-2. Run ``pip install --no-install -r requirements.txt`` to download missing
+2. Run ``pip install --download=... -r requirements.txt`` to download missing
    source distributions to the download cache:
 
   - If the command fails it means that pip encountered errors while scanning

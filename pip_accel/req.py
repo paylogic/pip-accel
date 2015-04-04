@@ -1,7 +1,7 @@
 # Simple wrapper for pip and pkg_resources Requirement objects.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: November 16, 2014
+# Last Change: April 4, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -27,6 +27,16 @@ original requirement objects (for those who are interested; the interfaces are
 basically undocumented AFAIK).
 """
 
+# Standard library modules.
+import glob
+import os
+
+# Modules included in our package.
+from pip_accel.exceptions import UnknownDistributionFormat
+from pip._vendor.pkg_resources import find_distributions
+
+# External dependencies.
+from cached_property import cached_property
 from pip.req import InstallRequirement
 
 class Requirement(object):
@@ -41,27 +51,11 @@ class Requirement(object):
         """
         self.pip_requirement = requirement
         self.setuptools_requirement = requirement.req
-        # In pip-accel 0.10.4 and earlier the list of requirements returned by
-        # unpack_source_dists() contained tuples in the following format.
-        self.old_interface = (self.name, self.version, self.source_directory)
+        if self.name == 'paver' and 0:
+            import ipdb
+            ipdb.set_trace()
 
-    def __iter__(self):
-        """
-        Implemented so that :py:class:`Requirement` objects can be used as a
-        (project_name, installed_version, source_dir) tuple, for compatibility
-        with callers of pip-accel 0.10.4 and earlier.
-        """
-        return iter(self.old_interface)
-
-    def __getitem__(self, index):
-        """
-        Implemented so that :py:class:`Requirement` objects can be used as a
-        (project_name, installed_version, source_dir) tuple, for compatibility
-        with callers of pip-accel 0.10.4 and earlier.
-        """
-        return self.old_interface[index]
-
-    @property
+    @cached_property
     def name(self):
         """
         The name of the Python package (a string). This is the name used to
@@ -70,23 +64,25 @@ class Requirement(object):
         """
         return self.setuptools_requirement.project_name
 
-    @property
+    @cached_property
     def version(self):
         """
         The version of the package that ``pip`` wants to install based on the
-        command line options that were given to ``pip`` (a string). Based on
-        :py:attr:`pip.req.InstallRequirement.installed_version`.
+        command line options that were given to ``pip`` (a string).
         """
-        return self.pip_requirement.installed_version
+        if self.is_wheel:
+            return self.wheel_metadata.version
+        else:
+            return self.sdist_metadata['Version']
 
-    @property
+    @cached_property
     def url(self):
         """
         The URL of the package. Based on :py:attr:`pip.req.InstallRequirement.url`.
         """
         return self.pip_requirement.url
 
-    @property
+    @cached_property
     def source_directory(self):
         """
         The pathname of the directory containing the unpacked source
@@ -95,15 +91,59 @@ class Requirement(object):
         """
         return self.pip_requirement.source_dir
 
-    @property
+    @cached_property
+    def is_wheel(self):
+        """
+        ```True`` when the requirement is a wheel, ``False`` otherwise.
+
+        .. note:: To my surprise it seems to be non-trivial to determine
+                  whether a given :py:class:`pip.req.InstallRequirement` object
+                  produced by pip's internal Python API concerns a source
+                  distribution or a wheel distribution.
+
+                  There's a :py:class:`pip.req.InstallRequirement.is_wheel`
+                  property but I'm currently looking at a wheel distribution
+                  whose ``is_wheel`` property returns ``None``, apparently
+                  because the requirement's ``url`` property is also ``None``.
+
+                  Whether this is an obscure implementation detail of pip or
+                  caused by the way pip-accel invokes pip, I really can't tell
+                  (yet).
+        """
+        probably_sdist = os.path.isfile(os.path.join(self.source_directory, 'setup.py'))
+        probably_wheel = len(glob.glob(os.path.join(self.source_directory, '*.dist-info', 'WHEEL'))) > 0
+        if probably_wheel and not probably_sdist:
+            return True
+        elif probably_sdist and not probably_wheel:
+            return False
+        elif probably_sdist and probably_wheel:
+            raise UnknownDistributionFormat("""
+                The unpacked distribution of {requirement} in {directory} looks
+                like a source distribution and a wheel distribution, I'm
+                confused!
+            """, requirement=self.setuptools_requirement,
+                 directory=self.source_directory)
+        else:
+            raise UnknownDistributionFormat("""
+                The unpacked distribution of {requirement} in {directory}
+                doesn't look like a source distribution and also doesn't look
+                like a wheel distribution, I'm confused!
+            """, requirement=self.setuptools_requirement,
+                 directory=self.source_directory)
+
+    @cached_property
     def is_installed(self):
         """
         ``True`` when the requirement is already installed, ``False``
         otherwise.
         """
+        # Gotcha: We need to call check_if_exists() here because pip-accel uses
+        # pip's --download=... option which automatically enables the
+        # --ignore-installed option (this is documented behavior of pip).
+        self.pip_requirement.check_if_exists()
         return bool(self.pip_requirement.satisfied_by)
 
-    @property
+    @cached_property
     def is_transitive(self):
         """
         ``True`` when the requirement is a transitive dependency (a dependency
@@ -114,14 +154,14 @@ class Requirement(object):
         """
         return isinstance(self.pip_requirement.comes_from, InstallRequirement)
 
-    @property
+    @cached_property
     def is_direct(self):
         """
         The opposite of :py:attr:`Requirement.is_transitive`.
         """
         return not self.is_transitive
 
-    @property
+    @cached_property
     def is_editable(self):
         """
         ``True`` when the requirement is to be installed in editable mode (i.e.
@@ -129,3 +169,31 @@ class Requirement(object):
         :py:attr:`pip.req.InstallRequirement.editable`.
         """
         return self.pip_requirement.editable
+
+    @cached_property
+    def sdist_metadata(self):
+        """
+        Get the distribution metadata of an unpacked source distribution.
+        """
+        if self.is_wheel:
+            raise TypeError("Requirement is not a source distribution!")
+        return self.pip_requirement.pkg_info()
+
+    @cached_property
+    def wheel_metadata(self):
+        """
+        Get the distribution metadata of an unpacked wheel distribution.
+        """
+        if not self.is_wheel:
+            raise TypeError("Requirement is not a wheel distribution!")
+        try:
+            return next(find_distributions(self.source_directory))
+        except StopIteration:
+            raw_input(" --> Please inspect the %s wheel distribution's contents, press <Enter> when done .. " % self.source_directory)
+            raise Exception("Wheel metadata missing")
+
+    def __str__(self):
+        """
+        Render a human friendly string describing the requirement.
+        """
+        return "%s (%s)" % (self.name, self.version)

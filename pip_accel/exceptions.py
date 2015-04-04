@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: January 14, 2015
+# Last Change: April 4, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -26,7 +26,7 @@ Hierarchy of exceptions
 If you're interested in implementing structured handling of exceptions reported
 by pip-accel the following diagram may help by visualizing the hierarchy:
 
-.. inheritance-diagram:: EnvironmentMismatchError InvalidSourceDistribution BuildFailed NoBuildOutput CacheBackendError CacheBackendDisabledError DependencyInstallationRefused DependencyInstallationFailed
+.. inheritance-diagram:: EnvironmentMismatchError UnknownDistributionFormat InvalidSourceDistribution BuildFailed NoBuildOutput CacheBackendError CacheBackendDisabledError DependencyInstallationRefused DependencyInstallationFailed
    :parts: 1
 
 ----
@@ -56,6 +56,13 @@ class EnvironmentMismatchError(PipAcceleratorError):
     """
     Raised by :py:func:`~pip_accel.PipAccelerator.validate_environment()` when
     it detects a mismatch between :py:data:`sys.prefix` and ``$VIRTUAL_ENV``.
+    """
+
+class UnknownDistributionFormat(PipAcceleratorError):
+    """
+    Raised by :py:attr:`~pip_accel.req.Requirement.is_wheel` when it cannot
+    discern whether a given unpacked distribution is a source distribution or a
+    wheel distribution.
     """
 
 class BinaryDistributionError(PipAcceleratorError):

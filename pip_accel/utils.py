@@ -1,7 +1,7 @@
 # Utility functions for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: November 16, 2014
+# Last Change: January 14, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -26,24 +26,6 @@ import sys
 # Look up the home directory of the effective user id so we can generate
 # pathnames relative to the home directory.
 HOME = pwd.getpwuid(os.getuid()).pw_dir
-
-def add_archive_extension(source, target):
-    """
-    Make sure a Python source distribution archive has the right filename extension.
-
-    :param source: The pathname of a readable distribution archive (a string).
-    :param target: The pathname that the archive will get (a string).
-    :returns: The target pathname with the right filename extension.
-    """
-    filetype = guess_archive_type(source)
-    normalized_target = target.lower()
-    if filetype == 'gzip' and not normalized_target.endswith(('.tgz', '.tar.gz')):
-        target += '.tar.gz'
-    elif filetype == 'bzip2' and not normalized_target.endswith('.bz2'):
-        target += '.bz2'
-    elif filetype == 'zip' and not normalized_target.endswith('.zip'):
-        target == '.zip'
-    return target
 
 def compact(text, **kw):
     """
