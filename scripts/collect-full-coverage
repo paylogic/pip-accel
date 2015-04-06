@@ -62,7 +62,12 @@ main () {
   # downgrade inside the test suite process doesn't work as expected because
   # pip (pkg_resources) will still think the newer version is installed (due
   # to caching without proper cache invalidation by pkg_resources).
-  pip install 'setuptools < 0.8'
+  if python -c 'import sys; sys.exit(0 if sys.version_info[0] == 2 else 1)'; then
+    # The downgrade of setuptools fails on Travis CI Python 3.x builds, but as
+    # long as the test suite runs the automatic upgrade at least once (on
+    # Python 2.6 and/or Python 2.7) I'm happy :-).
+    pip install 'setuptools < 0.8'
+  fi
 
   # Run the test suite and collect coverage statistics.
   coverage run setup.py test
