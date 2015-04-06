@@ -65,3 +65,6 @@ Here are the relevant Python modules that make up pip-accel:
 
 .. automodule:: pip_accel.cli
    :members:
+
+.. automodule:: pip_accel.tests
+   :members:

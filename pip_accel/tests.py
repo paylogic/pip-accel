@@ -6,6 +6,25 @@
 # Last Change: April 6, 2015
 # URL: https://github.com/paylogic/pip-accel
 
+"""
+:py:mod:`pip_accel.tests` - Test suite for the pip accelerator
+==============================================================
+
+I've decided to include the test suite in the online documentation of the pip
+accelerator and I realize this may be somewhat unconventional... My reason for
+this is to enforce the same level of code quality (which obviously includes
+documentation) for the test suite that I require from myself and contributors
+for the other parts of the pip-accel project (and my other open source
+projects).
+
+A second and more subtle reason is because of a tendency I've noticed in a lot
+of my projects: Useful "miscellaneous" functionality is born in test suites and
+eventually makes its way to the public API of the project in question. By
+writing documentation up front I'm saving my future self time. That may sound
+silly, but consider that writing documentation is a lot easier when you *don't*
+have to do so retroactively.
+"""
+
 # Standard library modules.
 import logging
 import operator
@@ -31,7 +50,7 @@ from pip_accel.compat import StringIO
 from pip_accel.config import Config
 from pip_accel.deps import DependencyInstallationRefused, SystemPackageManager
 from pip_accel.exceptions import EnvironmentMismatchError
-from pip_accel.utils import is_installed, uninstall
+from pip_accel.utils import uninstall
 
 # Initialize a logger for this module.
 logger = logging.getLogger(__name__)
@@ -44,20 +63,29 @@ def setUpModule():
     coloredlogs.install(level=logging.DEBUG)
 
 def tearDownModule():
-    """Cleanup any temporary directories that were created by the test suite."""
+    """Cleanup any temporary directories created by :py:func:`create_temporary_directory()`."""
     while TEMPORARY_DIRECTORIES:
         directory = TEMPORARY_DIRECTORIES.pop(0)
         logger.debug("Cleaning up temporary directory: %s", directory)
         shutil.rmtree(directory)
 
 def create_temporary_directory():
-    """Create a temporary directory that will be cleaned up when the test suite ends."""
+    """
+    Create a temporary directory that will be cleaned up when the test suite ends.
+
+    :returns: The pathname of a directory created using
+              :py:func:`tempfile.mkdtemp()` (a string).
+    """
     directory = tempfile.mkdtemp()
     logger.debug("Created temporary directory: %s", directory)
     TEMPORARY_DIRECTORIES.append(directory)
     return directory
 
 class PipAccelTestCase(unittest.TestCase):
+
+    """
+    Container for the tests in the pip-accel test suite.
+    """
 
     def setUp(self):
         """Reset logging verbosity before each test."""
@@ -67,9 +95,16 @@ class PipAccelTestCase(unittest.TestCase):
         """
         Construct an isolated pip accelerator instance.
 
-        The pip-accel instance will not load configuration files but it will
+        The pip-accel instance will not load configuration files but it may
         load environment variables because that's how FakeS3 is enabled on
         Travis CI (and in my local tests).
+
+        :param load_environment_variables: If ``True`` the pip-accel instance
+                                           will load environment variables (not
+                                           the default).
+        :param overrides: Any keyword arguments are set as properties on the
+                          :py:class:`~.Config` instance (overrides for
+                          configuration defaults).
         """
         config = Config(load_configuration_files=False,
                         load_environment_variables=load_environment_variables)
@@ -79,7 +114,11 @@ class PipAccelTestCase(unittest.TestCase):
         return accelerator
 
     def test_environment_validation(self):
-        """Test the validation of :py:data:`sys.prefix` versus ``$VIRTUAL_ENV``."""
+        """
+        Test the validation of :py:data:`sys.prefix` versus ``$VIRTUAL_ENV``.
+
+        This tests the :py:func:`~pip_accel.PipAccelerator.validate_environment()` method.
+        """
         original_value = os.environ.get('VIRTUAL_ENV')
         try:
             os.environ['VIRTUAL_ENV'] = generate_nonexisting_pathname()
@@ -88,7 +127,11 @@ class PipAccelTestCase(unittest.TestCase):
             os.environ['VIRTUAL_ENV'] = original_value
 
     def test_config_file_handling(self):
-        """Test error handling during loading of configuration files."""
+        """
+        Test error handling during loading of configuration files.
+
+        This tests the :py:func:`~pip_accel.config.Config.load_configuration_file()` method.
+        """
         # Create a dummy configuration object.
         config = Config(load_configuration_files=False, load_environment_variables=False)
         # Check that loading of non-existing configuration files raises the expected exception.
@@ -104,6 +147,8 @@ class PipAccelTestCase(unittest.TestCase):
     def test_cleanup_of_broken_links(self):
         """
         Verify that broken symbolic links in the source index are cleaned up.
+
+        This tests the :py:func:`~pip_accel.PipAccelerator.clean_source_index()` method.
         """
         source_index = create_temporary_directory()
         broken_link = os.path.join(source_index, 'this-is-a-broken-link')
@@ -171,11 +216,17 @@ class PipAccelTestCase(unittest.TestCase):
 
         This test downloads, builds and installs verboselogs 1.0.1 (a trivial
         Python package I created once) to verify that the S3 cache backend
-        works. It depends on FakeS3 (see ``../scripts/collect-full-coverage``).
+        works. It depends on FakeS3 (refer to the shell script
+        ``scripts/collect-full-coverage`` in the pip-accel git repository).
 
-        This test wipes the binary index after a successful installation and
-        installs the exact same package again to test the code path that gets a
-        cached binary distribution archive from the S3 cache backend.
+        This test uses a temporary binary index which it wipes after a
+        successful installation and then it installs the exact same package
+        again to test the code path that gets a cached binary distribution
+        archive from the S3 cache backend.
+
+        .. warning:: This test involves the **termination** of FakeS3 to force
+                     a failure in the S3 cache backend. This verifies that
+                     pip-accel handles this failure gracefully.
         """
         fakes3_pid = int(os.environ.get('PIP_ACCEL_FAKES3_PID', '0'))
         if not fakes3_pid:
@@ -248,6 +299,9 @@ class PipAccelTestCase(unittest.TestCase):
     def test_installed_files_tracking(self):
         """
         Verify that tracking of installed files works correctly.
+
+        This tests the :py:func:`~pip_accel.bdist.BinaryDistributionManager.update_installed_files()`
+        method.
 
         When pip installs a Python package it also creates a file called
         ``installed-files.txt`` that contains the pathnames of the files that
@@ -461,32 +515,6 @@ class PipAccelTestCase(unittest.TestCase):
             # Never leave the dummy configuration file behind.
             os.remove(dummy_deps_config)
 
-def ensure_not_installed(package_name):
-    """
-    Make sure a package is not installed in the current environment.
-
-    :param package_name: The name of the package (a string).
-    :returns: ``True`` if the package was uninstalled, ``False`` if it wasn't
-              installed to begin with.
-    """
-    if is_installed(package_name):
-        logger.debug("Uninstalling package %r ..", package_name)
-        uninstall(package_name)
-        if is_installed(package_name):
-            # This can happen because pkg_resources gets confused when a
-            # package is installed and then removed, all from within the same
-            # Python process, and then pip uses pkg_resources to find the
-            # package to uninstall and can't find it, so doesn't uninstall
-            # anything. This is caused by caching without proper cache
-            # invalidation in the pkg_resources module. I've tried to work
-            # around this (manually enforcing the cache invalidation) but I
-            # can't seem to get that working reliably - The pkg_resources
-            # module contains Too Much Magic (TM) for the likes of me :-(.
-            msg = ("According to setuptools the package %r is installed but"
-                   " after a 'pip uninstall' invocation setuptools still"
-                   " reports the package as installed!")
-            raise Exception(msg % package_name)
-
 def find_files(directory, substring):
     """
     Find files whose pathname contains the given substring.
@@ -506,7 +534,14 @@ def try_program(program_name):
     """
     Test that a Python program (installed in the current environment) runs successfully.
 
-    This assumes that the program supports the ``--help`` option.
+    This assumes that the program supports the ``--help`` option, because the
+    program is executed with the ``--help`` argument to verify that the program
+    runs (``--help`` was chose because it implies a lack of side effects).
+
+    :param program_name: The base name of the program to test (a string). The
+                         absolute pathname will be calculated by combining
+                         :py:data:`sys.prefix` and this argument.
+    :raises: :py:exc:`~exceptions.AssertionError` when a test fails.
     """
     program_path = os.path.join(sys.prefix, 'bin', program_name)
     logger.debug("Making sure %s is installed ..", program_path)
@@ -520,13 +555,28 @@ def try_program(program_name):
         ("Program doesn't run! (%s --help failed)" % program_path)
 
 def generate_nonexisting_pathname():
-    """Generate a pathname that is expected not to exist."""
+    """
+    Generate a pathname that is expected not to exist.
+
+    :returns: A pathname (string) that doesn't refer to an existing directory
+              or file on the file system (assuming :py:func:`random.random()`
+              does what it's documented to do :-).
+    """
     return os.path.join(tempfile.gettempdir(),
                         'this-path-certainly-will-not-exist-%s' % random.random())
 
 def test_cli(*arguments):
     """
     Test the pip-accel command line interface.
+
+    Runs pip-accel's command line interface inside the current Python process
+    by temporarily changing :py:data:`sys.argv`, invoking the
+    :py:func:`pip_accel.cli.main()` function and catching
+    :py:exc:`~exceptions.SystemExit`.
+
+    :param arguments: The value that :py:data:`sys.argv` should be set to (a
+                      list of strings).
+    :returns: The exit code of ``pip-accel``.
     """
     original_argv = sys.argv
     try:
@@ -540,18 +590,24 @@ def test_cli(*arguments):
 
 class CaptureOutput(object):
 
+    """Context manager that captures what's written to :py:data:`sys.stdout`."""
+
     def __init__(self):
+        """Initialize a string IO object to be used as :py:data:`sys.stdout`."""
         self.stream = StringIO()
 
     def __enter__(self):
+        """Start capturing what's written to :py:data:`sys.stdout`."""
         self.original_stdout = sys.stdout
         sys.stdout = self.stream
         return self
 
     def __exit__(self, exc_type=None, exc_value=None, traceback=None):
+        """Stop capturing what's written to :py:data:`sys.stdout`."""
         sys.stdout = self.original_stdout
 
     def __str__(self):
+        """Get the text written to :py:data:`sys.stdout`."""
         return self.stream.getvalue()
 
 if __name__ == '__main__':

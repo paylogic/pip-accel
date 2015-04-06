@@ -1,7 +1,7 @@
 # Functions to manipulate Python binary distribution archives.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: April 4, 2015
+# Last Change: April 6, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -391,6 +391,9 @@ class BinaryDistributionManager(object):
     def update_installed_files(self, installed_files):
         """
         Track the files installed by a package so pip knows how to remove the package.
+
+        This method is used by :py:func:`install_binary_dist()` (which collects
+        the list of installed files for :py:func:`update_installed_files()`).
 
         :param installed_files: A list of absolute pathnames (strings) with the
                                 files that were just installed.
