@@ -60,7 +60,7 @@ TEMPORARY_DIRECTORIES = []
 
 def setUpModule():
     """Initialize verbose logging to the terminal."""
-    coloredlogs.install(level=logging.DEBUG)
+    coloredlogs.install(level=logging.INFO)
 
 def tearDownModule():
     """Cleanup any temporary directories created by :py:func:`create_temporary_directory()`."""
@@ -89,7 +89,7 @@ class PipAccelTestCase(unittest.TestCase):
 
     def setUp(self):
         """Reset logging verbosity before each test."""
-        coloredlogs.set_level(logging.DEBUG)
+        coloredlogs.set_level(logging.INFO)
 
     def initialize_pip_accel(self, load_environment_variables=False, **overrides):
         """
