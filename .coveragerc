@@ -1,0 +1,11 @@
+# .coveragerc: Configuration file for coverage.py.
+# http://nedbatchelder.com/code/coverage/
+
+[run]
+source = pip_accel
+omit = pip_accel/tests.py
+
+[report]
+exclude_lines = raise NotImplementedError()
+
+# vim: ft=dosini

@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: February 13, 2015
+# Last Change: April 6, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -19,6 +19,7 @@ import textwrap
 from pip_accel import PipAccelerator
 from pip_accel.config import Config
 from pip_accel.exceptions import NothingToDoError
+from pip_accel.utils import match_option
 
 # External dependencies.
 import coloredlogs
@@ -76,23 +77,3 @@ def usage():
         For more information please refer to the GitHub project page
         at https://github.com/paylogic/pip-accel
     """).strip())
-
-def match_option(argument, short_option, long_option):
-    """
-    Match a command line argument against a short and long option.
-
-    :param argument: The command line argument (a string).
-    :param short_option: The short option (a string).
-    :param long_option: The long option (a string).
-    :returns: ``True`` if the argument matches, ``False`` otherwise.
-    """
-    return short_option[1] in argument[1:] if is_short_option(argument) else argument == long_option
-
-def is_short_option(argument):
-    """
-    Check if a command line argument is a short option.
-
-    :param argument: The command line argument (a string).
-    :returns: ``True`` if the argument is a short option, ``False`` otherwise.
-    """
-    return len(argument) >= 2 and argument[0] == '-' and argument[1] != '-'

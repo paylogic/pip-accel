@@ -1,7 +1,7 @@
 # Simple wrapper for pip and pkg_resources Requirement objects.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: April 4, 2015
+# Last Change: April 6, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -51,9 +51,10 @@ class Requirement(object):
         """
         self.pip_requirement = requirement
         self.setuptools_requirement = requirement.req
-        if self.name == 'paver' and 0:
-            import ipdb
-            ipdb.set_trace()
+
+    def __repr__(self):
+        """Generate a human friendly representation of a requirement object."""
+        return "Requirement(name=%r, version=%r)" % (self.name, self.version)
 
     @cached_property
     def name(self):
@@ -137,11 +138,13 @@ class Requirement(object):
         ``True`` when the requirement is already installed, ``False``
         otherwise.
         """
-        # Gotcha: We need to call check_if_exists() here because pip-accel uses
-        # pip's --download=... option which automatically enables the
-        # --ignore-installed option (this is documented behavior of pip).
-        self.pip_requirement.check_if_exists()
-        return bool(self.pip_requirement.satisfied_by)
+        # This previously used InstallRequirement.check_if_exists() and then
+        # checked if InstallRequirement.satisfied_by was set, however
+        # InstallRequirement.check_if_exists() uses the implicit global working
+        # set provided by pkg_resources which is susceptible to stale data
+        # (this problem is very noticeable in the pip-accel test suite which
+        # runs a multitude of tests in the same Python process).
+        return self.pip_requirement.installed_version is not None
 
     @cached_property
     def is_transitive(self):
@@ -186,11 +189,10 @@ class Requirement(object):
         """
         if not self.is_wheel:
             raise TypeError("Requirement is not a wheel distribution!")
-        try:
-            return next(find_distributions(self.source_directory))
-        except StopIteration:
-            raw_input(" --> Please inspect the %s wheel distribution's contents, press <Enter> when done .. " % self.source_directory)
-            raise Exception("Wheel metadata missing")
+        for distribution in find_distributions(self.source_directory):
+            return distribution
+        msg = "pkg_resources didn't find a wheel distribution in %s!"
+        raise Exception(msg % self.source_directory)
 
     def __str__(self):
         """

@@ -1,7 +1,7 @@
 # Makefile for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: January 14, 2015
+# Last Change: April 6, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 WORKON_HOME ?= $(HOME)/.virtualenvs
@@ -27,6 +27,7 @@ install:
 	test -x "$(VIRTUAL_ENV)/bin/pip" || ($(ACTIVATE) && easy_install pip)
 	$(ACTIVATE) && pip uninstall -y pip-accel || true
 	$(ACTIVATE) && pip install --editable .
+	$(ACTIVATE) && pip-accel install 'boto >= 2.32'
 
 reset:
 	rm -Rf "$(VIRTUAL_ENV)"
@@ -38,8 +39,13 @@ test: install
 
 coverage: install
 	test -x "$(VIRTUAL_ENV)/bin/coverage" || ($(ACTIVATE) && pip-accel install coverage)
-	$(ACTIVATE) && coverage run --source=pip_accel setup.py test
-	$(ACTIVATE) && coverage html --omit=pip_accel/tests.py
+	$(ACTIVATE) && scripts/collect-full-coverage
+	# Report coverage statistics on the command line.
+	$(ACTIVATE) && coverage report
+	# Generate an HTML report of coverage statistics.
+	$(ACTIVATE) && coverage html
+	# Exit with a nonzero status code when the coverage is less than 90%.
+	$(ACTIVATE) && coverage report --fail-under=90 1>/dev/null 2>&1
 
 docs: install
 	test -x "$(VIRTUAL_ENV)/bin/sphinx-build" || ($(ACTIVATE) && pip-accel install sphinx)

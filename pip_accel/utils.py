@@ -1,7 +1,7 @@
 # Utility functions for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: January 14, 2015
+# Last Change: April 6, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -22,6 +22,10 @@ import platform
 import pwd
 import re
 import sys
+
+# External dependencies.
+from pip.commands.uninstall import UninstallCommand
+from pkg_resources import WorkingSet
 
 # Look up the home directory of the effective user id so we can generate
 # pathnames relative to the home directory.
@@ -72,35 +76,6 @@ def get_python_version():
                          sys.version_info[0],
                          sys.version_info[1])
 
-def guess_archive_type(pathname):
-    """
-    Guess the file type of a Python source distribution archive.
-
-    Checks for known "magic" file headers to identify the type of the archive.
-    Previously this used the ``file`` executable, now it checks the magic file
-    headers itself. I could have used any of the numerous ``libmagic`` bindings
-    on PyPI, but that would add a binary dependency to ``pip-accel`` and I
-    don't want that :-).
-
-    :param pathname: The pathname of an existing archive (a string).
-    :returns: One of the strings ``gzip``, ``bzip2`` or ``zip`` or the value
-              ``None`` when the filename extension cannot be guessed based on
-              the file header.
-    """
-    with open(pathname, 'rb') as handle:
-        header = handle.read(2)
-    if header.startswith(b'\x1f\x8b'):
-        # The gzip compression header is two bytes: 0x1F, 0x8B.
-        return 'gzip'
-    elif header.startswith(b'BZ'):
-        # The bzip2 compression header is two bytes: B, Z.
-        return 'bzip2'
-    elif header.startswith(b'PK'):
-        # According to Wikipedia, ZIP archives don't have an official magic
-        # number, but most of the time we'll find two bytes: P, K (for Phil
-        # Katz, creator of the format).
-        return 'zip'
-
 def makedirs(path, mode=0o777):
     """
     Create a directory if it doesn't already exist (keeping concurrency in mind).
@@ -144,3 +119,46 @@ def sha1(text):
     :returns: A string of 40 hexadecimal characters.
     """
     return hashlib.sha1(str(text).encode()).hexdigest()
+
+def is_installed(package_name):
+    """
+    Check whether a package is installed in the current environment.
+
+    :param package_name: The name of the package (a string).
+    :returns: ``True`` if the package is installed, ``False`` otherwise.
+    """
+    return package_name.lower() in (d.key.lower() for d in WorkingSet())
+
+def uninstall(*package_names):
+    """
+    Uninstall one or more packages using the Python equivalent of ``pip uninstall --yes``.
+
+    The package(s) to uninstall must be installed, otherwise pip will raise an
+    ``UninstallationError``. You can check for installed packages using
+    :py:func:`is_installed()`.
+
+    :param package_names: The names of one or more Python packages (strings).
+    """
+    command = UninstallCommand()
+    opts, args = command.parse_args(['--yes'] + list(package_names))
+    command.run(opts, args)
+
+def match_option(argument, short_option, long_option):
+    """
+    Match a command line argument against a short and long option.
+
+    :param argument: The command line argument (a string).
+    :param short_option: The short option (a string).
+    :param long_option: The long option (a string).
+    :returns: ``True`` if the argument matches, ``False`` otherwise.
+    """
+    return short_option[1] in argument[1:] if is_short_option(argument) else argument == long_option
+
+def is_short_option(argument):
+    """
+    Check if a command line argument is a short option.
+
+    :param argument: The command line argument (a string).
+    :returns: ``True`` if the argument is a short option, ``False`` otherwise.
+    """
+    return len(argument) >= 2 and argument[0] == '-' and argument[1] != '-'

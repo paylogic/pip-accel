@@ -1,8 +1,10 @@
 try:
     # Python 2.x.
-    import ConfigParser as configparser
+    from StringIO import StringIO
     from urlparse import urlparse
+    import ConfigParser as configparser
 except ImportError:
     # Python 3.x.
-    import configparser
+    from io import StringIO
     from urllib.parse import urlparse
+    import configparser

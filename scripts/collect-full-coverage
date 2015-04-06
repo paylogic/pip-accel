@@ -1,0 +1,100 @@
+#!/bin/bash -e
+
+# If FakeS3 is available then this script will start an isolated instance of
+# FakeS3 that's dedicated to the pip-accel test suite (because the test suite
+# requires FakeS3 to start up with an empty bucket, otherwise test runs may
+# pick up cached binary distributions from previous test runs).
+TEMPORARY_DIRECTORY=/tmp/pip-accel-test-suite
+FAKES3_PID_FILE=$TEMPORARY_DIRECTORY/fakes3.pid
+FAKES3_ROOT=$TEMPORARY_DIRECTORY/fakes3-root
+FAKES3_PORT=12345
+
+main () {
+
+  # The following environment variable is needed to collect coverage on
+  # automatic installation of dependencies on system packages. Please review
+  # the notes in the test suite (pip_accel/tests.py) if you're not sure whether
+  # you want to run this on your system :-).
+  export PIP_ACCEL_TEST_AUTO_INSTALL=true
+
+  # Don't silence the Boto logger because it can be interesting to see how Boto
+  # deals with FakeS3 dropping out in the middle of the test suite.
+  export PIP_ACCEL_SILENCE_BOTO=false
+
+  # If FakeS3 is installed we will start it and tell the test suite to use it.
+  if has_fakes3; then
+
+    # Make sure we're not testing against a FakeS3 instance started by a
+    # previous run of the pip-accel test suite.
+    tear_down_fakes3
+
+    # On Travis CI all of the tests are run twice, once with the environment
+    # variable $PIP_ACCEL_S3_BUCKET set and once without. Locally we'll run the
+    # tests just once with the environment variable set.
+    if ! on_travis_ci; then
+      export PIP_ACCEL_S3_BUCKET=pip-accel-test-bucket
+    fi
+
+    # Tell the test suite to use FakeS3.
+    export PIP_ACCEL_S3_URL="http://localhost:$FAKES3_PORT"
+
+    # Without the following option set, the test suite won't work with FakeS3.
+    export PIP_ACCEL_S3_CREATE_BUCKET=true
+
+    # Start the FakeS3 server in the background.
+    mkdir -p $FAKES3_ROOT
+    fakes3 --root=$FAKES3_ROOT --port=$FAKES3_PORT &
+    local fakes3_pid=$!
+    echo $fakes3_pid > $FAKES3_PID_FILE
+
+    # Expose the FakeS3 process ID in an environment variable so that the test
+    # suite can terminate (!) FakeS3 in order to test that the S3 cache backend
+    # handles failure gracefully.
+    export PIP_ACCEL_FAKES3_PID=$fakes3_pid
+
+    # Give the FakeS3 server a moment to initialize.
+    sleep 10
+
+  fi
+
+  # Downgrade setuptools so that the test suite can verify that setuptools is
+  # upgraded to >= 0.8 when a binary wheel is installed. Performing this
+  # downgrade inside the test suite process doesn't work as expected because
+  # pip (pkg_resources) will still think the newer version is installed (due
+  # to caching without proper cache invalidation by pkg_resources).
+  pip install 'setuptools < 0.8'
+
+  # Run the test suite and collect coverage statistics.
+  coverage run setup.py test
+
+  # Clean up the FakeS3 instance after the test suite ends.
+  if has_fakes3; then
+    tear_down_fakes3
+  fi
+
+}
+
+on_travis_ci () {
+  # http://docs.travis-ci.com/user/ci-environment/#Environment-variables
+  [ -n "$TRAVIS" ] && [ "$TRAVIS" = true ]
+}
+
+has_fakes3 () {
+  which fakes3 &>/dev/null
+}
+
+tear_down_fakes3 () {
+  if [ -d $TEMPORARY_DIRECTORY ]; then
+    # Use the pid file to kill a previously started instance.
+    if [ -e $FAKES3_PID_FILE ]; then
+      local pid=$(cat $FAKES3_PID_FILE)
+      if kill -0 $pid &>/dev/null; then
+        kill -9 $pid
+      fi
+    fi
+    # Cleanup all files related to FakeS3.
+    rm -R $TEMPORARY_DIRECTORY
+  fi
+}
+
+main "$@"

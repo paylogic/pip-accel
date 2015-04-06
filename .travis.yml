@@ -12,6 +12,6 @@ install:
   - pip install coveralls --editable "file://${PWD}[s3]"
   - gem install fakes3
 script:
-  ./.travis.sh
+  - scripts/collect-full-coverage
 after_success:
-  coveralls
+  - coveralls
