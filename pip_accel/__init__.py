@@ -44,7 +44,7 @@ installed from wheels (their metadata is different).
 """
 
 # Semi-standard module versioning.
-__version__ = '0.26.1'
+__version__ = '0.26.2'
 
 # Standard library modules.
 import logging
@@ -382,17 +382,6 @@ class PipAccelerator(object):
         # archives are never downloaded more than once (regardless of the HTTP
         # cache that was introduced in pip 6.x).
         command_line.append('--find-links=file://%s' % self.config.source_index)
-        # Use `--exists-action' to avoid an interactive prompt when pip is
-        # about to overwrite an archive in pip-accel's local source
-        # distribution index directory (only when the user didn't already
-        # specify the --exists-action option).
-        if not any(a.startswith('--exists-action') for a in arguments):
-            # The interactive prompt was reported here:
-            #   https://github.com/paylogic/pip-accel/issues/51
-            # However I'm not yet sure how to reproduce it, so it's hard to
-            # tell what the best choice is from the available options:
-            #   https://pip.pypa.io/en/latest/reference/pip.html#exists-action-option
-            command_line.append('--exists-action=w')
         # Use `--no-use-wheel' to ignore wheel distributions by default in
         # order to preserve backwards compatibility with callers that expect a
         # requirement set consisting only of source distributions that can be
@@ -423,6 +412,16 @@ class PipAccelerator(object):
         logger.info("Executing command: pip install %s", ' '.join(command_line))
         # Clear the build directory to prevent PreviousBuildDirError exceptions.
         self.clear_build_directory()
+        # During the pip 6.x upgrade pip-accel switched to using `pip install
+        # --download' which can produce an interactive prompt as described in
+        # issue 51 [1]. The documented way [2] to get rid of this interactive
+        # prompt is pip's --exists-action option, but due to what is most
+        # likely a bug in pip this doesn't actually work. The environment
+        # variable $PIP_EXISTS_ACTION does work however, so if the user didn't
+        # set it we will set a reasonable default for them.
+        # [1] https://github.com/paylogic/pip-accel/issues/51
+        # [2] https://pip.pypa.io/en/latest/reference/pip.html#exists-action-option
+        os.environ.setdefault('PIP_EXISTS_ACTION', 'w')
         # Initialize and run the `pip install' command.
         command = InstallCommand()
         opts, args = command.parse_args(command_line)
