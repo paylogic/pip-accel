@@ -4,7 +4,7 @@ pip-accel: Accelerator for pip, the Python package manager
 .. image:: https://travis-ci.org/paylogic/pip-accel.svg?branch=master
    :target: https://travis-ci.org/paylogic/pip-accel
 
-.. image:: https://coveralls.io/repos/paylogic/pip-accel/badge.png?branch=master
+.. image:: https://coveralls.io/repos/paylogic/pip-accel/badge.svg?branch=master
    :target: https://coveralls.io/r/paylogic/pip-accel?branch=master
 
 The pip-accel program is a wrapper for pip_, the Python package manager. It
