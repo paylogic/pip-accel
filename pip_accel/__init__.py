@@ -44,7 +44,7 @@ installed from wheels (their metadata is different).
 """
 
 # Semi-standard module versioning.
-__version__ = '0.26'
+__version__ = '0.26.1'
 
 # Standard library modules.
 import logging
@@ -382,6 +382,17 @@ class PipAccelerator(object):
         # archives are never downloaded more than once (regardless of the HTTP
         # cache that was introduced in pip 6.x).
         command_line.append('--find-links=file://%s' % self.config.source_index)
+        # Use `--exists-action' to avoid an interactive prompt when pip is
+        # about to overwrite an archive in pip-accel's local source
+        # distribution index directory (only when the user didn't already
+        # specify the --exists-action option).
+        if not any(a.startswith('--exists-action') for a in arguments):
+            # The interactive prompt was reported here:
+            #   https://github.com/paylogic/pip-accel/issues/51
+            # However I'm not yet sure how to reproduce it, so it's hard to
+            # tell what the best choice is from the available options:
+            #   https://pip.pypa.io/en/latest/reference/pip.html#exists-action-option
+            command_line.append('--exists-action=w')
         # Use `--no-use-wheel' to ignore wheel distributions by default in
         # order to preserve backwards compatibility with callers that expect a
         # requirement set consisting only of source distributions that can be
