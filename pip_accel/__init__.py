@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: April 6, 2015
+# Last Change: April 8, 2015
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Permanently store logs in the pip-accel directory (think about log rotation).
@@ -44,7 +44,7 @@ installed from wheels (their metadata is different).
 """
 
 # Semi-standard module versioning.
-__version__ = '0.26.2'
+__version__ = '0.26.3'
 
 # Standard library modules.
 import logging
@@ -268,6 +268,10 @@ class PipAccelerator(object):
         :param use_wheels: Whether pip and pip-accel are allowed to use wheels_
                            (``False`` by default for backwards compatibility
                            with callers that use pip-accel as a Python API).
+
+        .. warning:: Requirements which are already installed are not included
+                     in the result. If this breaks your use case consider using
+                     pip's ``--ignore-installed`` option.
         """
         # Use a new build directory for each run of get_requirements().
         self.create_build_directory()
@@ -425,6 +429,11 @@ class PipAccelerator(object):
         # Initialize and run the `pip install' command.
         command = InstallCommand()
         opts, args = command.parse_args(command_line)
+        if not opts.ignore_installed:
+            # If the user didn't supply the -I, --ignore-installed option we
+            # will forcefully disable the option. Refer to the documentation of
+            # the AttributeOverrides class for further details.
+            opts = AttributeOverrides(opts, ignore_installed=False)
         requirement_set = command.run(opts, args)
         # Make sure the output of pip and pip-accel are not intermingled.
         sys.stdout.flush()
@@ -447,8 +456,9 @@ class PipAccelerator(object):
         """
         filtered_requirements = []
         for requirement in requirement_set.requirements.values():
-            filtered_requirements.append(requirement)
-            self.reported_requirements.append(requirement)
+            if not requirement.satisfied_by:
+                filtered_requirements.append(requirement)
+                self.reported_requirements.append(requirement)
         return sorted([Requirement(r) for r in filtered_requirements],
                       key=lambda r: r.name.lower())
 
@@ -599,3 +609,64 @@ class PatchedAttribute(object):
 
     def __exit__(self, exc_type=None, exc_value=None, traceback=None):
         setattr(self.object, self.attribute, self.original_value)
+
+class AttributeOverrides(object):
+
+    """
+    :py:class:`AttributeOverrides` enables overriding of object attributes.
+
+    During the pip 6.x upgrade pip-accel switched to using ``pip install
+    --download`` which unintentionally broke backwards compatibility with
+    previous versions of pip-accel as documented in `issue 52`_.
+
+    The reason for this is that when pip is given the ``--download`` option it
+    internally enables ``--ignore-installed`` (which can be problematic for
+    certain use cases as described in `issue 52`_). There is no documented way
+    to avoid this behavior, so instead pip-accel resorts to monkey patching to
+    restore backwards compatibility.
+
+    :py:class:`AttributeOverrides` is used to replace pip's parsed command line
+    options object with an object that defers all attribute access (gets and
+    sets) to the original options object but always reports
+    ``ignore_installed`` as ``False``, even after it was set to ``True`` by pip
+    (as described above).
+
+    .. _issue 52: https://github.com/paylogic/pip-accel/issues/52
+    """
+
+    def __init__(self, opts, **overrides):
+        """
+        Construct an :py:class:`AttributeOverrides` instance.
+
+        :param opts: The object to which attribute access is deferred.
+        :param overrides: The attributes whose value should be overridden.
+        """
+        object.__setattr__(self, 'opts', opts)
+        object.__setattr__(self, 'overrides', overrides)
+
+    def __getattr__(self, name):
+        """
+        Get an attribute's value from overrides or by deferring attribute access.
+
+        :param name: The name of the attribute (a string).
+        :returns: The attribute's value.
+        """
+        if name in self.overrides:
+            logger.debug("AttributeOverrides() getting %s from overrides ..", name)
+            return self.overrides[name]
+        else:
+            logger.debug("AttributeOverrides() getting %s by deferring attribute access ..", name)
+            return getattr(self.opts, name)
+
+    def __setattr__(self, name, value):
+        """
+        Set an attribute's value (unless it has an override).
+
+        :param name: The name of the attribute (a string).
+        :param value: The new value for the attribute.
+        """
+        if name in self.overrides:
+            logger.debug("AttributeOverrides() refusing to set %s=%r (attribute has override) ..", name, value)
+        else:
+            logger.debug("AttributeOverrides() setting %s=%r by deferring attribute access ..", name, value)
+            setattr(self.opts, name, value)
