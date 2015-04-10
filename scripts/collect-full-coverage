@@ -69,6 +69,15 @@ main () {
     pip install 'setuptools < 0.8'
   fi
 
+  # Install requests==2.6.0 so the test suite can downgrade to requests==2.2.1
+  # (to verify that downgrading of packages works). Ideally the test suite
+  # should just be able to install requests==2.6.0 and then downgrade to
+  # requests==2.2.1 but unfortunately this doesn't work reliably in the same
+  # Python process due to (what looks like) caching in the pkg_resources module
+  # bundled with pip (which in turn causes a variety of confusing internal
+  # errors in pip and pip-accel).
+  pip install requests==2.6.0
+
   # Run the test suite and collect coverage statistics.
   coverage run setup.py test
 

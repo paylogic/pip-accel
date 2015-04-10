@@ -1,7 +1,7 @@
 # Simple wrapper for pip and pkg_resources Requirement objects.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: April 6, 2015
+# Last Change: April 10, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -131,20 +131,6 @@ class Requirement(object):
                 like a wheel distribution, I'm confused!
             """, requirement=self.setuptools_requirement,
                  directory=self.source_directory)
-
-    @cached_property
-    def is_installed(self):
-        """
-        ``True`` when the requirement is already installed, ``False``
-        otherwise.
-        """
-        # This previously used InstallRequirement.check_if_exists() and then
-        # checked if InstallRequirement.satisfied_by was set, however
-        # InstallRequirement.check_if_exists() uses the implicit global working
-        # set provided by pkg_resources which is susceptible to stale data
-        # (this problem is very noticeable in the pip-accel test suite which
-        # runs a multitude of tests in the same Python process).
-        return self.pip_requirement.installed_version is not None
 
     @cached_property
     def is_transitive(self):

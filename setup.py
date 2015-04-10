@@ -3,7 +3,7 @@
 # Setup script for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: November 16, 2014
+# Last Change: April 10, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 import re
@@ -51,5 +51,4 @@ setup(name='pip-accel',
       extras_require={'s3': 'boto >= 2.32'},
       package_data={'pip_accel.deps': ['*.ini']},
       install_requires=requirements,
-      tests_require=['virtualenv'],
       test_suite='pip_accel.tests')

@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: April 8, 2015
+# Last Change: April 10, 2015
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Permanently store logs in the pip-accel directory (think about log rotation).
@@ -44,7 +44,7 @@ installed from wheels (their metadata is different).
 """
 
 # Semi-standard module versioning.
-__version__ = '0.26.3'
+__version__ = '0.27'
 
 # Standard library modules.
 import logging
@@ -58,7 +58,7 @@ import tempfile
 from pip_accel.bdist import BinaryDistributionManager
 from pip_accel.exceptions import EnvironmentMismatchError, NothingToDoError
 from pip_accel.req import Requirement
-from pip_accel.utils import is_installed, makedirs, match_option, run, uninstall
+from pip_accel.utils import is_installed, makedirs, run, uninstall
 
 # External dependencies.
 from humanfriendly import concatenate, Timer, pluralize
@@ -224,14 +224,17 @@ class PipAccelerator(object):
         :returns: The result of :py:func:`install_requirements()`.
         """
         try:
-            ignore_installed = any(match_option(a, '-I', '--ignore-installed') for a in arguments)
             use_wheels = ('--no-use-wheel' not in arguments)
             requirements = self.get_requirements(arguments, use_wheels=use_wheels)
             have_wheels = any(req.is_wheel for req in requirements)
             if have_wheels and not self.setuptools_supports_wheels():
                 logger.info("Preparing to upgrade to setuptools >= 0.8 to enable wheel support ..")
                 requirements.extend(self.get_requirements(['setuptools >= 0.8']))
-            return self.install_requirements(requirements, ignore_installed=ignore_installed, **kw)
+            if requirements:
+                return self.install_requirements(requirements, **kw)
+            else:
+                logger.info("Nothing to do! (requirements already installed)")
+                return 0
         finally:
             self.cleanup_temporary_directories()
 
@@ -456,26 +459,26 @@ class PipAccelerator(object):
         """
         filtered_requirements = []
         for requirement in requirement_set.requirements.values():
+            # The `satisfied_by' property is set by pip when a requirement is
+            # already satisfied (i.e. a version of the package that satisfies
+            # the requirement is already installed) and -I, --ignore-installed
+            # is not used. We filter out these requirements because pip never
+            # unpacks distributions for these requirements, so pip-accel can't
+            # do anything useful with such requirements.
             if not requirement.satisfied_by:
                 filtered_requirements.append(requirement)
                 self.reported_requirements.append(requirement)
         return sorted([Requirement(r) for r in filtered_requirements],
                       key=lambda r: r.name.lower())
 
-    def install_requirements(self, requirements, ignore_installed=False, **kw):
+    def install_requirements(self, requirements, **kw):
         """
         Manually install a requirement set from binary and/or wheel distributions.
 
         :param requirements: A list of :py:class:`pip_accel.req.Requirement` objects.
-        :param ignore_installed: If ``True`` packages that are already
-                                 installed will be reinstalled (defaults to
-                                 ``False``).
         :param kw: Any keyword arguments are passed on to
                    :py:func:`~pip_accel.bdist.BinaryDistributionManager.install_binary_dist()`.
-        :returns: A tuple of two integers:
-
-                  1. The number of packages that were just installed.
-                  2. The number of packages that was already installed.
+        :returns: The number of packages that were just installed (an integer).
         """
         install_timer = Timer()
         install_types = []
@@ -487,50 +490,39 @@ class PipAccelerator(object):
         # Track installed files by default (unless the caller specifically opted out).
         kw.setdefault('track_installed_files', True)
         num_installed = 0
-        num_already_satisfied = 0
         for requirement in requirements:
-            package_is_installed = is_installed(requirement.name)
-            if package_is_installed and not ignore_installed:
-                logger.info("Requirement already satisfied: %s.", requirement.pip_requirement)
-                num_already_satisfied += 1
+            # If we're upgrading over an older version, first remove the
+            # old version to make sure we don't leave files from old
+            # versions around.
+            if is_installed(requirement.name):
+                uninstall(requirement.name)
+            # When installing setuptools we need to uninstall distribute,
+            # otherwise distribute will shadow setuptools and all sorts of
+            # strange issues can occur (e.g. upgrading to the latest
+            # setuptools to gain wheel support and then having everything
+            # blow up because distribute doesn't know about wheels).
+            if requirement.name == 'setuptools' and is_installed('distribute'):
+                uninstall('distribute')
+            if requirement.is_editable:
+                logger.debug("Installing %s in editable form using pip.", requirement)
+                if not run('{pip} install --no-deps --editable {url} >/dev/null 2>&1',
+                           pip=self.pip_executable,
+                           url=requirement.url):
+                    msg = "Failed to install %s in editable form!"
+                    raise Exception(msg % requirement)
+            elif requirement.is_wheel:
+                logger.info("Installing %s wheel distribution using pip ..", requirement)
+                wheel_version = pip_wheel_module.wheel_version(requirement.source_directory)
+                pip_wheel_module.check_compatibility(wheel_version, requirement.name)
+                requirement.pip_requirement.move_wheel_files(requirement.source_directory)
             else:
-                # If we're upgrading over an older version, first remove the
-                # old version to make sure we don't leave files from old
-                # versions around.
-                if package_is_installed:
-                    uninstall(requirement.name)
-                # When installing setuptools we need to uninstall distribute,
-                # otherwise distribute will shadow setuptools and all sorts of
-                # strange issues can occur (e.g. upgrading to the latest
-                # setuptools to gain wheel support and then having everything
-                # blow up because distribute doesn't know about wheels).
-                if requirement.name == 'setuptools' and is_installed('distribute'):
-                    uninstall('distribute')
-                if requirement.is_editable:
-                    logger.debug("Installing %s in editable form using pip.", requirement)
-                    if not run('{pip} install --no-deps --editable {url} >/dev/null 2>&1',
-                               pip=self.pip_executable,
-                               url=requirement.url):
-                        msg = "Failed to install %s in editable form!"
-                        raise Exception(msg % requirement)
-                elif requirement.is_wheel:
-                    logger.info("Installing %s wheel distribution using pip ..", requirement)
-                    wheel_version = pip_wheel_module.wheel_version(requirement.source_directory)
-                    pip_wheel_module.check_compatibility(wheel_version, requirement.name)
-                    requirement.pip_requirement.move_wheel_files(requirement.source_directory)
-                else:
-                    binary_distribution = self.bdists.get_binary_dist(requirement)
-                    self.bdists.install_binary_dist(binary_distribution, **kw)
-                num_installed += 1
-        if num_already_satisfied:
-            logger.info("Finished installing %s in %s (%s already installed).",
-                        pluralize(num_installed, "requirement"),
-                        install_timer, num_already_satisfied)
-        else:
-            logger.info("Finished installing %s in %s.",
-                        pluralize(num_installed, "requirement"),
-                        install_timer)
-        return num_installed, num_already_satisfied
+                binary_distribution = self.bdists.get_binary_dist(requirement)
+                self.bdists.install_binary_dist(binary_distribution, **kw)
+            num_installed += 1
+        logger.info("Finished installing %s in %s.",
+                    pluralize(num_installed, "requirement"),
+                    install_timer)
+        return num_installed
 
     def create_build_directory(self):
         """

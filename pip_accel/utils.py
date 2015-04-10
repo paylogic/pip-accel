@@ -1,7 +1,7 @@
 # Utility functions for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: April 6, 2015
+# Last Change: April 10, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -142,6 +142,19 @@ def uninstall(*package_names):
     command = UninstallCommand()
     opts, args = command.parse_args(['--yes'] + list(package_names))
     command.run(opts, args)
+
+def find_installed_version(package_name):
+    """
+    Find the version of an installed package.
+
+    :param package_name: The name of the package (a string).
+    :returns: The package's version (a string) or ``None`` if the package can't
+              be found.
+    """
+    package_name = package_name.lower()
+    for distribution in WorkingSet():
+        if distribution.key.lower() == package_name:
+            return distribution.version
 
 def match_option(argument, short_option, long_option):
     """

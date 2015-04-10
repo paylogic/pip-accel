@@ -3,7 +3,7 @@
 # Tests for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: April 6, 2015
+# Last Change: April 10, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -50,7 +50,7 @@ from pip_accel.compat import StringIO
 from pip_accel.config import Config
 from pip_accel.deps import DependencyInstallationRefused, SystemPackageManager
 from pip_accel.exceptions import EnvironmentMismatchError
-from pip_accel.utils import uninstall
+from pip_accel.utils import find_installed_version, uninstall
 
 # Initialize a logger for this module.
 logger = logging.getLogger(__name__)
@@ -189,9 +189,8 @@ class PipAccelTestCase(unittest.TestCase):
         assert requirements[0].version == '1.0.1', "Requirement has unexpected version!"
         assert os.path.isdir(requirements[0].source_directory), "Requirement's source directory doesn't exist!"
         # Test the build and installation of the binary package.
-        num_installed, num_already_satisfied = accelerator.install_requirements(requirements, ignore_installed=True)
+        num_installed = accelerator.install_requirements(requirements)
         assert num_installed == 1, "Expected pip-accel to install exactly one package!"
-        assert num_already_satisfied == 0, "Expected no requirements to be already satisfied!"
         # Make sure the `verboselogs' module can be imported after installation.
         __import__('verboselogs')
         # We now have a non-empty download cache and source index so this
@@ -202,13 +201,23 @@ class PipAccelTestCase(unittest.TestCase):
         """Test installation of newer versions over older versions."""
         accelerator = self.initialize_pip_accel()
         # Install version 1.0 of the `verboselogs' package.
-        num_installed, num_already_satisfied = accelerator.install_from_arguments(['--ignore-installed', 'verboselogs==1.0'])
+        num_installed = accelerator.install_from_arguments(['--ignore-installed', 'verboselogs==1.0'])
         assert num_installed == 1, "Expected pip-accel to install exactly one package!"
-        assert num_already_satisfied == 0, "Expected no requirements to be already satisfied!"
         # Install version 1.0.1 of the `verboselogs' package.
-        num_installed, num_already_satisfied = accelerator.install_from_arguments(['--ignore-installed', 'verboselogs==1.0.1'])
+        num_installed = accelerator.install_from_arguments(['--ignore-installed', 'verboselogs==1.0.1'])
         assert num_installed == 1, "Expected pip-accel to install exactly one package!"
-        assert num_already_satisfied == 0, "Expected no requirements to be already satisfied!"
+
+    def test_package_downgrade(self):
+        """Test installation of older versions over newer version (package downgrades)."""
+        if find_installed_version('requests') != '2.6.0':
+            logger.warning("Skipping package downgrade test (requests==2.6.0 should be installed beforehand).")
+            return
+        accelerator = self.initialize_pip_accel()
+        # Downgrade to requests 2.2.1.
+        accelerator.install_from_arguments(['requests==2.2.1'])
+        # Make sure requests was downgraded.
+        assert find_installed_version('requests') == '2.2.1', \
+            "pip-accel failed to (properly) downgrade requests to version 2.2.1!"
 
     def test_s3_backend(self):
         """
@@ -246,9 +255,8 @@ class PipAccelTestCase(unittest.TestCase):
                 logger.debug("Killing FakeS3 (%i) to force S3 cache backend failure ..", fakes3_pid)
                 os.kill(fakes3_pid, signal.SIGKILL)
             # Install the verboselogs package using the S3 cache backend.
-            num_installed, num_already_satisfied = accelerator.install_from_arguments(pip_install_args)
+            num_installed = accelerator.install_from_arguments(pip_install_args)
             assert num_installed == 1, "Expected pip-accel to install exactly one package!"
-            assert num_already_satisfied == 0, "Expected no requirements to be already satisfied!"
 
     def test_wheel_install(self):
         """
@@ -261,7 +269,7 @@ class PipAccelTestCase(unittest.TestCase):
         accelerator = self.initialize_pip_accel()
         wheels_already_supported = accelerator.setuptools_supports_wheels()
         # Test the installation of Paver (and the upgrade of Setuptools?).
-        num_installed, num_already_satisfied = accelerator.install_from_arguments([
+        num_installed = accelerator.install_from_arguments([
             # Ugly way to force pip to install from a wheel archive (there is a
             # --no-use-wheel option but there is nothing like --force-wheel).
             '--ignore-installed', 'https://pypi.python.org/packages/2.7/P/Paver/Paver-1.2.4-py2.py3-none-any.whl'
@@ -270,7 +278,6 @@ class PipAccelTestCase(unittest.TestCase):
             assert num_installed == 1, "Expected pip-accel to install exactly one package!"
         else:
             assert num_installed == 2, "Expected pip-accel to install exactly two packages!"
-        assert num_already_satisfied == 0, "Expected no requirements to be already satisfied!"
         # Make sure the Paver program works after installation.
         try_program('paver')
 
@@ -288,11 +295,10 @@ class PipAccelTestCase(unittest.TestCase):
         """
         # Install Paver 1.2.3 using pip-accel.
         accelerator = self.initialize_pip_accel()
-        num_installed, num_already_satisfied = accelerator.install_from_arguments([
+        num_installed = accelerator.install_from_arguments([
             '--ignore-installed', '--no-use-wheel', 'paver==1.2.3'
         ])
         assert num_installed == 1, "Expected pip-accel to install exactly one package!"
-        assert num_already_satisfied == 0, "Expected no requirements to be already satisfied!"
         # Make sure the Paver program works after installation.
         try_program('paver')
 
@@ -334,11 +340,10 @@ class PipAccelTestCase(unittest.TestCase):
         uninstall('ipython')
         # Install the iPython 1.0 source distribution using pip-accel.
         accelerator = self.initialize_pip_accel()
-        num_installed, num_already_satisfied = accelerator.install_from_arguments([
+        num_installed = accelerator.install_from_arguments([
             '--ignore-installed', '--no-use-wheel', 'ipython==1.0'
         ])
         assert num_installed == 1, "Expected pip-accel to install exactly one package!"
-        assert num_already_satisfied == 0, "Expected no requirements to be already satisfied!"
         # Make sure the iPython program works after installation using pip-accel.
         try_program('ipython3' if sys.version_info[0] == 3 else 'ipython')
         # Find the iPython related files installed by pip-accel.
@@ -489,11 +494,10 @@ class PipAccelTestCase(unittest.TestCase):
         # Install lxml while a system dependency is missing and automatic installation is allowed.
         accelerator = self.initialize_pip_accel(auto_install=True,
                                                 data_directory=create_temporary_directory())
-        num_installed, num_already_satisfied = accelerator.install_from_arguments([
+        num_installed = accelerator.install_from_arguments([
             '--ignore-installed', 'lxml==3.2.1'
         ])
         assert num_installed == 1, "Expected pip-accel to install exactly one package!"
-        assert num_already_satisfied == 0, "Expected no requirements to be already satisfied!"
 
     def test_system_package_dependency_failures(self):
         this_script = os.path.abspath(__file__)
