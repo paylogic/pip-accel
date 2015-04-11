@@ -1,7 +1,7 @@
 # Simple wrapper for pip and pkg_resources Requirement objects.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: April 10, 2015
+# Last Change: April 11, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -30,9 +30,12 @@ basically undocumented AFAIK).
 # Standard library modules.
 import glob
 import os
+import re
+import time
 
 # Modules included in our package.
 from pip_accel.exceptions import UnknownDistributionFormat
+from pip._vendor.distlib.util import ARCHIVE_EXTENSIONS
 from pip._vendor.pkg_resources import find_distributions
 
 # External dependencies.
@@ -43,12 +46,14 @@ class Requirement(object):
 
     """Simple wrapper for the requirement objects defined by pip and setuptools."""
 
-    def __init__(self, requirement):
+    def __init__(self, config, requirement):
         """
         Initialize a requirement object.
 
+        :param config: A :py:class:`~pip_accel.config.Config` object.
         :param requirement: A :py:class:`pip.req.InstallRequirement` object.
         """
+        self.config = config
         self.pip_requirement = requirement
         self.setuptools_requirement = requirement.req
 
@@ -75,6 +80,51 @@ class Requirement(object):
             return self.wheel_metadata.version
         else:
             return self.sdist_metadata['Version']
+
+    @cached_property
+    def related_archives(self):
+        """
+        Try to find the source distribution archive(s) for this requirement.
+
+        Returns a list of pathnames (strings).
+
+        This property is very new in pip-accel and its logic may need some time
+        to mature. For now any misbehavior by this property shouldn't be too
+        much of a problem because the pathnames reported by this property are
+        only used for cache invalidation (see :py:attr:`last_modified`).
+        """
+        # Escape the requirement's name for in a regular expression and treat
+        # dashes and underscores as equivalent.
+        name_pattern = re.sub('[^A-Za-z0-9]', escape_name_callback, self.name)
+        # Escape the requirement's version for in a regular expression.
+        version_pattern = re.escape(self.version)
+        # Create a regular expression that matches any of the known source
+        # distribution archive extensions.
+        extension_pattern = '|'.join(re.escape(ext) for ext in ARCHIVE_EXTENSIONS if ext != '.whl')
+        # Compose the regular expression pattern to match filenames of source
+        # distribution archives in the local source index directory.
+        pattern = '^%s-%s(%s)$' % (name_pattern, version_pattern, extension_pattern)
+        # Compile the regular expression for case insensitive matching.
+        compiled_pattern = re.compile(pattern, re.IGNORECASE)
+        # Find the matching source distribution archives.
+        return [os.path.join(self.config.source_index, fn)
+                for fn in os.listdir(self.config.source_index)
+                if compiled_pattern.match(fn)]
+
+    @cached_property
+    def last_modified(self):
+        """
+        Try to find the last modified time of the requirement's source distribution archive(s).
+
+        Returns a number.
+
+        Based on :py:attr:`related_archives`. If no related archives are found
+        the current time is reported. In the balance between not invalidating
+        cached binary distributions enough and invalidating them too
+        frequently, this property causes the latter to happen.
+        """
+        mtimes = map(os.path.getmtime, self.related_archives)
+        return max(mtimes) if mtimes else time.time()
 
     @cached_property
     def url(self):
@@ -185,3 +235,13 @@ class Requirement(object):
         Render a human friendly string describing the requirement.
         """
         return "%s (%s)" % (self.name, self.version)
+
+def escape_name_callback(match):
+    """
+    Callback to escape a requirement's name for use in a regular expression.
+    """
+    character = match.group(0)
+    if character in ('-', '_'):
+        return '[-_]'
+    else:
+        return r'\%s' % character

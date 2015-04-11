@@ -44,7 +44,7 @@ installed from wheels (their metadata is different).
 """
 
 # Semi-standard module versioning.
-__version__ = '0.27.1'
+__version__ = '0.28'
 
 # Standard library modules.
 import logging
@@ -468,7 +468,7 @@ class PipAccelerator(object):
             if not requirement.satisfied_by:
                 filtered_requirements.append(requirement)
                 self.reported_requirements.append(requirement)
-        return sorted([Requirement(r) for r in filtered_requirements],
+        return sorted([Requirement(self.config, r) for r in filtered_requirements],
                       key=lambda r: r.name.lower())
 
     def install_requirements(self, requirements, **kw):

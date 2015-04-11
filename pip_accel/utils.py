@@ -1,7 +1,7 @@
 # Utility functions for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: April 10, 2015
+# Last Change: April 11, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -15,7 +15,6 @@ with any single module.
 
 # Standard library modules.
 import errno
-import hashlib
 import os
 import pipes
 import platform
@@ -110,15 +109,6 @@ def run(command, **params):
     """
     params = dict((k, pipes.quote(v)) for k, v in params.items())
     return os.system(command.format(**params)) == 0
-
-def sha1(text):
-    """
-    Calculate the hexadecimal SHA1 digest of a string.
-
-    :param text: The string of which to calculate the SHA1 digest.
-    :returns: A string of 40 hexadecimal characters.
-    """
-    return hashlib.sha1(str(text).encode()).hexdigest()
 
 def is_installed(package_name):
     """

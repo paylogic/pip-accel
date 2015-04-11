@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: November 16, 2014
+# Last Change: April 11, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -23,7 +23,7 @@ import logging
 
 # Modules included in our package.
 from pip_accel.exceptions import CacheBackendDisabledError
-from pip_accel.utils import get_python_version, sha1
+from pip_accel.utils import get_python_version
 
 # External dependencies.
 from humanfriendly import concatenate, pluralize
@@ -193,16 +193,5 @@ class CacheManager(object):
                   including a single leading directory component to indicate
                   the cache format revision.
         """
-        url = requirement.url
-        if url and url.startswith('file://'):
-            # Ignore the URL if it is a file:// URL because those frequently
-            # point to temporary directories whose pathnames change with every
-            # invocation of pip-accel. If we would include the file:// URL in
-            # the cache key we would be generating a unique cache key on
-            # every run (not good for performance ;-).
-            url = None
-        tag = sha1(requirement.version + url) if url else requirement.version
         return 'v%i/%s:%s:%s.tar.gz' % (self.config.cache_format_revision,
-                                        requirement.name, tag, get_python_version())
-
-
+                                        requirement.name, requirement.version, get_python_version())

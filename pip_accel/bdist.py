@@ -1,7 +1,7 @@
 # Functions to manipulate Python binary distribution archives.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: April 6, 2015
+# Last Change: April 11, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -71,6 +71,10 @@ class BinaryDistributionManager(object):
                   :py:class:`tarfile.TarInfo` object and a file-like object.
         """
         cache_file = self.cache.get(requirement)
+        if cache_file and requirement.last_modified > os.path.getmtime(cache_file):
+            logger.info("Deleting old %s binary (source is newer) ..", requirement)
+            os.unlink(cache_file)
+            cache_file = None
         if not cache_file:
             logger.debug("%s hasn't been cached yet, doing so now.", requirement)
             # Build the binary distribution.
