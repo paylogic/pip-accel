@@ -42,6 +42,7 @@ main () {
     export PIP_ACCEL_S3_CREATE_BUCKET=true
 
     # Start the FakeS3 server in the background.
+    msg "Starting FakeS3 server on port $FAKES3_PORT .."
     mkdir -p $FAKES3_ROOT
     fakes3 --root=$FAKES3_ROOT --port=$FAKES3_PORT &
     local fakes3_pid=$!
@@ -53,7 +54,20 @@ main () {
     export PIP_ACCEL_FAKES3_PID=$fakes3_pid
 
     # Give the FakeS3 server a moment to initialize.
-    sleep 10
+    local timeout=30
+    local deadline=$(($(date +%s) + $timeout))
+    while true; do
+      if nc -z localhost $FAKES3_PORT; then
+        msg "FakeS3 server is now available .."
+        break
+      elif [ $(date +%s) -gt $deadline ]; then
+        msg "FakeS3 server didn't come online within $timeout seconds!"
+        break
+      else
+        msg "Waiting for FakeS3 server to become available .."
+        sleep 1
+      fi
+    done
 
   fi
 
@@ -66,6 +80,7 @@ main () {
     # The downgrade of setuptools fails on Travis CI Python 3.x builds, but as
     # long as the test suite runs the automatic upgrade at least once (on
     # Python 2.6 and/or Python 2.7) I'm happy :-).
+    msg "Downgrading setuptools (so the test suite can upgrade it) .."
     pip install 'setuptools < 0.8'
   fi
 
@@ -76,16 +91,25 @@ main () {
   # Python process due to (what looks like) caching in the pkg_resources module
   # bundled with pip (which in turn causes a variety of confusing internal
   # errors in pip and pip-accel).
+  msg "Installing requests (so the test suite can downgrade it) .."
   pip install requests==2.6.0
 
-  # Run the test suite and collect coverage statistics.
-  coverage run setup.py test
+  if [ $# -gt 0 ]; then
+    # Run the command specified by the user.
+    "$@"
+    returncode=$?
+  else
+    # Run the test suite and collect coverage statistics.
+    coverage run setup.py test
+    returncode=$?
+  fi
 
   # Clean up the FakeS3 instance after the test suite ends.
   if has_fakes3; then
     tear_down_fakes3
   fi
 
+  return $returncode
 }
 
 on_travis_ci () {
@@ -103,12 +127,18 @@ tear_down_fakes3 () {
     if [ -e $FAKES3_PID_FILE ]; then
       local pid=$(cat $FAKES3_PID_FILE)
       if kill -0 $pid &>/dev/null; then
+        msg "Terminating FakeS3 server (PID $pid) .."
         kill -9 $pid
       fi
     fi
     # Cleanup all files related to FakeS3.
+    msg "Cleaning up temporary FakeS3 root ($TEMPORARY_DIRECTORY) .."
     rm -R $TEMPORARY_DIRECTORY
   fi
+}
+
+msg () {
+  echo "[collect-full-coverage] $*" >&2
 }
 
 main "$@"
