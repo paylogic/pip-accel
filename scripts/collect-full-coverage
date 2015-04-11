@@ -21,6 +21,11 @@ main () {
   # deals with FakeS3 dropping out in the middle of the test suite.
   export PIP_ACCEL_SILENCE_BOTO=false
 
+  # Ensure the installed state of certain Python packages manipulated in the
+  # test suite matches our expectations.
+  prepare_python_packages &
+  local prepare_pid=$!
+
   # If FakeS3 is installed we will start it and tell the test suite to use it.
   if has_fakes3; then
 
@@ -68,31 +73,10 @@ main () {
         sleep 1
       fi
     done
-
   fi
 
-  # Downgrade setuptools so that the test suite can verify that setuptools is
-  # upgraded to >= 0.8 when a binary wheel is installed. Performing this
-  # downgrade inside the test suite process doesn't work as expected because
-  # pip (pkg_resources) will still think the newer version is installed (due
-  # to caching without proper cache invalidation by pkg_resources).
-  if python -c 'import sys; sys.exit(0 if sys.version_info[0] == 2 else 1)'; then
-    # The downgrade of setuptools fails on Travis CI Python 3.x builds, but as
-    # long as the test suite runs the automatic upgrade at least once (on
-    # Python 2.6 and/or Python 2.7) I'm happy :-).
-    msg "Downgrading setuptools (so the test suite can upgrade it) .."
-    pip install 'setuptools < 0.8'
-  fi
-
-  # Install requests==2.6.0 so the test suite can downgrade to requests==2.2.1
-  # (to verify that downgrading of packages works). Ideally the test suite
-  # should just be able to install requests==2.6.0 and then downgrade to
-  # requests==2.2.1 but unfortunately this doesn't work reliably in the same
-  # Python process due to (what looks like) caching in the pkg_resources module
-  # bundled with pip (which in turn causes a variety of confusing internal
-  # errors in pip and pip-accel).
-  msg "Installing requests (so the test suite can downgrade it) .."
-  pip install requests==2.6.0
+  # Wait for preparation of installed packages to finish.
+  wait $prepare_pid
 
   if [ $# -gt 0 ]; then
     # Run the command specified by the user.
@@ -135,6 +119,39 @@ tear_down_fakes3 () {
     msg "Cleaning up temporary FakeS3 root ($TEMPORARY_DIRECTORY) .."
     rm -R $TEMPORARY_DIRECTORY
   fi
+}
+
+prepare_python_packages () {
+
+  # Downgrade setuptools so that the test suite can verify that setuptools is
+  # upgraded to >= 0.8 when a binary wheel is installed. Performing this
+  # downgrade inside the test suite process doesn't work as expected because
+  # pip (pkg_resources) will still think the newer version is installed (due
+  # to caching without proper cache invalidation by pkg_resources).
+  if python -c 'import sys; sys.exit(0 if sys.version_info[0] == 2 else 1)'; then
+    # The downgrade of setuptools fails on Travis CI Python 3.x builds, but as
+    # long as the test suite runs the automatic upgrade at least once (on
+    # Python 2.6 and/or Python 2.7) I'm happy :-).
+    msg "Downgrading setuptools (so the test suite can upgrade it) .."
+    pip install 'setuptools < 0.8'
+  fi
+
+  # Install requests==2.6.0 so the test suite can downgrade to requests==2.2.1
+  # (to verify that downgrading of packages works). Ideally the test suite
+  # should just be able to install requests==2.6.0 and then downgrade to
+  # requests==2.2.1 but unfortunately this doesn't work reliably in the same
+  # Python process due to (what looks like) caching in the pkg_resources module
+  # bundled with pip (which in turn causes a variety of confusing internal
+  # errors in pip and pip-accel).
+  msg "Installing requests (so the test suite can downgrade it) .."
+  pip install requests==2.6.0
+
+  # Remove iPython so the test suite can install iPython in a clean
+  # environment, allowing the test suite to compare the files installed and
+  # removed by pip and pip-accel.
+  msg "Removing iPython (so the test suite can install and remove it) .."
+  pip uninstall -y ipython &>/dev/null || true
+
 }
 
 msg () {
