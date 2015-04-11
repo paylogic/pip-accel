@@ -3,7 +3,7 @@
 # Tests for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: April 10, 2015
+# Last Change: April 11, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -244,7 +244,9 @@ class PipAccelTestCase(unittest.TestCase):
         pip_install_args = ['--ignore-installed', 'verboselogs==1.0.1']
         # Initialize an instance of pip-accel with an empty cache.
         accelerator = self.initialize_pip_accel(load_environment_variables=True,
-                                                data_directory=create_temporary_directory())
+                                                data_directory=create_temporary_directory(),
+                                                s3_cache_timeout=10,
+                                                s3_cache_retries=0)
         # Run the installation three times.
         for i in [1, 2, 3]:
             if i > 1:

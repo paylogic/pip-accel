@@ -1,7 +1,7 @@
 # Configuration defaults for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: April 4, 2015
+# Last Change: April 11, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -383,3 +383,49 @@ class Config(object):
                                        environment_variable='PIP_ACCEL_S3_READONLY',
                                        configuration_option='s3-readonly',
                                        default=False))
+
+    @cached_property
+    def s3_cache_timeout(self):
+        """
+        The socket timeout in seconds for connections to Amazon S3 (an integer).
+
+        This value is injected into Boto's configuration to override the
+        default socket timeout used for connections to Amazon S3.
+
+        - Environment variable: ``$PIP_ACCEL_S3_TIMEOUT``
+        - Configuration option: ``s3-timeout``
+        - Default: ``60`` (`Boto's default`_)
+
+        .. _Boto's default: http://boto.readthedocs.org/en/latest/boto_config_tut.html
+        """
+        value = self.get(property_name='s3_cache_timeout',
+                         environment_variable='PIP_ACCEL_S3_TIMEOUT',
+                         configuration_option='s3-timeout')
+        try:
+            n = int(value)
+            if n >= 0:
+                return n
+        except:
+            return 60
+
+    @cached_property
+    def s3_cache_retries(self):
+        """
+        The number of times to retry failed requests to Amazon S3 (an integer).
+
+        This value is injected into Boto's configuration to override the
+        default number of times to retry failed requests to Amazon S3.
+
+        - Environment variable: ``$PIP_ACCEL_S3_RETRIES``
+        - Configuration option: ``s3-retries``
+        - Default: ``5`` (`Boto's default`_)
+        """
+        value = self.get(property_name='s3_cache_retries',
+                         environment_variable='PIP_ACCEL_S3_RETRIES',
+                         configuration_option='s3-retries')
+        try:
+            n = int(value)
+            if n >= 0:
+                return n
+        except:
+            return 5

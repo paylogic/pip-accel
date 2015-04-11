@@ -3,7 +3,7 @@
 # Authors:
 #  - Adam Feuer <adam@adamfeuer.com>
 #  - Peter Odding <peter.odding@paylogic.eu>
-# Last Change: January 8, 2015
+# Last Change: April 11, 2015
 # URL: https://github.com/paylogic/pip-accel
 #
 # A word of warning: Do *not* use the cached_property decorator here, because
@@ -244,9 +244,16 @@ class S3CacheBackend(AbstractCacheBackend):
                  S3 API fails.
         """
         if not hasattr(self, 'cached_connection'):
+            import boto
             from boto.exception import BotoClientError, BotoServerError, NoAuthHandlerFound
             from boto.s3.connection import S3Connection, SubdomainCallingFormat, OrdinaryCallingFormat
             try:
+                # Configure the number of retries and the socket timeout used
+                # by Boto. Based on the snippet given in the following email:
+                # https://groups.google.com/d/msg/boto-users/0osmP0cUl5Y/X4NdlMGWKiEJ
+                boto.config.add_section('Boto')
+                boto.config.set('Boto', 'num_retries', str(self.config.s3_cache_retries))
+                boto.config.set('Boto', 'http_socket_timeout', str(self.config.s3_cache_timeout))
                 logger.debug("Connecting to Amazon S3 API ..")
                 endpoint = urlparse(self.config.s3_cache_url)
                 host, _, port = endpoint.netloc.partition(':')
