@@ -475,7 +475,7 @@ class PipAccelTestCase(unittest.TestCase):
         .. _issue 402 in the Gunicorn issue tracker: https://github.com/benoitc/gunicorn/issues/402
         """
         # Make sure verboselogs isn't already installed when this test starts.
-        ensure_not_installed('verboselogs')
+        uninstall_through_subprocess('verboselogs')
         # Clone the remote git repository.
         temporary_directory = create_temporary_directory()
         git_checkout = os.path.join(temporary_directory, 'verboselogs')
@@ -500,7 +500,7 @@ class PipAccelTestCase(unittest.TestCase):
         # Cleanup after ourselves so that unrelated tests involving the
         # verboselogs package don't get confused when they're run after
         # this test and encounter an editable package.
-        uninstall('verboselogs')
+        uninstall_through_subprocess('verboselogs')
 
     def test_cli_install(self):
         """
@@ -615,18 +615,18 @@ class PipAccelTestCase(unittest.TestCase):
             # Never leave the dummy configuration file behind.
             os.remove(dummy_deps_config)
 
-def ensure_not_installed(package_name):
+def uninstall_through_subprocess(package_name):
     """
-    Remove an installed Python package.
+    Remove an installed Python package by running ``pip`` as a subprocess.
 
-    Doesn't raise an exception if the package isn't installed.
+    This function is specifically for use in the pip-accel test suite to
+    reliably uninstall a Python package installed in the current environment
+    while avoiding issues caused by stale data in pip and the packages it uses
+    internally. Doesn't complain if the package isn't installed to begin with.
 
     :param package_name: The name of the package (a string).
     """
-    try:
-        uninstall(package_name)
-    except Exception:
-        pass
+    subprocess.call([os.path.join(sys.prefix, 'bin', 'pip'), 'uninstall', '--yes', 'verboselogs'])
 
 def find_files(directory, substring):
     """
