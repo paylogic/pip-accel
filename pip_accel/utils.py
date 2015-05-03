@@ -1,7 +1,7 @@
 # Utility functions for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: April 11, 2015
+# Last Change: May 3, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -16,7 +16,6 @@ with any single module.
 # Standard library modules.
 import errno
 import os
-import pipes
 import platform
 import pwd
 import re
@@ -97,18 +96,6 @@ def makedirs(path, mode=0o777):
             # because we could be obscuring a real problem.
             raise
         return False
-
-def run(command, **params):
-    """
-    Format command string with quoted parameters and execute external command.
-
-    :param command: The shell command line to run (a string).
-    :param params: Zero or more keyword arguments to be formatted into the
-                   command line as quoted arguments.
-    :returns: ``True`` if the command succeeds, ``False`` otherwise.
-    """
-    params = dict((k, pipes.quote(v)) for k, v in params.items())
-    return os.system(command.format(**params)) == 0
 
 def is_installed(package_name):
     """

@@ -44,7 +44,7 @@ installed from wheels (their metadata is different).
 """
 
 # Semi-standard module versioning.
-__version__ = '0.29.3'
+__version__ = '0.30'
 
 # Standard library modules.
 import logging
@@ -58,7 +58,7 @@ import tempfile
 from pip_accel.bdist import BinaryDistributionManager
 from pip_accel.exceptions import EnvironmentMismatchError, NothingToDoError
 from pip_accel.req import Requirement
-from pip_accel.utils import is_installed, makedirs, run, uninstall
+from pip_accel.utils import is_installed, makedirs, uninstall
 
 # External dependencies.
 from humanfriendly import concatenate, Timer, pluralize
@@ -505,11 +505,9 @@ class PipAccelerator(object):
                 uninstall('distribute')
             if requirement.is_editable:
                 logger.debug("Installing %s in editable form using pip.", requirement)
-                if not run('{pip} install --no-deps --editable {url} >/dev/null 2>&1',
-                           pip=self.pip_executable,
-                           url=requirement.url):
-                    msg = "Failed to install %s in editable form!"
-                    raise Exception(msg % requirement)
+                command = InstallCommand()
+                opts, args = command.parse_args(['--no-deps', '--editable', requirement.source_directory])
+                command.run(opts, args)
             elif requirement.is_wheel:
                 logger.info("Installing %s wheel distribution using pip ..", requirement)
                 wheel_version = pip_wheel_module.wheel_version(requirement.source_directory)
@@ -549,11 +547,6 @@ class PipAccelerator(object):
         if not self.build_directories:
             self.create_build_directory()
         return self.build_directories[-1]
-
-    @property
-    def pip_executable(self):
-        """Get the absolute pathname of the ``pip`` executable (a string)."""
-        return os.path.join(sys.prefix, 'bin', 'pip')
 
 class CustomPackageFinder(pip_index_module.PackageFinder):
 
