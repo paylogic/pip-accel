@@ -1,7 +1,7 @@
 # Simple wrapper for pip and pkg_resources Requirement objects.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: April 11, 2015
+# Last Change: May 3, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -35,11 +35,11 @@ import time
 
 # Modules included in our package.
 from pip_accel.exceptions import UnknownDistributionFormat
-from pip._vendor.distlib.util import ARCHIVE_EXTENSIONS
-from pip._vendor.pkg_resources import find_distributions
 
 # External dependencies.
 from cached_property import cached_property
+from pip._vendor.distlib.util import ARCHIVE_EXTENSIONS
+from pip._vendor.pkg_resources import find_distributions
 from pip.req import InstallRequirement
 
 class Requirement(object):
@@ -93,9 +93,8 @@ class Requirement(object):
         much of a problem because the pathnames reported by this property are
         only used for cache invalidation (see :py:attr:`last_modified`).
         """
-        # Escape the requirement's name for in a regular expression and treat
-        # dashes and underscores as equivalent.
-        name_pattern = re.sub('[^A-Za-z0-9]', escape_name_callback, self.name)
+        # Escape the requirement's name for use in a regular expression.
+        name_pattern = escape_name(self.name)
         # Escape the requirement's version for in a regular expression.
         version_pattern = re.escape(self.version)
         # Create a regular expression that matches any of the known source
@@ -236,12 +235,25 @@ class Requirement(object):
         """
         return "%s (%s)" % (self.name, self.version)
 
+def escape_name(requirement_name):
+    """
+    Escape a requirement's name for use in a regular expression.
+
+    This backslash-escapes all non-alphanumeric characters and replaces dashes
+    and underscores with a character class that matches a dash or underscore
+    (effectively treating dashes and underscores equivalently).
+
+    :param requirement_name: The name of the requirement (a string).
+    :returns: The requirement's name as a regular expression (a string).
+    """
+    return re.sub('[^A-Za-z0-9]', escape_name_callback, requirement_name)
+
 def escape_name_callback(match):
     """
-    Callback to escape a requirement's name for use in a regular expression.
+    Used by :py:func:`escape_name()` to treat dashes and underscores as equivalent.
+
+    :param match: A regular expression match object that captured a single character.
+    :returns: A regular expression string that matches the captured character.
     """
     character = match.group(0)
-    if character in ('-', '_'):
-        return '[-_]'
-    else:
-        return r'\%s' % character
+    return '[-_]' if character in ('-', '_') else r'\%s' % character
