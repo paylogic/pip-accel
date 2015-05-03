@@ -291,11 +291,14 @@ class PipAccelTestCase(unittest.TestCase):
             # Install the verboselogs package using the S3 cache backend.
             num_installed = accelerator.install_from_arguments(pip_install_args)
             assert num_installed == 1, "Expected pip-accel to install exactly one package!"
-            # Check the state of the S3 cache backend.
-            if i < 3:
-                assert not accelerator.config.s3_cache_readonly, "S3 cache backend is unexpectedly in read only state!"
-            else:
-                assert accelerator.config.s3_cache_readonly, "S3 cache backend is unexpectedly not in read only state!"
+            # Check the state of the S3 cache backend? This test is only valid
+            # if the S3 backend is active (this is why we first check the
+            # $PIP_ACCEL_S3_BUCKET environment variable).
+            if os.environ.get('PIP_ACCEL_S3_BUCKET'):
+                if i < 3:
+                    assert not accelerator.config.s3_cache_readonly, "S3 cache backend is unexpectedly in read only state!"
+                else:
+                    assert accelerator.config.s3_cache_readonly, "S3 cache backend is unexpectedly not in read only state!"
 
     def test_wheel_install(self):
         """
