@@ -126,13 +126,6 @@ class Requirement(object):
         return max(mtimes) if mtimes else time.time()
 
     @cached_property
-    def url(self):
-        """
-        The URL of the package. Based on :py:attr:`pip.req.InstallRequirement.url`.
-        """
-        return self.pip_requirement.url
-
-    @cached_property
     def source_directory(self):
         """
         The pathname of the directory containing the unpacked source
