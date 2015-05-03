@@ -8,11 +8,11 @@ env:
   - PIP_ACCEL_S3_BUCKET=
   - PIP_ACCEL_S3_BUCKET=pip-accel-test-bucket
 before_install:
-  - sudo apt-get update
+  - scripts/retry-command sudo apt-get update
 install:
-  - pip install coveralls --editable "file://${PWD}[s3]"
-  - gem install fakes3
+  - scripts/retry-command pip install coveralls --editable "file://${PWD}[s3]"
+  - scripts/retry-command gem install fakes3
 script:
   - scripts/collect-full-coverage
 after_success:
-  - coveralls
+  - scripts/retry-command coveralls

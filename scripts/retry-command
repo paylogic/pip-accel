@@ -1,0 +1,36 @@
+#!/bin/bash
+
+# Shell script to retry failing commands on Travis CI.
+#
+# Author: Peter Odding <peter.odding@paylogic.com>
+# Last Change: May 3, 2015
+# URL: https://github.com/paylogic/pip-accel
+#
+# Commands like `apt-get update' fail quite frequently on Travis CI and
+# retrying builds manually gets tiresome quickly. This shell script retries the
+# command given in the command line arguments up to ten times before giving up
+# and propagating the return code.
+
+main () {
+  local limit=10
+  for ((i=1; i<=$limit; i+=1)); do
+    msg "Running command ($i/$limit): $*"
+    "$@"
+    local status=$?
+    if [ $status -eq 0 ]; then
+      msg "Command succeeded, done!"
+      return 0
+    elif [ $i -lt $limit ]; then
+      msg "Command failed with return code $status, retrying .."
+    else
+      msg "Command failed with return code $status, giving up! :-("
+      return 1
+    fi
+  done
+}
+
+msg () {
+  echo "[retry-command] $*" >&2
+}
+
+main "$@"
