@@ -44,7 +44,7 @@ installed from wheels (their metadata is different).
 """
 
 # Semi-standard module versioning.
-__version__ = '0.29'
+__version__ = '0.29.1'
 
 # Standard library modules.
 import logging

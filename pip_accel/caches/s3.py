@@ -3,7 +3,7 @@
 # Authors:
 #  - Adam Feuer <adam@adamfeuer.com>
 #  - Peter Odding <peter.odding@paylogic.eu>
-# Last Change: April 11, 2015
+# Last Change: May 3, 2015
 # URL: https://github.com/paylogic/pip-accel
 #
 # A word of warning: Do *not* use the cached_property decorator here, because
@@ -105,6 +105,16 @@ from pip_accel.utils import makedirs
 
 # Initialize a logger for this module.
 logger = logging.getLogger(__name__)
+
+# The name of the boto.config configuration section that controls general
+# settings like the number of retries and the HTTP socket timeout.
+BOTO_CONFIG_SECTION = 'Boto'
+
+# The name of the boto.config option that controls the number of retries.
+BOTO_CONFIG_NUM_RETRIES_OPTION = 'num_retries'
+
+# The name of the boto.config option that controls the HTTP socket timeout.
+BOTO_CONFIG_SOCKET_TIMEOUT_OPTION = 'http_socket_timeout'
 
 # The `coloredlogs' package installs a logging handler on the root logger which
 # means all loggers automatically write their log messages to the standard
@@ -251,9 +261,14 @@ class S3CacheBackend(AbstractCacheBackend):
                 # Configure the number of retries and the socket timeout used
                 # by Boto. Based on the snippet given in the following email:
                 # https://groups.google.com/d/msg/boto-users/0osmP0cUl5Y/X4NdlMGWKiEJ
-                boto.config.add_section('Boto')
-                boto.config.set('Boto', 'num_retries', str(self.config.s3_cache_retries))
-                boto.config.set('Boto', 'http_socket_timeout', str(self.config.s3_cache_timeout))
+                if not boto.config.has_section(BOTO_CONFIG_SECTION):
+                    boto.config.add_section(BOTO_CONFIG_SECTION)
+                boto.config.set(BOTO_CONFIG_SECTION,
+                                BOTO_CONFIG_NUM_RETRIES_OPTION,
+                                str(self.config.s3_cache_retries))
+                boto.config.set(BOTO_CONFIG_SECTION,
+                                BOTO_CONFIG_SOCKET_TIMEOUT_OPTION,
+                                str(self.config.s3_cache_timeout))
                 logger.debug("Connecting to Amazon S3 API ..")
                 endpoint = urlparse(self.config.s3_cache_url)
                 host, _, port = endpoint.netloc.partition(':')
