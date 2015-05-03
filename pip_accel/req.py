@@ -122,7 +122,7 @@ class Requirement(object):
         cached binary distributions enough and invalidating them too
         frequently, this property causes the latter to happen.
         """
-        mtimes = map(os.path.getmtime, self.related_archives)
+        mtimes = list(map(os.path.getmtime, self.related_archives))
         return max(mtimes) if mtimes else time.time()
 
     @cached_property
