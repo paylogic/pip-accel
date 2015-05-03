@@ -77,6 +77,11 @@ main () {
     local fakes3_pid=$!
     echo $fakes3_pid > $FAKES3_PID_FILE
 
+    # Expose the FakeS3 root directory in an environment variable so that the
+    # test suite can make the FakeS3 files read only (emulating a read only
+    # Amazon S3 bucket which FakeS3 can't otherwise do).
+    export PIP_ACCEL_FAKES3_ROOT=$FAKES3_ROOT
+
     # Expose the FakeS3 process ID in an environment variable so that the test
     # suite can terminate (!) FakeS3 in order to test that the S3 cache backend
     # handles failure gracefully.
@@ -114,6 +119,7 @@ main () {
 
   # Clean up the FakeS3 instance after the test suite ends.
   if has_fakes3; then
+    # Cleanup after ourselves.
     tear_down_fakes3
   fi
 
@@ -141,6 +147,7 @@ tear_down_fakes3 () {
     fi
     # Cleanup all files related to FakeS3.
     msg "Cleaning up temporary FakeS3 root ($TEMPORARY_DIRECTORY) .."
+    chmod -R ugo+w $TEMPORARY_DIRECTORY
     rm -R $TEMPORARY_DIRECTORY
   fi
 }

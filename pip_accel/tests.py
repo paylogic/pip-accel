@@ -250,12 +250,22 @@ class PipAccelTestCase(unittest.TestCase):
         again to test the code path that gets a cached binary distribution
         archive from the S3 cache backend.
 
-        .. warning:: This test involves the **termination** of FakeS3 to force
-                     a failure in the S3 cache backend. This verifies that
-                     pip-accel handles this failure gracefully.
+        .. warning:: This test *abuses* FakeS3 in several ways to simulate the
+                     handling of error conditions (it's not pretty but it is
+                     effective because it significantly increases the coverage
+                     of the S3 cache backend):
+
+                     1. **First the FakeS3 root directory is made read only**
+                        to force an error when uploading to S3. This is to test
+                        the automatic fall back to a read only S3 bucket.
+
+                     2. **Then FakeS3 is terminated** to force a failure in the
+                        S3 cache backend. This verifies that pip-accel handles
+                        the failure of an "optional" cache backend gracefully.
         """
         fakes3_pid = int(os.environ.get('PIP_ACCEL_FAKES3_PID', '0'))
-        if not fakes3_pid:
+        fakes3_root = os.environ.get('PIP_ACCEL_FAKES3_ROOT', '')
+        if not (fakes3_pid and fakes3_root):
             logger.warning("Skipping S3 cache backend test (it looks like FakeS3 isn't running).")
             return
         pip_install_args = ['--ignore-installed', 'verboselogs==1.0.1']
@@ -265,17 +275,27 @@ class PipAccelTestCase(unittest.TestCase):
                                                 s3_cache_timeout=10,
                                                 s3_cache_retries=0)
         # Run the installation three times.
-        for i in [1, 2, 3]:
+        for i in [1, 2, 3, 4]:
             if i > 1:
                 logger.debug("Resetting binary index to force binary distribution download from S3 ..")
                 shutil.rmtree(accelerator.config.binary_cache)
                 os.mkdir(accelerator.config.binary_cache)
             if i == 3:
+                logger.debug("Making FakeS3 root (%s) read only to emulate read only S3 bucket ..", fakes3_root)
+                shutil.rmtree(fakes3_root)
+                os.makedirs(fakes3_root)
+                os.chmod(fakes3_root, 0o555)
+            if i == 4:
                 logger.debug("Killing FakeS3 (%i) to force S3 cache backend failure ..", fakes3_pid)
                 os.kill(fakes3_pid, signal.SIGKILL)
             # Install the verboselogs package using the S3 cache backend.
             num_installed = accelerator.install_from_arguments(pip_install_args)
             assert num_installed == 1, "Expected pip-accel to install exactly one package!"
+            # Check the state of the S3 cache backend.
+            if i < 3:
+                assert not accelerator.config.s3_cache_readonly, "S3 cache backend is unexpectedly in read only state!"
+            else:
+                assert accelerator.config.s3_cache_readonly, "S3 cache backend is unexpectedly not in read only state!"
 
     def test_wheel_install(self):
         """
