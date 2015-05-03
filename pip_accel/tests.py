@@ -35,6 +35,7 @@ import random
 import re
 import shutil
 import signal
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -453,6 +454,54 @@ class PipAccelTestCase(unittest.TestCase):
         ])
         self.assertRaises(TypeError, operator.attrgetter('sdist_metadata'), requirements[0])
 
+    def test_editable_install(self):
+        """
+        Test the installation of editable packages using ``pip install --editable``.
+
+        This test clones the git repository of my trivial `verboselogs` Python
+        package and installs the package as an editable package.
+
+        We want to import the `verboselogs` module to confirm that it was
+        properly installed but we can't do that in the process that's running
+        the test suite because it will fail with an import error. Python
+        subprocesses however will import the `verboselogs` module just fine.
+
+        This happens because ``easy-install.pth`` (used for editable packages)
+        is loaded once during startup of the Python interpreter and never
+        refreshed. There's no public, documented way that I know of to refresh
+        :py:data:`sys.path` (see `issue 402 in the Gunicorn issue tracker`_ for
+        a related discussion).
+
+        .. _issue 402 in the Gunicorn issue tracker: https://github.com/benoitc/gunicorn/issues/402
+        """
+        # Make sure verboselogs isn't already installed when this test starts.
+        ensure_not_installed('verboselogs')
+        # Clone the remote git repository.
+        temporary_directory = create_temporary_directory()
+        git_checkout = os.path.join(temporary_directory, 'verboselogs')
+        git_remote = 'https://github.com/xolox/python-verboselogs.git'
+        if os.system('git clone --depth=0 %s %s' % (pipes.quote(git_remote), pipes.quote(git_checkout))) != 0:
+            logger.warning("Skipping editable installation test (git clone seems to have failed).")
+            return
+        # Install the package from the checkout as an editable package.
+        accelerator = self.initialize_pip_accel()
+        num_installed = accelerator.install_from_arguments([
+            '--ignore-installed', '--editable', git_checkout
+        ])
+        assert num_installed == 1, "Expected pip-accel to install exactly one package!"
+        # Importing verboselogs here fails even though the package is properly
+        # installed. We start a Python interpreter in a subprocess to verify
+        # that verboselogs is properly installed to work around this.
+        python = subprocess.Popen([sys.executable, '-c', 'print(__import__("verboselogs").__file__)'],
+                                  stdout=subprocess.PIPE)
+        stdout, stderr = python.communicate()
+        python_module = stdout.decode().strip()
+        assert python_module.startswith(git_checkout), "Editable Python module not located under git checkout of project!"
+        # Cleanup after ourselves so that unrelated tests involving the
+        # verboselogs package don't get confused when they're run after
+        # this test and encounter an editable package.
+        uninstall('verboselogs')
+
     def test_cli_install(self):
         """
         Test the pip-accel command line interface by installing a trivial package.
@@ -565,6 +614,19 @@ class PipAccelTestCase(unittest.TestCase):
         finally:
             # Never leave the dummy configuration file behind.
             os.remove(dummy_deps_config)
+
+def ensure_not_installed(package_name):
+    """
+    Remove an installed Python package.
+
+    Doesn't raise an exception if the package isn't installed.
+
+    :param package_name: The name of the package (a string).
+    """
+    try:
+        uninstall(package_name)
+    except Exception:
+        pass
 
 def find_files(directory, substring):
     """
