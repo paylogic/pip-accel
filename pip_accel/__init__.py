@@ -1,6 +1,6 @@
 # Accelerator for pip, the Python package manager.
 #
-# Author: Peter Odding <peter.odding@paylogic.eu>
+# Author: Peter Odding <peter.odding@paylogic.com>
 # Last Change: May 3, 2015
 # URL: https://github.com/paylogic/pip-accel
 #

@@ -1,6 +1,6 @@
 # Extension of pip-accel that deals with dependencies on system packages.
 #
-# Author: Peter Odding <peter.odding@paylogic.eu>
+# Author: Peter Odding <peter.odding@paylogic.com>
 # Last Change: November 22, 2014
 # URL: https://github.com/paylogic/pip-accel
 

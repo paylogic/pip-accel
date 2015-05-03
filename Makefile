@@ -1,6 +1,6 @@
 # Makefile for the pip accelerator.
 #
-# Author: Peter Odding <peter.odding@paylogic.eu>
+# Author: Peter Odding <peter.odding@paylogic.com>
 # Last Change: April 6, 2015
 # URL: https://github.com/paylogic/pip-accel
 

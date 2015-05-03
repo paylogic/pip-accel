@@ -2,7 +2,7 @@
 
 # Setup script for the pip accelerator.
 #
-# Author: Peter Odding <peter.odding@paylogic.eu>
+# Author: Peter Odding <peter.odding@paylogic.com>
 # Last Change: April 10, 2015
 # URL: https://github.com/paylogic/pip-accel
 
@@ -36,7 +36,7 @@ setup(name='pip-accel',
       description='Accelerator for pip, the Python package manager',
       long_description=readme_text,
       author='Peter Odding',
-      author_email='peter.odding@paylogic.eu',
+      author_email='peter.odding@paylogic.com',
       url='https://github.com/paylogic/pip-accel',
       packages=find_packages(),
       entry_points={
