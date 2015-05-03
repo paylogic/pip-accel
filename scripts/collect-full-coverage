@@ -1,9 +1,33 @@
 #!/bin/bash -e
 
-# If FakeS3 is available then this script will start an isolated instance of
-# FakeS3 that's dedicated to the pip-accel test suite (because the test suite
-# requires FakeS3 to start up with an empty bucket, otherwise test runs may
-# pick up cached binary distributions from previous test runs).
+# Shell script wrapper for the pip-accel test suite.
+#
+# Author: Peter Odding <peter.odding@paylogic.com>
+# Last Change: May 3, 2015
+# URL: https://github.com/paylogic/pip-accel
+#
+# This shell script is used by the makefile of the pip-accel project to run the
+# pip-accel test suite with full coverage collection enabled (which requires
+# some preparations):
+#
+#  - It starts an isolated FakeS3 server (if installed) and instructs the test
+#    suite to use it to test the Amazon S3 binary cache backend without having
+#    to pay for an actual Amazon S3 bucket just to run the test suite.
+#
+#    It makes sure that FakeS3 starts up with no existing buckets or files,
+#    otherwise test runs may pick up cached binary distributions from previous
+#    test runs (not relevant on Travis CI because Travis CI always starts from
+#    a clean slate, but very relevant when running the test suite locally).
+#
+#  - It sets the environment variable $PIP_ACCEL_TEST_AUTO_INSTALL to `true' to
+#    give the test suite permission to remove the system package `libxslt1-dev'
+#    in order to test automatic system package dependency installation.
+#
+#  - It installs/upgrades/removes several Python packages whose installation,
+#    upgrade and/or removal is tested in the test suite to make sure that the
+#    test suite starts from a known state. Refer to `prepare_python_packages'
+#    for more details if interested.
+
 TEMPORARY_DIRECTORY=/tmp/pip-accel-test-suite
 FAKES3_PID_FILE=$TEMPORARY_DIRECTORY/fakes3.pid
 FAKES3_ROOT=$TEMPORARY_DIRECTORY/fakes3-root
