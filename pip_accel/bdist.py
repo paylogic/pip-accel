@@ -1,7 +1,7 @@
 # Functions to manipulate Python binary distribution archives.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: April 23, 2015
+# Last Change: May 3, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -176,15 +176,25 @@ class BinaryDistributionManager(object):
         if os.path.isdir(dist_directory):
             logger.debug("Cleaning up previously generated distributions in %s ..", dist_directory)
             shutil.rmtree(dist_directory)
+        # Let the user know (approximately) which command is being executed
+        # (I don't think it's necessary to show them the nasty details :-).
+        logger.debug("Executing external command: %s",
+                     ' '.join(map(pipes.quote, [self.config.python_executable, 'setup.py'] + setup_command)))
         # Compose the command line needed to build the binary distribution.
-        command_line = ' '.join(pipes.quote(t) for t in [self.config.python_executable, 'setup.py'] + setup_command)
-        logger.debug("Executing external command: %s", command_line)
+        # This nasty command line forces the use of setuptools (instead of
+        # distutils) just like pip does. This will cause the `*.egg-info'
+        # metadata to be written to a directory instead of a file, which
+        # (amongst other things) enables tracking of installed files.
+        command_line = [
+            self.config.python_executable, '-c',
+            "import setuptools;__file__=%r;"\
+            "exec(compile(open(__file__).read().replace('\\r\\n', '\\n'), __file__, 'exec'))" % os.path.join(requirement.source_directory, 'setup.py')
+        ] + setup_command
         # Redirect all output of the build to a temporary file.
         fd, temporary_file = tempfile.mkstemp()
-        command_line = '%s > "%s" 2>&1' % (command_line, temporary_file)
         try:
             # Start the build.
-            build = subprocess.Popen(['sh', '-c', command_line], cwd=requirement.source_directory)
+            build = subprocess.Popen(command_line, cwd=requirement.source_directory, stdout=fd, stderr=fd)
             # Wait for the build to finish and provide feedback to the user in the mean time.
             spinner = Spinner(label=build_text, timer=build_timer)
             while build.poll() is None:

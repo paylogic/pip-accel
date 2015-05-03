@@ -3,7 +3,7 @@
 # Tests for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.eu>
-# Last Change: April 11, 2015
+# Last Change: May 3, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -26,6 +26,7 @@ have to do so retroactively.
 """
 
 # Standard library modules.
+import glob
 import logging
 import operator
 import os
@@ -363,6 +364,35 @@ class PipAccelTestCase(unittest.TestCase):
         # Make sure all files related to iPython were uninstalled by pip.
         assert len(list(find_files(sys.prefix, 'ipython'))) == 0, \
             "It looks like pip didn't properly uninstall iPython after installation using pip-accel!"
+
+    def test_setuptools_injection(self):
+        """
+        Test that ``setup.py`` scripts are always evaluated using setuptools.
+
+        This test installs ``docutils==0.12`` as a sample package whose
+        ``setup.py`` script uses `distutils` instead of `setuptools`. Because
+        pip and pip-accel unconditionally evaluate ``setup.py`` scripts using
+        `setuptools` instead of `distutils` the resulting installation should
+        have an ``*.egg-info`` metadata directory instead of a file (which is
+        what this test verifies).
+        """
+        # Install the docutils 0.12 source distribution using pip-accel.
+        accelerator = self.initialize_pip_accel()
+        num_installed = accelerator.install_from_arguments([
+            '--ignore-installed', '--no-use-wheel', 'docutils==0.12'
+        ])
+        assert num_installed == 1, "Expected pip-accel to install exactly one package!"
+        # Import docutils to find the site-packages directory.
+        docutils_module = __import__('docutils')
+        init_file = docutils_module.__file__
+        docutils_directory = os.path.dirname(init_file)
+        site_packages_directory = os.path.dirname(docutils_directory)
+        # Find the *.egg-info metadata created by the installation.
+        egg_info_matches = glob.glob(os.path.join(site_packages_directory, 'docutils-*.egg-info'))
+        assert len(egg_info_matches) == 1, "Expected to find one *.egg-info record for docutils!"
+        # Make sure the *.egg-info metadata is stored in a directory.
+        assert os.path.isdir(egg_info_matches[0]), \
+            "Installation of docutils didn't create expected *.egg-info metadata directory!"
 
     def test_requirement_objects(self):
         """
