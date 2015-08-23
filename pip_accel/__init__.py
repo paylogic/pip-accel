@@ -105,6 +105,22 @@ class PipAccelerator(object):
         # temporary sources after pip-accel has finished.
         self.reported_requirements = []
 
+    @staticmethod
+    def samedir(path1, path2):
+        """
+        Return True if both path1 and path2 refer to the same directory.
+
+        Return False if one of them does not exist or is not directory.
+        """
+        for path in (path1, path2):
+            if not os.path.isdir(path) or not os.path.exists(path):
+                return False
+        try:
+            return os.path.samefile(path1, path2)
+        except AttributeError:
+            # On Windows and py2* there is no os.path.samefile function.
+            return os.path.realpath(path1) == os.path.realpath(path2)
+
     def validate_environment(self):
         """
         Make sure :py:data:`sys.prefix` matches ``$VIRTUAL_ENV`` (if defined).
@@ -118,12 +134,7 @@ class PipAccelerator(object):
         """
         environment = os.environ.get('VIRTUAL_ENV')
         if environment:
-            try:
-                # Because os.path.samefile() itself can raise exceptions, e.g.
-                # when $VIRTUAL_ENV points to a non-existing directory, we use
-                # an assertion to allow us to use a single code path :-)
-                assert os.path.samefile(sys.prefix, environment)
-            except Exception:
+            if not self.samedir(sys.prefix, environment):
                 raise EnvironmentMismatchError("""
                     You are trying to install packages in environment #1 which
                     is different from environment #2 where pip-accel is
