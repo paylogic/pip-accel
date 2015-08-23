@@ -502,6 +502,8 @@ class PipAccelTestCase(unittest.TestCase):
         # Clone the remote git repository.
         temporary_directory = create_temporary_directory()
         git_checkout = os.path.join(temporary_directory, 'verboselogs')
+        # Resolve symlinks (Under OS X /var is symlink to /private/var).
+        git_checkout = os.path.realpath(git_checkout)
         git_remote = 'https://github.com/xolox/python-verboselogs.git'
         if os.system('git clone --depth=1 %s %s' % (pipes.quote(git_remote), pipes.quote(git_checkout))) != 0:
             logger.warning("Skipping editable installation test (git clone seems to have failed).")
