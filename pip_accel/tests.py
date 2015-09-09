@@ -3,7 +3,7 @@
 # Tests for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: May 3, 2015
+# Last Change: September 9, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -519,6 +519,11 @@ class PipAccelTestCase(unittest.TestCase):
                                   stdout=subprocess.PIPE)
         stdout, stderr = python.communicate()
         python_module = stdout.decode().strip()
+        # Under Mac OS X the following startswith() check will fail if we don't
+        # resolve symbolic links (under Mac OS X /var is a symbolic link to
+        # /private/var).
+        git_checkout = os.path.realpath(git_checkout)
+        python_module = os.path.realpath(python_module)
         assert python_module.startswith(git_checkout), "Editable Python module not located under git checkout of project!"
         # Cleanup after ourselves so that unrelated tests involving the
         # verboselogs package don't get confused when they're run after
