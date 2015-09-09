@@ -1,7 +1,7 @@
 # Functions to manipulate Python binary distribution archives.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: May 3, 2015
+# Last Change: September 9, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -271,12 +271,24 @@ class BinaryDistributionManager(object):
                 # If the owner doesn't have execute permissions we'll give everyone
                 # read permissions (only the owner gets write permissions).
                 member.mode = 0o644
-            # In my testing the `dumb' tar files created with the `python setup.py
-            # bdist' command contain pathnames that are relative to `/' which is
-            # kind of awkward: I would like to use os.path.relpath() on them but
-            # that won't give the correct result without some preprocessing...
+            # In my testing the `dumb' tar files created with the `python
+            # setup.py bdist' and `python setup.py bdist_dumb' commands contain
+            # pathnames that are relative to `/' in one way or another:
+            #
+            #  - In almost all cases the pathnames look like this:
+            #
+            #      ./home/peter/.virtualenvs/pip-accel/lib/python2.7/site-packages/pip_accel/__init__.py
+            #
+            #  - After working on pip-accel for several years I encountered
+            #    a pathname like this (Python 2.6 on Mac OS X 10.10.5):
+            #
+            #      Users/peter/.virtualenvs/pip-accel/lib/python2.6/site-packages/pip_accel/__init__.py
+            #
+            # Both of the above pathnames are relative to `/' but in different
+            # ways :-). The following normpath(join('/', ...))) pathname
+            # manipulation logic is intended to handle both cases.
             original_pathname = member.name
-            absolute_pathname = re.sub(r'^\./', '/', original_pathname)
+            absolute_pathname = os.path.normpath(os.path.join('/', original_pathname))
             if member.isdev():
                 logger.warn("Ignoring device file: %s.", absolute_pathname)
             elif not member.isdir():
@@ -295,7 +307,7 @@ class BinaryDistributionManager(object):
                     logger.debug("Transformed %r -> %r.", original_pathname, modified_pathname)
                     # Get the file data from the input archive.
                     handle = archive.extractfile(original_pathname)
-                    # Yield the pathname, file mode and a handle to the data.
+                    # Yield the modified metadata and a handle to the data.
                     member.name = modified_pathname
                     yield member, handle
         archive.close()
