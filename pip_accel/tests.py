@@ -3,7 +3,7 @@
 # Tests for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: September 9, 2015
+# Last Change: September 22, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -312,9 +312,8 @@ class PipAccelTestCase(unittest.TestCase):
         wheels_already_supported = accelerator.setuptools_supports_wheels()
         # Test the installation of Paver (and the upgrade of Setuptools?).
         num_installed = accelerator.install_from_arguments([
-            # Ugly way to force pip to install from a wheel archive (there is a
-            # --no-use-wheel option but there is nothing like --force-wheel).
-            '--ignore-installed', 'https://pypi.python.org/packages/2.7/P/Paver/Paver-1.2.4-py2.py3-none-any.whl'
+            # We force pip to install from a wheel archive.
+            '--ignore-installed', '--only-binary=:all:', 'Paver==1.2.4',
         ])
         if wheels_already_supported:
             assert num_installed == 1, "Expected pip-accel to install exactly one package!"
@@ -338,7 +337,7 @@ class PipAccelTestCase(unittest.TestCase):
         # Install Paver 1.2.3 using pip-accel.
         accelerator = self.initialize_pip_accel()
         num_installed = accelerator.install_from_arguments([
-            '--ignore-installed', '--no-use-wheel', 'paver==1.2.3'
+            '--ignore-installed', '--no-binary=:all:', 'paver==1.2.3'
         ])
         assert num_installed == 1, "Expected pip-accel to install exactly one package!"
         # Make sure the Paver program works after installation.
@@ -367,7 +366,7 @@ class PipAccelTestCase(unittest.TestCase):
         # Install the iPython 1.0 source distribution using pip.
         command = InstallCommand()
         opts, args = command.parse_args([
-            '--ignore-installed', '--no-use-wheel', 'ipython==1.0'
+            '--ignore-installed', '--no-binary=:all:', 'ipython==1.0'
         ])
         command.run(opts, args)
         # Make sure the iPython program works after installation using pip.
@@ -383,7 +382,7 @@ class PipAccelTestCase(unittest.TestCase):
         # Install the iPython 1.0 source distribution using pip-accel.
         accelerator = self.initialize_pip_accel()
         num_installed = accelerator.install_from_arguments([
-            '--ignore-installed', '--no-use-wheel', 'ipython==1.0'
+            '--ignore-installed', '--no-binary=:all:', 'ipython==1.0'
         ])
         assert num_installed == 1, "Expected pip-accel to install exactly one package!"
         # Make sure the iPython program works after installation using pip-accel.
@@ -418,7 +417,7 @@ class PipAccelTestCase(unittest.TestCase):
         # Install the docutils 0.12 source distribution using pip-accel.
         accelerator = self.initialize_pip_accel()
         num_installed = accelerator.install_from_arguments([
-            '--ignore-installed', '--no-use-wheel', 'docutils==0.12'
+            '--ignore-installed', '--no-binary=:all:', 'docutils==0.12'
         ])
         assert num_installed == 1, "Expected pip-accel to install exactly one package!"
         # Import docutils to find the site-packages directory.
@@ -471,9 +470,8 @@ class PipAccelTestCase(unittest.TestCase):
         # Make sure Requirement.sdist_metadata raises the expected exception
         # when the requirement isn't a source distribution.
         requirements = accelerator.get_requirements([
-            # Ugly way to force pip to install from a wheel archive (there is a
-            # --no-use-wheel option but there is nothing like --force-wheel).
-            '--ignore-installed', 'https://pypi.python.org/packages/2.7/P/Paver/Paver-1.2.4-py2.py3-none-any.whl'
+            # We force pip to install from a wheel archive.
+            '--ignore-installed', '--only-binary=:all:', 'Paver==1.2.4',
         ])
         self.assertRaises(TypeError, operator.attrgetter('sdist_metadata'), requirements[0])
 
