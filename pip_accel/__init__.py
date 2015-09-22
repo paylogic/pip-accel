@@ -44,7 +44,7 @@ installed from wheels (their metadata is different).
 """
 
 # Semi-standard module versioning.
-__version__ = '0.32'
+__version__ = '0.32.1'
 
 # Standard library modules.
 import logging
@@ -58,7 +58,7 @@ import tempfile
 from pip_accel.bdist import BinaryDistributionManager
 from pip_accel.exceptions import EnvironmentMismatchError, NothingToDoError
 from pip_accel.req import Requirement
-from pip_accel.utils import is_installed, makedirs, uninstall
+from pip_accel.utils import is_installed, makedirs, match_option_with_value, uninstall
 
 # External dependencies.
 from humanfriendly import concatenate, Timer, pluralize
@@ -536,7 +536,7 @@ class PipAccelerator(object):
         wheels are "opt out" in recent versions of pip. I just didn't like the
         method name ``arguments_dont_disallow_wheels`` ;-).
         """
-        return all(option not in arguments for option in ('--no-use-wheel', '--no-binary=:all:'))
+        return not ('--no-use-wheel' in arguments or match_option_with_value(arguments, '--no-binary', ':all:'))
 
     def create_build_directory(self):
         """

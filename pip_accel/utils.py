@@ -1,7 +1,7 @@
 # Utility functions for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: May 3, 2015
+# Last Change: September 22, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -152,3 +152,30 @@ def is_short_option(argument):
     :returns: ``True`` if the argument is a short option, ``False`` otherwise.
     """
     return len(argument) >= 2 and argument[0] == '-' and argument[1] != '-'
+
+def match_option_with_value(arguments, option, value):
+    """
+    Check if a list of command line options contains an option with a value.
+
+    :param arguments: The command line arguments (a list of strings).
+    :param option: The long option (a string).
+    :param value: The expected value (a string).
+    :returns: ``True`` if the command line contains the option/value pair,
+              ``False`` otherwise.
+    """
+    return ('%s=%s' % (option, value) in arguments or
+            contains_sublist(arguments, [option, value]))
+
+def contains_sublist(lst, sublst):
+    """
+    Check if one list contains the items from another list (in the same order).
+
+    :param lst: The main list.
+    :param sublist: The sublist to check for.
+    :returns: :data:`True` if the main list contains the items from the
+              sublist in the same order, :data:`False` otherwise.
+
+    Based on `this StackOverflow answer <http://stackoverflow.com/a/3314913>`_.
+    """
+    n = len(sublst)
+    return any((sublst == lst[i:i + n]) for i in range(len(lst) - n + 1))
