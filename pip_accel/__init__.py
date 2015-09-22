@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: September 9, 2015
+# Last Change: September 22, 2015
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Permanently store logs in the pip-accel directory (think about log rotation).
@@ -44,7 +44,7 @@ installed from wheels (their metadata is different).
 """
 
 # Semi-standard module versioning.
-__version__ = '0.31.1'
+__version__ = '0.32'
 
 # Standard library modules.
 import logging
@@ -224,8 +224,7 @@ class PipAccelerator(object):
         :returns: The result of :py:func:`install_requirements()`.
         """
         try:
-            use_wheels = ('--no-use-wheel' not in arguments)
-            requirements = self.get_requirements(arguments, use_wheels=use_wheels)
+            requirements = self.get_requirements(arguments, use_wheels=self.arguments_allow_wheels(arguments))
             have_wheels = any(req.is_wheel for req in requirements)
             if have_wheels and not self.setuptools_supports_wheels():
                 logger.info("Preparing to upgrade to setuptools >= 0.8 to enable wheel support ..")
@@ -389,12 +388,12 @@ class PipAccelerator(object):
         # archives are never downloaded more than once (regardless of the HTTP
         # cache that was introduced in pip 6.x).
         command_line.append('--find-links=file://%s' % self.config.source_index)
-        # Use `--no-use-wheel' to ignore wheel distributions by default in
+        # Use `--no-binary=:all:' to ignore wheel distributions by default in
         # order to preserve backwards compatibility with callers that expect a
         # requirement set consisting only of source distributions that can be
         # converted to `dumb binary distributions'.
-        if not use_wheels and '--no-use-wheel' not in arguments:
-            command_line.append('--no-use-wheel')
+        if not use_wheels and self.arguments_allow_wheels(arguments):
+            command_line.append('--no-binary=:all:')
         # Use `--no-index' to force pip to only consider source distribution
         # archives contained in pip-accel's local source distribution index
         # directory. This enables pip-accel to ask pip "Can the local source
@@ -521,6 +520,23 @@ class PipAccelerator(object):
                     pluralize(num_installed, "requirement"),
                     install_timer)
         return num_installed
+
+    def arguments_allow_wheels(self, arguments):
+        """
+        Check whether the given command line arguments allow the use of wheels.
+
+        :param arguments: A list of strings with command line arguments.
+        :returns: :data:`True` if the arguments allow wheels, :data:`False` if
+                  they disallow wheels.
+
+        Contrary to what the name of this method implies its implementation
+        actually checks if the user hasn't _disallowed_ the use of wheels using
+        the ``--no-use-wheel`` option (deprecated in pip 7.x) or the
+        ``--no-binary=:all:`` option (introduced in pip 7.x). This is because
+        wheels are "opt out" in recent versions of pip. I just didn't like the
+        method name ``arguments_dont_disallow_wheels`` ;-).
+        """
+        return all(option not in arguments for option in ('--no-use-wheel', '--no-binary=:all:'))
 
     def create_build_directory(self):
         """
