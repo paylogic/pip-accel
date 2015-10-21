@@ -76,7 +76,7 @@ import os.path
 import sys
 
 # Modules included in our package.
-from pip_accel.compat import configparser
+from pip_accel.compat import configparser, is_root
 
 # External dependencies.
 from cached_property import cached_property
@@ -220,7 +220,7 @@ class Config(object):
         return parse_path(self.get(property_name='data_directory',
                                    environment_variable='PIP_ACCEL_CACHE',
                                    configuration_option='data-directory',
-                                   default='/var/cache/pip-accel' if os.getuid() == 0 else '~/.pip-accel'))
+                                   default='/var/cache/pip-accel' if is_root() else '~/.pip-accel'))
 
     @cached_property
     def on_debian(self):

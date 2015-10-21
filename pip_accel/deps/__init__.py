@@ -26,7 +26,7 @@ import subprocess
 import sys
 
 # Modules included in our package.
-from pip_accel.compat import configparser
+from pip_accel.compat import configparser, is_root, is_win
 from pip_accel.exceptions import DependencyInstallationFailed, DependencyInstallationRefused, SystemDependencyError
 
 # External dependencies.
@@ -97,7 +97,7 @@ class SystemPackageManager(object):
         if missing_dependencies:
             # Compose the command line for the install command.
             install_command = shlex.split(self.install_command) + missing_dependencies
-            if os.getuid() != 0:
+            if not is_win and not is_root():
                 # Prepend `sudo' to the command line.
                 install_command.insert(0, 'sudo')
             # Always suggest the installation command to the operator.

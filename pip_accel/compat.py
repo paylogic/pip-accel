@@ -23,3 +23,15 @@ else:
     # Look up the home directory of the effective user id so we can generate
     # pathnames relative to the home directory.
     HOME = pwd.getpwuid(os.getuid()).pw_dir
+
+def is_root():
+    """
+    Detect if running as user root. Cross-platform wrapper for os.getuid(0).
+
+    :returns: True when running as user root, else otherwise.
+    """
+    if is_win:
+        return False
+    else:
+        return os.getuid() == 0
+
