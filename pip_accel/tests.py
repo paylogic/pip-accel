@@ -60,6 +60,12 @@ from pip_accel.utils import find_installed_version, uninstall
 # Initialize a logger for this module.
 logger = logging.getLogger(__name__)
 
+# A directory containing executables installed via pip.
+if is_win:
+    BIN_DIRECTORY = os.path.join(sys.prefix, 'Scripts')
+else:
+    BIN_DIRECTORY = os.path.join(sys.prefix, 'bin')
+
 # A list of temporary directories created by the test suite.
 TEMPORARY_DIRECTORIES = []
 
@@ -657,7 +663,10 @@ def uninstall_through_subprocess(package_name):
 
     :param package_name: The name of the package (a string).
     """
-    subprocess.call([os.path.join(sys.prefix, 'bin', 'pip'), 'uninstall', '--yes', 'pep8'])
+    pip_command = os.path.join(BIN_DIRECTORY, 'pip')
+    if is_win:
+        pip_command += '.exe'
+    subprocess.call([pip_command, 'uninstall', '--yes', 'pep8'])
 
 def find_files(directory, substring):
     """
@@ -687,11 +696,10 @@ def try_program(program_name):
                          :py:data:`sys.prefix` and this argument.
     :raises: :py:exc:`~exceptions.AssertionError` when a test fails.
     """
+    program_path = os.path.join(BIN_DIRECTORY, program_name)
+    # On Windows append .exe suffix. and executable are in directory 'Scripts'
     if is_win:
-        # On Windows append .exe suffix and executable are in directory 'Scripts'
-        program_path = os.path.join(sys.prefix, 'Scripts', program_name + '.exe')
-    else:
-        program_path = os.path.join(sys.prefix, 'bin', program_name)
+        program_path += '.exe'
     logger.debug("Making sure %s is installed ..", program_path)
     assert os.path.isfile(program_path), \
         ("Missing program file! (%s)" % program_path)
