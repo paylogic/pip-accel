@@ -148,7 +148,7 @@ class BinaryDistributionManager(object):
             return self.build_binary_dist_helper(requirement, ['bdist_dumb', '--format=tar'])
         except (BuildFailed, NoBuildOutput):
             logger.warning("Build of %s failed, falling back to alternative method ..", requirement)
-            return self.build_binary_dist_helper(requirement, ['bdist'])
+            return self.build_binary_dist_helper(requirement, ['bdist', '--formats=gztar'])
 
     def build_binary_dist_helper(self, requirement, setup_command):
         """
