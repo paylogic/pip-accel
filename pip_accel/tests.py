@@ -42,6 +42,7 @@ import unittest
 
 # External dependencies.
 import coloredlogs
+import pytest
 from humanfriendly import coerce_boolean
 from pip.commands.install import InstallCommand
 from pip.exceptions import DistributionNotFound
@@ -49,7 +50,7 @@ from pip.exceptions import DistributionNotFound
 # Modules included in our package.
 from pip_accel import PatchedAttribute, PipAccelerator
 from pip_accel.cli import main
-from pip_accel.compat import StringIO
+from pip_accel.compat import is_win, StringIO
 from pip_accel.config import Config
 from pip_accel.deps import DependencyInstallationRefused, SystemPackageManager
 from pip_accel.exceptions import EnvironmentMismatchError
@@ -568,9 +569,13 @@ class PipAccelTestCase(unittest.TestCase):
 
         .. _issue 47: https://github.com/paylogic/pip-accel/issues/47
         """
-        returncode = test_cli('pip-accel', 'install', '--requirement', '/dev/null')
+        # Create first temporary empty file.
+        empty_file = os.path.join(create_temporary_directory(), 'empty_file')
+        open(empty_file, 'a').close()
+        returncode = test_cli('pip-accel', 'install', '--requirement', empty_file)
         assert returncode == 0, "pip-accel command line interface failed on empty requirements file!"
 
+    @pytest.mark.skipif(is_win, reason='Not applicable on Windows')
     def test_system_package_dependency_installation(self):
         """
         Test the (automatic) installation of required system packages.
@@ -682,7 +687,11 @@ def try_program(program_name):
                          :py:data:`sys.prefix` and this argument.
     :raises: :py:exc:`~exceptions.AssertionError` when a test fails.
     """
-    program_path = os.path.join(sys.prefix, 'bin', program_name)
+    if is_win:
+        # On Windows append .exe suffix and executable are in directory 'Scripts'
+        program_path = os.path.join(sys.prefix, 'Scripts', program_name + '.exe')
+    else:
+        program_path = os.path.join(sys.prefix, 'bin', program_name)
     logger.debug("Making sure %s is installed ..", program_path)
     assert os.path.isfile(program_path), \
         ("Missing program file! (%s)" % program_path)
@@ -690,7 +699,10 @@ def try_program(program_name):
     assert os.access(program_path, os.X_OK), \
         ("Program file not executable! (%s)" % program_path)
     logger.debug("Making sure %s --help works ..", program_path)
-    assert os.system('%s --help 1>/dev/null 2>&1' % pipes.quote(program_path)) == 0, \
+    with open(os.devnull, 'wb') as DEVNULL:
+        # Redirect stdout to /dev/null and stderr to stdout.
+        assert subprocess.call([program_path, '--help'], stdout=DEVNULL,
+            stderr=subprocess.STDOUT) == 0, \
         ("Program doesn't run! (%s --help failed)" % program_path)
 
 def generate_nonexisting_pathname():
