@@ -20,6 +20,7 @@ which automatically disables backends that report errors.
 
 # Standard library modules.
 import logging
+import sys
 
 # Modules included in our package.
 from pip_accel.exceptions import CacheBackendDisabledError
@@ -34,6 +35,13 @@ logger = logging.getLogger(__name__)
 
 # Initialize the registry of cache backends.
 registered_backends = set()
+
+# On Windows it is not allowed to have colons ':' in filenames.
+if sys.platform.startswith('win'):
+    FILENAME_PATTERN = 'v%i\\%s$%s$%s.tar.gz'
+else:
+    FILENAME_PATTERN = 'v%i/%s:%s:%s.tar.gz'
+
 
 class CacheBackendMeta(type):
 
@@ -193,5 +201,5 @@ class CacheManager(object):
                   including a single leading directory component to indicate
                   the cache format revision.
         """
-        return 'v%i/%s:%s:%s.tar.gz' % (self.config.cache_format_revision,
+        return FILENAME_PATTERN % (self.config.cache_format_revision,
                                         requirement.name, requirement.version, get_python_version())
