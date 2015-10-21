@@ -168,6 +168,7 @@ class PipAccelTestCase(unittest.TestCase):
             handle.write('name = value\n')
         self.assertRaises(Exception, config.load_configuration_file, config_file)
 
+    @pytest.mark.skipif(is_win, reason='Symlinks not working on Windows')
     def test_cleanup_of_broken_links(self):
         """
         Verify that broken symbolic links in the source index are cleaned up.
