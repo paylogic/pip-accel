@@ -179,11 +179,11 @@ class PipAccelTestCase(unittest.TestCase):
         """
         Verify pip-accel's "keeping pip off the internet" logic using an empty cache.
 
-        This test downloads, builds and installs verboselogs 1.0.1 (a trivial
+        This test downloads, builds and installs pep8 1.6.2 (a trivial
         Python package I created once) to verify that pip-accel keeps pip off
         the internet when intended.
         """
-        pip_install_args = ['--ignore-installed', 'verboselogs==1.0.1']
+        pip_install_args = ['--ignore-installed', 'pep8==1.6.2']
         # Initialize an instance of pip-accel with an empty cache.
         accelerator = self.initialize_pip_accel(data_directory=create_temporary_directory())
         # First we do a simple sanity check that unpack_source_dists() does not
@@ -203,14 +203,14 @@ class PipAccelTestCase(unittest.TestCase):
         requirements = accelerator.download_source_dists(pip_install_args)
         assert isinstance(requirements, list), "Unexpected return value type from download_source_dists()!"
         assert len(requirements) == 1, "Expected download_source_dists() to return one requirement!"
-        assert requirements[0].name == 'verboselogs', "Requirement has unexpected name!"
-        assert requirements[0].version == '1.0.1', "Requirement has unexpected version!"
+        assert requirements[0].name == 'pep8', "Requirement has unexpected name!"
+        assert requirements[0].version == '1.6.2', "Requirement has unexpected version!"
         assert os.path.isdir(requirements[0].source_directory), "Requirement's source directory doesn't exist!"
         # Test the build and installation of the binary package.
         num_installed = accelerator.install_requirements(requirements)
         assert num_installed == 1, "Expected pip-accel to install exactly one package!"
-        # Make sure the `verboselogs' module can be imported after installation.
-        __import__('verboselogs')
+        # Make sure the `pep8' module can be imported after installation.
+        __import__('pep8')
         # We now have a non-empty download cache and source index so this
         # should not raise an exception (it should use the source index).
         accelerator.unpack_source_dists(pip_install_args)
@@ -218,11 +218,11 @@ class PipAccelTestCase(unittest.TestCase):
     def test_package_upgrade(self):
         """Test installation of newer versions over older versions."""
         accelerator = self.initialize_pip_accel()
-        # Install version 1.0 of the `verboselogs' package.
-        num_installed = accelerator.install_from_arguments(['--ignore-installed', 'verboselogs==1.0'])
+        # Install version 1.6 of the `pep8' package.
+        num_installed = accelerator.install_from_arguments(['--ignore-installed', 'pep8==1.6'])
         assert num_installed == 1, "Expected pip-accel to install exactly one package!"
-        # Install version 1.0.1 of the `verboselogs' package.
-        num_installed = accelerator.install_from_arguments(['--ignore-installed', 'verboselogs==1.0.1'])
+        # Install version 1.6.2 of the `pep8' package.
+        num_installed = accelerator.install_from_arguments(['--ignore-installed', 'pep8==1.6.2'])
         assert num_installed == 1, "Expected pip-accel to install exactly one package!"
 
     def test_package_downgrade(self):
@@ -241,7 +241,7 @@ class PipAccelTestCase(unittest.TestCase):
         """
         Verify the successful usage of the S3 cache backend.
 
-        This test downloads, builds and installs verboselogs 1.0.1 (a trivial
+        This test downloads, builds and installs pep8 1.6.2 (a trivial
         Python package I created once) to verify that the S3 cache backend
         works. It depends on FakeS3 (refer to the shell script
         ``scripts/collect-full-coverage`` in the pip-accel git repository).
@@ -269,7 +269,7 @@ class PipAccelTestCase(unittest.TestCase):
         if not (fakes3_pid and fakes3_root):
             logger.warning("Skipping S3 cache backend test (it looks like FakeS3 isn't running).")
             return
-        pip_install_args = ['--ignore-installed', 'verboselogs==1.0.1']
+        pip_install_args = ['--ignore-installed', 'pep8==1.6.2']
         # Initialize an instance of pip-accel with an empty cache.
         accelerator = self.initialize_pip_accel(load_environment_variables=True,
                                                 data_directory=create_temporary_directory(),
@@ -289,7 +289,7 @@ class PipAccelTestCase(unittest.TestCase):
             if i == 4:
                 logger.debug("Killing FakeS3 (%i) to force S3 cache backend failure ..", fakes3_pid)
                 os.kill(fakes3_pid, signal.SIGKILL)
-            # Install the verboselogs package using the S3 cache backend.
+            # Install the pep8 package using the S3 cache backend.
             num_installed = accelerator.install_from_arguments(pip_install_args)
             assert num_installed == 1, "Expected pip-accel to install exactly one package!"
             # Check the state of the S3 cache backend? This test is only valid
@@ -480,13 +480,13 @@ class PipAccelTestCase(unittest.TestCase):
         """
         Test the installation of editable packages using ``pip install --editable``.
 
-        This test clones the git repository of my trivial `verboselogs` Python
+        This test clones the git repository of my trivial `pep8` Python
         package and installs the package as an editable package.
 
-        We want to import the `verboselogs` module to confirm that it was
+        We want to import the `pep8` module to confirm that it was
         properly installed but we can't do that in the process that's running
         the test suite because it will fail with an import error. Python
-        subprocesses however will import the `verboselogs` module just fine.
+        subprocesses however will import the `pep8` module just fine.
 
         This happens because ``easy-install.pth`` (used for editable packages)
         is loaded once during startup of the Python interpreter and never
@@ -496,12 +496,12 @@ class PipAccelTestCase(unittest.TestCase):
 
         .. _issue 402 in the Gunicorn issue tracker: https://github.com/benoitc/gunicorn/issues/402
         """
-        # Make sure verboselogs isn't already installed when this test starts.
-        uninstall_through_subprocess('verboselogs')
+        # Make sure pep8 isn't already installed when this test starts.
+        uninstall_through_subprocess('pep8')
         # Clone the remote git repository.
         temporary_directory = create_temporary_directory()
-        git_checkout = os.path.join(temporary_directory, 'verboselogs')
-        git_remote = 'https://github.com/xolox/python-verboselogs.git'
+        git_checkout = os.path.join(temporary_directory, 'pep8')
+        git_remote = 'https://github.com/PyCQA/pep8.git'
         if os.system('git clone --depth=1 %s %s' % (pipes.quote(git_remote), pipes.quote(git_checkout))) != 0:
             logger.warning("Skipping editable installation test (git clone seems to have failed).")
             return
@@ -511,10 +511,10 @@ class PipAccelTestCase(unittest.TestCase):
             '--ignore-installed', '--editable', git_checkout
         ])
         assert num_installed == 1, "Expected pip-accel to install exactly one package!"
-        # Importing verboselogs here fails even though the package is properly
+        # Importing pep8 here fails even though the package is properly
         # installed. We start a Python interpreter in a subprocess to verify
-        # that verboselogs is properly installed to work around this.
-        python = subprocess.Popen([sys.executable, '-c', 'print(__import__("verboselogs").__file__)'],
+        # that pep8 is properly installed to work around this.
+        python = subprocess.Popen([sys.executable, '-c', 'print(__import__("pep8").__file__)'],
                                   stdout=subprocess.PIPE)
         stdout, stderr = python.communicate()
         python_module = stdout.decode().strip()
@@ -525,9 +525,9 @@ class PipAccelTestCase(unittest.TestCase):
         python_module = os.path.realpath(python_module)
         assert python_module.startswith(git_checkout), "Editable Python module not located under git checkout of project!"
         # Cleanup after ourselves so that unrelated tests involving the
-        # verboselogs package don't get confused when they're run after
+        # pep8 package don't get confused when they're run after
         # this test and encounter an editable package.
-        uninstall_through_subprocess('verboselogs')
+        uninstall_through_subprocess('pep8')
 
     def test_cli_install(self):
         """
@@ -657,7 +657,7 @@ def uninstall_through_subprocess(package_name):
 
     :param package_name: The name of the package (a string).
     """
-    subprocess.call([os.path.join(sys.prefix, 'bin', 'pip'), 'uninstall', '--yes', 'verboselogs'])
+    subprocess.call([os.path.join(sys.prefix, 'bin', 'pip'), 'uninstall', '--yes', 'pep8'])
 
 def find_files(directory, substring):
     """
