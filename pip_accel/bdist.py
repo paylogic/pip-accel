@@ -88,14 +88,17 @@ class BinaryDistributionManager(object):
             # Transform the binary distribution archive into a form that we can re-use.
             fd, transformed_file = tempfile.mkstemp(prefix='pip-accel-bdist-', suffix='.tar.gz')
             try:
-                archive = tarfile.open(transformed_file, 'w:gz')
-                for member, from_handle in self.transform_binary_dist(raw_file):
-                    archive.addfile(member, from_handle)
-                archive.close()
+                with tarfile.open(transformed_file, 'w:gz') as archive:
+                    for member, from_handle in self.transform_binary_dist(raw_file):
+                        archive.addfile(member, from_handle)
                 # Push the binary distribution archive to all available backends.
                 with open(transformed_file, 'rb') as handle:
                     self.cache.put(requirement, handle)
             finally:
+                # Close file descriptor before removing the temporary file.
+                # Without closing Windows is complaining that the file cannot
+                # be removed because it is used by another process.
+                os.close(fd)
                 # Cleanup the temporary file.
                 os.remove(transformed_file)
             # Get the absolute pathname of the file in the local cache.
@@ -239,6 +242,10 @@ class BinaryDistributionManager(object):
             logger.info("Finished building %s in %s.", requirement.name, build_timer)
             return os.path.join(dist_directory, filenames[0])
         finally:
+            # Close file descriptor before removing the temporary file.
+            # Without closing Windows is complaining that the file cannot
+            # be removed because it is used by another process.
+            os.close(fd)
             os.unlink(temporary_file)
 
     def transform_binary_dist(self, archive_path):
