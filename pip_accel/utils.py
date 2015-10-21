@@ -17,17 +17,16 @@ with any single module.
 import errno
 import os
 import platform
-import pwd
 import re
 import sys
+
+# Modules included in our package.
+from pip_accel.compat import HOME
 
 # External dependencies.
 from pip.commands.uninstall import UninstallCommand
 from pkg_resources import WorkingSet
 
-# Look up the home directory of the effective user id so we can generate
-# pathnames relative to the home directory.
-HOME = pwd.getpwuid(os.getuid()).pw_dir
 
 def compact(text, **kw):
     """
