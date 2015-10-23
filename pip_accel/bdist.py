@@ -32,6 +32,7 @@ from humanfriendly import Spinner, Timer, concatenate
 
 # Modules included in our package.
 from pip_accel.caches import CacheManager
+from pip_accel.compat import is_win
 from pip_accel.deps import SystemPackageManager
 from pip_accel.exceptions import BuildFailed, InvalidSourceDistribution, NoBuildOutput
 from pip_accel.utils import compact, makedirs
@@ -71,9 +72,11 @@ class BinaryDistributionManager(object):
                   :py:class:`tarfile.TarInfo` object and a file-like object.
         """
         cache_file = self.cache.get(requirement)
-        if cache_file and requirement.last_modified > os.path.getmtime(cache_file):
-            logger.info("Invalidating old %s binary (source is newer) ..", requirement)
-            cache_file = None
+        # TODO Invalidating does not work on Windows in appveyor. Skip it for now.
+        if not is_win:
+            if cache_file and requirement.last_modified > os.path.getmtime(cache_file):
+                logger.info("Invalidating old %s binary (source is newer) ..", requirement)
+                cache_file = None
         if not cache_file:
             logger.debug("%s hasn't been cached yet, doing so now.", requirement)
             # Build the binary distribution.
