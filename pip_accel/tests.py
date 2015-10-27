@@ -3,7 +3,7 @@
 # Tests for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: September 22, 2015
+# Last Change: October 27, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -42,7 +42,6 @@ import unittest
 
 # External dependencies.
 import coloredlogs
-import pytest
 from humanfriendly import coerce_boolean
 from pip.commands.install import InstallCommand
 from pip.exceptions import DistributionNotFound
@@ -168,13 +167,15 @@ class PipAccelTestCase(unittest.TestCase):
             handle.write('name = value\n')
         self.assertRaises(Exception, config.load_configuration_file, config_file)
 
-    @pytest.mark.skipif(is_win, reason='Symlinks not working on Windows')
     def test_cleanup_of_broken_links(self):
         """
         Verify that broken symbolic links in the source index are cleaned up.
 
         This tests the :py:func:`~pip_accel.PipAccelerator.clean_source_index()` method.
         """
+        if is_win:
+            logger.warning("Skipping broken symlink cleanup test (Windows doesn't support symbolic links).")
+            return
         source_index = create_temporary_directory()
         broken_link = os.path.join(source_index, 'this-is-a-broken-link')
         os.symlink(generate_nonexisting_pathname(), broken_link)
@@ -582,7 +583,6 @@ class PipAccelTestCase(unittest.TestCase):
         returncode = test_cli('pip-accel', 'install', '--requirement', empty_file)
         assert returncode == 0, "pip-accel command line interface failed on empty requirements file!"
 
-    @pytest.mark.skipif(is_win, reason='Not applicable on Windows')
     def test_system_package_dependency_installation(self):
         """
         Test the (automatic) installation of required system packages.
@@ -600,8 +600,10 @@ class PipAccelTestCase(unittest.TestCase):
                      the test is skipped unless the environment variable
                      ``PIP_ACCEL_TEST_AUTO_INSTALL=yes`` is set (opt-in).
         """
-        # Test system package dependency handling.
-        if not coerce_boolean(os.environ.get('PIP_ACCEL_TEST_AUTO_INSTALL')):
+        if is_win:
+            logger.warning("Skipping system package dependency installation test (not relevant on Windows).")
+            return
+        elif not coerce_boolean(os.environ.get('PIP_ACCEL_TEST_AUTO_INSTALL')):
             logger.warning("Skipping system package dependency installation test (set the environment variable"
                            " PIP_ACCEL_TEST_AUTO_INSTALL=true to allow the test suite to use `sudo').")
             return
