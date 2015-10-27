@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 # Tests for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
