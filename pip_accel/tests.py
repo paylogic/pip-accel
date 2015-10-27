@@ -142,12 +142,15 @@ class PipAccelTestCase(unittest.TestCase):
 
         This tests the :py:func:`~pip_accel.PipAccelerator.validate_environment()` method.
         """
-        original_value = os.environ.get('VIRTUAL_ENV')
+        original_value = os.environ.get('VIRTUAL_ENV', None)
         try:
             os.environ['VIRTUAL_ENV'] = generate_nonexisting_pathname()
             self.assertRaises(EnvironmentMismatchError, self.initialize_pip_accel)
         finally:
-            os.environ['VIRTUAL_ENV'] = original_value
+            if original_value is not None:
+                os.environ['VIRTUAL_ENV'] = original_value
+            else:
+                del os.environ['VIRTUAL_ENV']
 
     def test_config_file_handling(self):
         """
