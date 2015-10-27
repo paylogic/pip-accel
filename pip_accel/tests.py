@@ -230,10 +230,14 @@ class PipAccelTestCase(unittest.TestCase):
         """Test installation of newer versions over older versions."""
         accelerator = self.initialize_pip_accel()
         # Install version 1.6 of the `pep8' package.
-        num_installed = accelerator.install_from_arguments(['--ignore-installed', 'pep8==1.6'])
+        num_installed = accelerator.install_from_arguments([
+            '--ignore-installed', '--no-binary=:all:', 'pep8==1.6',
+        ])
         assert num_installed == 1, "Expected pip-accel to install exactly one package!"
         # Install version 1.6.2 of the `pep8' package.
-        num_installed = accelerator.install_from_arguments(['--ignore-installed', 'pep8==1.6.2'])
+        num_installed = accelerator.install_from_arguments([
+            '--ignore-installed', '--no-binary=:all:', 'pep8==1.6.2',
+        ])
         assert num_installed == 1, "Expected pip-accel to install exactly one package!"
 
     def test_package_downgrade(self):
