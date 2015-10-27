@@ -1,7 +1,7 @@
 # Functions to manipulate Python binary distribution archives.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: September 9, 2015
+# Last Change: October 27, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -91,9 +91,12 @@ class BinaryDistributionManager(object):
             # Transform the binary distribution archive into a form that we can re-use.
             fd, transformed_file = tempfile.mkstemp(prefix='pip-accel-bdist-', suffix='.tar.gz')
             try:
-                with tarfile.open(transformed_file, 'w:gz') as archive:
+                archive = tarfile.open(transformed_file, 'w:gz')
+                try:
                     for member, from_handle in self.transform_binary_dist(raw_file):
                         archive.addfile(member, from_handle)
+                finally:
+                    archive.close()
                 # Push the binary distribution archive to all available backends.
                 with open(transformed_file, 'rb') as handle:
                     self.cache.put(requirement, handle)
