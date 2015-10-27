@@ -284,7 +284,7 @@ class PipAccelTestCase(unittest.TestCase):
         if not (fakes3_pid and fakes3_root):
             logger.warning("Skipping S3 cache backend test (it looks like FakeS3 isn't running).")
             return
-        pip_install_args = ['--ignore-installed', 'pep8==1.6.2']
+        pip_install_args = ['--ignore-installed', '--no-binary=:all:', 'pep8==1.6.2']
         # Initialize an instance of pip-accel with an empty cache.
         accelerator = self.initialize_pip_accel(load_environment_variables=True,
                                                 data_directory=create_temporary_directory(),
