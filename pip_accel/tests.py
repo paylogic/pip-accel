@@ -587,9 +587,8 @@ class PipAccelTestCase(unittest.TestCase):
 
         .. _issue 47: https://github.com/paylogic/pip-accel/issues/47
         """
-        # Create first temporary empty file.
-        empty_file = os.path.join(create_temporary_directory(), 'empty_file')
-        open(empty_file, 'a').close()
+        empty_file = os.path.join(create_temporary_directory(), 'empty-requirements-file.txt')
+        open(empty_file, 'w').close()
         returncode = test_cli('pip-accel', 'install', '--requirement', empty_file)
         assert returncode == 0, "pip-accel command line interface failed on empty requirements file!"
 
