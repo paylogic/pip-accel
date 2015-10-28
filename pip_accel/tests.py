@@ -706,11 +706,10 @@ def try_program(program_name):
     assert os.access(program_path, os.X_OK), \
         ("Program file not executable! (%s)" % program_path)
     logger.debug("Making sure %s --help works ..", program_path)
-    with open(os.devnull, 'wb') as DEVNULL:
+    with open(os.devnull, 'wb') as null_device:
         # Redirect stdout to /dev/null and stderr to stdout.
-        assert subprocess.call([program_path, '--help'], stdout=DEVNULL,
-            stderr=subprocess.STDOUT) == 0, \
-        ("Program doesn't run! (%s --help failed)" % program_path)
+        assert subprocess.call([program_path, '--help'], stdout=null_device, stderr=subprocess.STDOUT) == 0, \
+            ("Program doesn't run! (%s --help failed)" % program_path)
 
 def find_python_program(program_name):
     """

@@ -1,7 +1,7 @@
 # Extension of pip-accel that deals with dependencies on system packages.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: October 27, 2015
+# Last Change: October 28, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -64,19 +64,20 @@ class SystemPackageManager(object):
                 # Check if the package manager is supported.
                 supported_command = parser.get('commands', 'supported')
                 logger.debug("Checking if configuration is supported: %s", supported_command)
-                if subprocess.call(supported_command, shell=True) == 0:
-                    logger.debug("System package manager configuration is supported!")
-                    # Get the commands to list and install system packages.
-                    self.list_command = parser.get('commands', 'list')
-                    self.install_command = parser.get('commands', 'install')
-                    # Get the known dependencies.
-                    self.dependencies = dict((n.lower(), v.split()) for n, v
-                                             in parser.items('dependencies'))
-                    logger.debug("Loaded dependencies of %s: %s",
-                                 pluralize(len(self.dependencies), "Python package"),
-                                 concatenate(sorted(self.dependencies)))
-                else:
-                    logger.debug("Command failed, assuming configuration doesn't apply ..")
+                with open(os.devnull, 'wb') as null_device:
+                    if subprocess.call(supported_command, shell=True, stdout=null_device, stderr=subprocess.STDOUT) == 0:
+                        logger.debug("System package manager configuration is supported!")
+                        # Get the commands to list and install system packages.
+                        self.list_command = parser.get('commands', 'list')
+                        self.install_command = parser.get('commands', 'install')
+                        # Get the known dependencies.
+                        self.dependencies = dict((n.lower(), v.split()) for n, v
+                                                 in parser.items('dependencies'))
+                        logger.debug("Loaded dependencies of %s: %s",
+                                     pluralize(len(self.dependencies), "Python package"),
+                                     concatenate(sorted(self.dependencies)))
+                    else:
+                        logger.debug("Command failed, assuming configuration doesn't apply ..")
 
     def install_dependencies(self, requirement):
         """
