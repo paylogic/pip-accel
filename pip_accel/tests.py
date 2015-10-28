@@ -28,7 +28,6 @@ import glob
 import logging
 import operator
 import os
-import pipes
 import random
 import re
 import shutil
@@ -509,7 +508,7 @@ class PipAccelTestCase(unittest.TestCase):
         temporary_directory = create_temporary_directory()
         git_checkout = os.path.join(temporary_directory, 'pep8')
         git_remote = 'https://github.com/PyCQA/pep8.git'
-        if os.system('git clone --depth=1 %s %s' % (pipes.quote(git_remote), pipes.quote(git_checkout))) != 0:
+        if subprocess.call(['git', 'clone', '--depth=1', git_remote, git_checkout]) != 0:
             logger.warning("Skipping editable installation test (git clone seems to have failed).")
             return
         # Install the package from the checkout as an editable package.
@@ -610,7 +609,7 @@ class PipAccelTestCase(unittest.TestCase):
         # removing any (reverse) dependencies (we don't actually want to
         # break the system, thank you very much :-). Disclaimer: you opt in
         # to this with $PIP_ACCEL_TEST_AUTO_INSTALL...
-        os.system('sudo dpkg --remove --force-depends libxslt1-dev')
+        subprocess.call(['sudo', 'dpkg', '--remove', '--force-depends', 'libxslt1-dev'])
         # Make sure that when automatic installation is disabled the system
         # package manager refuses to install the missing dependency.
         accelerator = self.initialize_pip_accel(auto_install=False, data_directory=create_temporary_directory())
