@@ -58,7 +58,7 @@ def expand_path(pathname):
     pattern = r'^~(?=[\\/])' if WINDOWS else '^~(?=/)'
     logger.debug("Expanding pathname: %s", pathname)
     logger.debug("Using home directory: %s", home_directory)
-    pathname = re.sub(pattern, home_directory, pathname)
+    pathname = re.sub(pattern, re.escape(home_directory), pathname)
     logger.debug("Result of expansion #1: %s", pathname)
     pathname = parse_path(pathname)
     logger.debug("Result of expansion #2: %s", pathname)
