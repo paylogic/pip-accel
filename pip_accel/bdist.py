@@ -1,7 +1,7 @@
 # Functions to manipulate Python binary distribution archives.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: October 27, 2015
+# Last Change: October 28, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -72,11 +72,9 @@ class BinaryDistributionManager(object):
                   :py:class:`tarfile.TarInfo` object and a file-like object.
         """
         cache_file = self.cache.get(requirement)
-        # TODO Invalidating does not work on Windows in appveyor. Skip it for now.
-        if not WINDOWS:
-            if cache_file and requirement.last_modified > os.path.getmtime(cache_file):
-                logger.info("Invalidating old %s binary (source is newer) ..", requirement)
-                cache_file = None
+        if cache_file and requirement.last_modified > os.path.getmtime(cache_file):
+            logger.info("Invalidating old %s binary (source is newer) ..", requirement)
+            cache_file = None
         if not cache_file:
             logger.debug("%s hasn't been cached yet, doing so now.", requirement)
             # Build the binary distribution.
