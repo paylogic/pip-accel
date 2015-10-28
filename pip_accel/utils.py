@@ -15,7 +15,6 @@ with any single module.
 
 # Standard library modules.
 import errno
-import logging
 import os
 import platform
 import sys
@@ -27,9 +26,6 @@ from pip_accel.compat import WINDOWS
 from humanfriendly import parse_path
 from pip.commands.uninstall import UninstallCommand
 from pkg_resources import WorkingSet
-
-# Initialize a logger for this module.
-logger = logging.getLogger(__name__)
 
 def compact(text, **kw):
     """
@@ -53,18 +49,16 @@ def expand_path(pathname):
                      directory of the current (effective) user.
     :returns: The (modified) pathname.
     """
-    logger.debug("Expanding pathname: %s", pathname)
+    # The following logic previously used regular expressions but that approach
+    # turned out to be very error prone, hence the current contraption based on
+    # direct string manipulation :-).
     home_directory = find_home_directory()
-    logger.debug("Using home directory: %s", home_directory)
     separators = set([os.sep])
     if os.altsep is not None:
         separators.add(os.altsep)
     if len(pathname) >= 2 and pathname[0] == '~' and pathname[1] in separators:
         pathname = os.path.join(home_directory, pathname[2:])
-    logger.debug("Result of expansion #1: %s", pathname)
-    pathname = parse_path(pathname)
-    logger.debug("Result of expansion #2: %s", pathname)
-    return pathname
+    return parse_path(pathname)
 
 def find_home_directory():
     """
