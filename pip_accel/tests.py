@@ -1,7 +1,7 @@
 # Tests for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: October 27, 2015
+# Last Change: October 28, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -47,7 +47,7 @@ from pip.exceptions import DistributionNotFound
 # Modules included in our package.
 from pip_accel import PatchedAttribute, PipAccelerator
 from pip_accel.cli import main
-from pip_accel.compat import is_win, StringIO
+from pip_accel.compat import WINDOWS, StringIO
 from pip_accel.config import Config
 from pip_accel.deps import DependencyInstallationRefused, SystemPackageManager
 from pip_accel.exceptions import EnvironmentMismatchError
@@ -56,12 +56,6 @@ from pip_accel.utils import find_installed_version, uninstall
 
 # Initialize a logger for this module.
 logger = logging.getLogger(__name__)
-
-# A directory containing executables installed via pip.
-if is_win:
-    BIN_DIRECTORY = os.path.join(sys.prefix, 'Scripts')
-else:
-    BIN_DIRECTORY = os.path.join(sys.prefix, 'bin')
 
 # A list of temporary directories created by the test suite.
 TEMPORARY_DIRECTORIES = []
@@ -174,7 +168,7 @@ class PipAccelTestCase(unittest.TestCase):
 
         This tests the :py:func:`~pip_accel.PipAccelerator.clean_source_index()` method.
         """
-        if is_win:
+        if WINDOWS:
             logger.warning("Skipping broken symlink cleanup test (Windows doesn't support symbolic links).")
             return
         source_index = create_temporary_directory()
@@ -605,7 +599,7 @@ class PipAccelTestCase(unittest.TestCase):
                      the test is skipped unless the environment variable
                      ``PIP_ACCEL_TEST_AUTO_INSTALL=yes`` is set (opt-in).
         """
-        if is_win:
+        if WINDOWS:
             logger.warning("Skipping system package dependency installation test (not relevant on Windows).")
             return
         elif not coerce_boolean(os.environ.get('PIP_ACCEL_TEST_AUTO_INSTALL')):
@@ -671,10 +665,10 @@ def uninstall_through_subprocess(package_name):
 
     :param package_name: The name of the package (a string).
     """
-    pip_command = os.path.join(BIN_DIRECTORY, 'pip')
-    if is_win:
-        pip_command += '.exe'
-    subprocess.call([pip_command, 'uninstall', '--yes', 'pep8'])
+    subprocess.call([
+        find_python_program('pip'),
+        'uninstall', '--yes', package_name,
+    ])
 
 def find_files(directory, substring):
     """
@@ -704,10 +698,7 @@ def try_program(program_name):
                          :py:data:`sys.prefix` and this argument.
     :raises: :py:exc:`~exceptions.AssertionError` when a test fails.
     """
-    program_path = os.path.join(BIN_DIRECTORY, program_name)
-    # On Windows append .exe suffix. and executable are in directory 'Scripts'
-    if is_win:
-        program_path += '.exe'
+    program_path = find_python_program(program_name)
     logger.debug("Making sure %s is installed ..", program_path)
     assert os.path.isfile(program_path), \
         ("Missing program file! (%s)" % program_path)
@@ -720,6 +711,19 @@ def try_program(program_name):
         assert subprocess.call([program_path, '--help'], stdout=DEVNULL,
             stderr=subprocess.STDOUT) == 0, \
         ("Program doesn't run! (%s --help failed)" % program_path)
+
+def find_python_program(program_name):
+    """
+    Get the absolute pathname of a Python program installed in the current environment.
+
+    :param name: The base name of the program (a string).
+    :returns: The absolute pathname of the program (a string).
+    """
+    directory = 'Scripts' if WINDOWS else 'bin'
+    pathname = os.path.join(sys.prefix, directory, program_name)
+    if WINDOWS:
+        pathname += '.exe'
+    return pathname
 
 def generate_nonexisting_pathname():
     """

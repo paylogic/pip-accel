@@ -1,7 +1,7 @@
 # Utility functions for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: September 22, 2015
+# Last Change: October 27, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -21,9 +21,10 @@ import re
 import sys
 
 # Modules included in our package.
-from pip_accel.compat import HOME
+from pip_accel.compat import WINDOWS
 
 # External dependencies.
+from humanfriendly import parse_path
 from pip.commands.uninstall import UninstallCommand
 from pkg_resources import WorkingSet
 
@@ -39,7 +40,7 @@ def compact(text, **kw):
     """
     return '\n\n'.join(' '.join(p.split()) for p in text.split('\n\n')).format(**kw)
 
-def expand_user(pathname):
+def expand_path(pathname):
     """
     Variant of :py:func:`os.path.expanduser()` that doesn't use ``$HOME`` but
     instead uses the home directory of the effective user id. This is basically
@@ -48,8 +49,35 @@ def expand_user(pathname):
     :param pathname: A pathname that may start with ``~/``, indicating the path
                      should be interpreted as being relative to the home
                      directory of the current (effective) user.
+    :returns: The (modified) pathname.
     """
-    return re.sub('^~(?=/)', HOME, pathname)
+    return parse_path(re.sub('^~(?=/)', find_home_directory(), pathname))
+
+def find_home_directory():
+    """
+    Look up the home directory of the effective user id.
+
+    :returns: The pathname of the home directory (a string).
+
+    .. note:: On Windows this uses the ``%APPDATA%`` environment variable (if
+              available) and otherwise falls back to ``~/Application Data``.
+    """
+    if WINDOWS:
+        directory = os.environ.get('APPDATA')
+        if not directory:
+            directory = os.path.expanduser(r'~\Application Data')
+    else:
+        # This module isn't available on Windows so we have to import it here.
+        import pwd
+        # Look up the home directory of the effective user id so we can
+        # generate pathnames relative to the home directory.
+        entry = pwd.getpwuid(os.getuid())
+        directory = entry.pw_dir
+    return directory
+
+def is_root():
+    """Detect whether we're running with super user privileges."""
+    return False if WINDOWS else os.getuid() == 0
 
 def get_python_version():
     """

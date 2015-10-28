@@ -32,7 +32,7 @@ from humanfriendly import Spinner, Timer, concatenate
 
 # Modules included in our package.
 from pip_accel.caches import CacheManager
-from pip_accel.compat import is_win
+from pip_accel.compat import WINDOWS
 from pip_accel.deps import SystemPackageManager
 from pip_accel.exceptions import BuildFailed, InvalidSourceDistribution, NoBuildOutput
 from pip_accel.utils import compact, makedirs
@@ -73,7 +73,7 @@ class BinaryDistributionManager(object):
         """
         cache_file = self.cache.get(requirement)
         # TODO Invalidating does not work on Windows in appveyor. Skip it for now.
-        if not is_win:
+        if not WINDOWS:
             if cache_file and requirement.last_modified > os.path.getmtime(cache_file):
                 logger.info("Invalidating old %s binary (source is newer) ..", requirement)
                 cache_file = None

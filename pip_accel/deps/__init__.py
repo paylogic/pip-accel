@@ -1,7 +1,7 @@
 # Extension of pip-accel that deals with dependencies on system packages.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: November 22, 2014
+# Last Change: October 27, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -26,8 +26,9 @@ import subprocess
 import sys
 
 # Modules included in our package.
-from pip_accel.compat import configparser, is_root, is_win
+from pip_accel.compat import WINDOWS, configparser
 from pip_accel.exceptions import DependencyInstallationFailed, DependencyInstallationRefused, SystemDependencyError
+from pip_accel.utils import is_root
 
 # External dependencies.
 from humanfriendly import Timer, concatenate, pluralize
@@ -97,8 +98,10 @@ class SystemPackageManager(object):
         if missing_dependencies:
             # Compose the command line for the install command.
             install_command = shlex.split(self.install_command) + missing_dependencies
-            if not is_win and not is_root():
-                # Prepend `sudo' to the command line.
+            # Prepend `sudo' to the command line?
+            if not WINDOWS and not is_root():
+                # FIXME Ideally this should properly detect the presence of `sudo'.
+                #       Or maybe this should just be embedded in the *.ini files?
                 install_command.insert(0, 'sudo')
             # Always suggest the installation command to the operator.
             logger.info("You seem to be missing %s: %s",
@@ -208,6 +211,7 @@ class SystemPackageManager(object):
         """
         terminal = "\n"
         try:
+            # FIXME raw_input() doesn't exist on Python 3. Switch to humanfriendly.prompts.prompt_for_confirmation()?
             prompt = "\n  Do you want me to install %s %s? [Y/n] "
             choice = raw_input(prompt % ("this" if len(missing_dependencies) == 1 else "these",
                                          "dependency" if len(missing_dependencies) == 1 else "dependencies"))

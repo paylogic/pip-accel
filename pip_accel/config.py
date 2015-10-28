@@ -1,7 +1,7 @@
 # Configuration defaults for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: April 11, 2015
+# Last Change: October 27, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -76,7 +76,8 @@ import os.path
 import sys
 
 # Modules included in our package.
-from pip_accel.compat import configparser, is_root
+from pip_accel.compat import configparser
+from pip_accel.utils import is_root, expand_path
 
 # External dependencies.
 from cached_property import cached_property
@@ -217,10 +218,10 @@ class Config(object):
         - Configuration option: ``data-directory``
         - Default: ``/var/cache/pip-accel`` if running as ``root``, ``~/.pip-accel`` otherwise
         """
-        return parse_path(self.get(property_name='data_directory',
-                                   environment_variable='PIP_ACCEL_CACHE',
-                                   configuration_option='data-directory',
-                                   default='/var/cache/pip-accel' if is_root() else '~/.pip-accel'))
+        return expand_path(self.get(property_name='data_directory',
+                                    environment_variable='PIP_ACCEL_CACHE',
+                                    configuration_option='data-directory',
+                                    default='/var/cache/pip-accel' if is_root() else '~/.pip-accel'))
 
     @cached_property
     def on_debian(self):
