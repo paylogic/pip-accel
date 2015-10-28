@@ -1,7 +1,7 @@
 # Utility functions for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: October 27, 2015
+# Last Change: October 28, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -15,6 +15,7 @@ with any single module.
 
 # Standard library modules.
 import errno
+import logging
 import os
 import platform
 import re
@@ -28,6 +29,8 @@ from humanfriendly import parse_path
 from pip.commands.uninstall import UninstallCommand
 from pkg_resources import WorkingSet
 
+# Initialize a logger for this module.
+logger = logging.getLogger(__name__)
 
 def compact(text, **kw):
     """
@@ -51,7 +54,15 @@ def expand_path(pathname):
                      directory of the current (effective) user.
     :returns: The (modified) pathname.
     """
-    return parse_path(re.sub('^~(?=/)', find_home_directory(), pathname))
+    home_directory = find_home_directory()
+    pattern = r'^~(?=[\\/])' if WINDOWS else '^~(?=/)'
+    logger.debug("Expanding pathname: %s", pathname)
+    logger.debug("Using home directory: %s", home_directory)
+    pathname = re.sub(pattern, home_directory, pathname)
+    logger.debug("Result of expansion #1: %s", pathname)
+    pathname = parse_path(pathname)
+    logger.debug("Result of expansion #2: %s", pathname)
+    return pathname
 
 def find_home_directory():
     """
