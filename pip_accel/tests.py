@@ -498,8 +498,8 @@ class PipAccelTestCase(unittest.TestCase):
         """
         Test the installation of editable packages using ``pip install --editable``.
 
-        This test clones the git repository of my trivial `pep8` Python
-        package and installs the package as an editable package.
+        This test clones the git repository of the Python package `pep8` and
+        installs the package as an editable package.
 
         We want to import the `pep8` module to confirm that it was
         properly installed but we can't do that in the process that's running
