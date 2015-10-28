@@ -32,6 +32,7 @@ import random
 import re
 import shutil
 import signal
+import stat
 import subprocess
 import sys
 import tempfile
@@ -68,7 +69,20 @@ def tearDownModule():
     while TEMPORARY_DIRECTORIES:
         directory = TEMPORARY_DIRECTORIES.pop(0)
         logger.debug("Cleaning up temporary directory: %s", directory)
-        shutil.rmtree(directory)
+        shutil.rmtree(directory, onerror=delete_read_only)
+
+def delete_read_only(action, pathname, exc_info):
+    """
+    Force removal of read only files on Windows.
+
+    Based on http://stackoverflow.com/a/21263493/788200.
+    Needed because of https://ci.appveyor.com/project/xolox/pip-accel/build/1.0.24.
+    """
+    if action in (os.remove, os.rmdir):
+        # Mark the directory or file as writable.
+        os.chmod(pathname, stat.S_IWUSR)
+        # Retry the action.
+        action(pathname)
 
 def create_temporary_directory():
     """
