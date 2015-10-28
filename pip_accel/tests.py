@@ -91,7 +91,7 @@ class PipAccelTestCase(unittest.TestCase):
 
     def setUp(self):
         """Reset logging verbosity before each test."""
-        coloredlogs.set_level(logging.INFO)
+        coloredlogs.set_level(logging.DEBUG if WINDOWS else logging.INFO)
 
     def initialize_pip_accel(self, load_environment_variables=False, **overrides):
         """
