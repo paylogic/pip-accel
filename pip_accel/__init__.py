@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: September 22, 2015
+# Last Change: October 28, 2015
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Permanently store logs in the pip-accel directory (think about log rotation).
@@ -58,7 +58,7 @@ import tempfile
 from pip_accel.bdist import BinaryDistributionManager
 from pip_accel.exceptions import EnvironmentMismatchError, NothingToDoError
 from pip_accel.req import Requirement
-from pip_accel.utils import is_installed, makedirs, match_option_with_value, uninstall
+from pip_accel.utils import is_installed, makedirs, match_option_with_value, same_directories, uninstall
 
 # External dependencies.
 from humanfriendly import concatenate, Timer, pluralize
@@ -105,22 +105,6 @@ class PipAccelerator(object):
         # temporary sources after pip-accel has finished.
         self.reported_requirements = []
 
-    @staticmethod
-    def samedir(path1, path2):
-        """
-        Return True if both path1 and path2 refer to the same directory.
-
-        Return False if one of them does not exist or is not directory.
-        """
-        for path in (path1, path2):
-            if not os.path.isdir(path) or not os.path.exists(path):
-                return False
-        try:
-            return os.path.samefile(path1, path2)
-        except AttributeError:
-            # On Windows and py2* there is no os.path.samefile function.
-            return os.path.realpath(path1) == os.path.realpath(path2)
-
     def validate_environment(self):
         """
         Make sure :py:data:`sys.prefix` matches ``$VIRTUAL_ENV`` (if defined).
@@ -134,7 +118,7 @@ class PipAccelerator(object):
         """
         environment = os.environ.get('VIRTUAL_ENV')
         if environment:
-            if not self.samedir(sys.prefix, environment):
+            if not same_directories(sys.prefix, environment):
                 raise EnvironmentMismatchError("""
                     You are trying to install packages in environment #1 which
                     is different from environment #2 where pip-accel is
@@ -144,8 +128,7 @@ class PipAccelerator(object):
                     Environment #1: {environment} (defined by $VIRTUAL_ENV)
 
                     Environment #2: {prefix} (Python's installation prefix)
-                """, environment=environment,
-                     prefix=sys.prefix)
+                """, environment=environment, prefix=sys.prefix)
 
     def initialize_directories(self):
         """Automatically create the local source distribution index directory."""

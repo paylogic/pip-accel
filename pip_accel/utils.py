@@ -137,6 +137,24 @@ def makedirs(path, mode=0o777):
             raise
         return False
 
+def same_directories(path1, path2):
+    """
+    Check if two pathnames refer to the same directory.
+
+    :param path1: The first pathname (a string).
+    :param path2: The second pathname (a string).
+    :returns: :data:`True` if both pathnames refer to the same directory,
+              :data:`False` otherwise.
+    """
+    if all(os.path.isdir(p) for p in (path1, path2)):
+        try:
+            return os.path.samefile(path1, path2)
+        except AttributeError:
+            # On Windows and Python 2 os.path.samefile() is unavailable.
+            return os.path.realpath(path1) == os.path.realpath(path2)
+    else:
+        return False
+
 def is_installed(package_name):
     """
     Check whether a package is installed in the current environment.
