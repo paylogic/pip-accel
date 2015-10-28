@@ -18,7 +18,6 @@ import errno
 import logging
 import os
 import platform
-import re
 import sys
 
 # Modules included in our package.
@@ -54,11 +53,14 @@ def expand_path(pathname):
                      directory of the current (effective) user.
     :returns: The (modified) pathname.
     """
-    home_directory = find_home_directory()
-    pattern = r'^~(?=[\\/])' if WINDOWS else '^~(?=/)'
     logger.debug("Expanding pathname: %s", pathname)
+    home_directory = find_home_directory()
     logger.debug("Using home directory: %s", home_directory)
-    pathname = re.sub(pattern, re.escape(home_directory), pathname)
+    separators = set([os.sep])
+    if os.altsep is not None:
+        separators.add(os.altsep)
+    if len(pathname) >= 2 and pathname[0] == '~' and pathname[1] in separators:
+        pathname = os.path.join(home_directory, pathname[2:])
     logger.debug("Result of expansion #1: %s", pathname)
     pathname = parse_path(pathname)
     logger.debug("Result of expansion #2: %s", pathname)
