@@ -195,9 +195,8 @@ class PipAccelTestCase(unittest.TestCase):
         """
         Verify pip-accel's "keeping pip off the internet" logic using an empty cache.
 
-        This test downloads, builds and installs pep8 1.6.2 (a trivial
-        Python package I created once) to verify that pip-accel keeps pip off
-        the internet when intended.
+        This test downloads, builds and installs pep8 1.6.2 to verify that
+        pip-accel keeps pip off the internet when intended.
         """
         pip_install_args = ['--ignore-installed', 'pep8==1.6.2']
         # Initialize an instance of pip-accel with an empty cache.
@@ -261,9 +260,8 @@ class PipAccelTestCase(unittest.TestCase):
         """
         Verify the successful usage of the S3 cache backend.
 
-        This test downloads, builds and installs pep8 1.6.2 (a trivial
-        Python package I created once) to verify that the S3 cache backend
-        works. It depends on FakeS3 (refer to the shell script
+        This test downloads, builds and installs pep8 1.6.2 to verify that the
+        S3 cache backend works. It depends on FakeS3 (refer to the shell script
         ``scripts/collect-full-coverage`` in the pip-accel git repository).
 
         This test uses a temporary binary index which it wipes after a
