@@ -1,3 +1,6 @@
+# .travis.yml: Configuration for continuous integration (automated tests)
+# hosted on Travis CI, see https://travis-ci.org/paylogic/pip-accel.
+
 sudo: required
 language: python
 python:

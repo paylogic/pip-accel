@@ -1,0 +1,11 @@
+# appveyor.yml: Configuration for continuous integration (automated tests)
+# hosted on AppVeyor, see https://ci.appveyor.com/project/xolox/pip-accel.
+
+version: 1.0.{build}
+environment:
+  PYTHON: C:\Python27
+install:
+- cmd: '"%PYTHON%\Scripts\pip.exe" install .'
+build: off
+test_script:
+- cmd: '"%PYTHON%\python.exe" setup.py test'
