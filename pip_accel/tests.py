@@ -1,7 +1,7 @@
 # Tests for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: October 28, 2015
+# Last Change: October 29, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -40,6 +40,7 @@ import unittest
 
 # External dependencies.
 import coloredlogs
+from cached_property import cached_property
 from humanfriendly import coerce_boolean
 from pip.commands.install import InstallCommand
 from pip.exceptions import DistributionNotFound
@@ -104,7 +105,7 @@ class PipAccelTestCase(unittest.TestCase):
 
     def setUp(self):
         """Reset logging verbosity before each test."""
-        coloredlogs.set_level(logging.DEBUG if WINDOWS else logging.INFO)
+        coloredlogs.set_level(logging.INFO)
 
     def initialize_pip_accel(self, load_environment_variables=False, **overrides):
         """
@@ -123,6 +124,9 @@ class PipAccelTestCase(unittest.TestCase):
         """
         config = Config(load_configuration_files=False,
                         load_environment_variables=load_environment_variables)
+        if not overrides.get('data_directory'):
+            # Always use a data directory isolated to the current test.
+            overrides['data_directory'] = create_temporary_directory()
         for name, value in overrides.items():
             setattr(config, name, value)
         accelerator = PipAccelerator(config)
@@ -297,12 +301,10 @@ class PipAccelTestCase(unittest.TestCase):
         for i in [1, 2, 3, 4]:
             if i > 1:
                 logger.debug("Resetting binary index to force binary distribution download from S3 ..")
-                shutil.rmtree(accelerator.config.binary_cache)
-                os.mkdir(accelerator.config.binary_cache)
+                wipe_directory(accelerator.config.binary_cache)
             if i == 3:
                 logger.debug("Making FakeS3 root (%s) read only to emulate read only S3 bucket ..", fakes3_root)
-                shutil.rmtree(fakes3_root)
-                os.makedirs(fakes3_root)
+                wipe_directory(fakes3_root)
                 os.chmod(fakes3_root, 0o555)
             if i == 4:
                 logger.debug("Killing FakeS3 (%i) to force S3 cache backend failure ..", fakes3_pid)
@@ -516,17 +518,13 @@ class PipAccelTestCase(unittest.TestCase):
         """
         # Make sure pep8 isn't already installed when this test starts.
         uninstall_through_subprocess('pep8')
-        # Clone the remote git repository.
-        temporary_directory = create_temporary_directory()
-        git_checkout = os.path.join(temporary_directory, 'pep8')
-        git_remote = 'https://github.com/PyCQA/pep8.git'
-        if subprocess.call(['git', 'clone', '--depth=1', git_remote, git_checkout]) != 0:
+        if not self.pep8_git_repo:
             logger.warning("Skipping editable installation test (git clone seems to have failed).")
             return
         # Install the package from the checkout as an editable package.
         accelerator = self.initialize_pip_accel()
         num_installed = accelerator.install_from_arguments([
-            '--ignore-installed', '--editable', git_checkout
+            '--ignore-installed', '--editable', self.pep8_git_repo,
         ])
         assert num_installed == 1, "Expected pip-accel to install exactly one package!"
         # Importing pep8 here fails even though the package is properly
@@ -539,13 +537,43 @@ class PipAccelTestCase(unittest.TestCase):
         # Under Mac OS X the following startswith() check will fail if we don't
         # resolve symbolic links (under Mac OS X /var is a symbolic link to
         # /private/var).
-        git_checkout = os.path.realpath(git_checkout)
+        git_checkout = os.path.realpath(self.pep8_git_repo)
         python_module = os.path.realpath(python_module)
         assert python_module.startswith(git_checkout), "Editable Python module not located under git checkout of project!"
         # Cleanup after ourselves so that unrelated tests involving the
         # pep8 package don't get confused when they're run after
         # this test and encounter an editable package.
         uninstall_through_subprocess('pep8')
+
+    def test_cache_invalidation(self):
+        """
+        Test the cache invalidation logic.
+
+        When a source distribution archive is newer than its cached binary
+        distribution archive the binary is invalidated and rebuilt. This test
+        ensures that the cache invalidation logic works as expected.
+        """
+        if not self.pep8_git_repo:
+            logger.warning("Skipping cache invalidation test (git clone seems to have failed).")
+            return
+        iterations = 2
+        last_modified_times = []
+        accelerator = self.initialize_pip_accel()
+        for _ in range(iterations):
+            # Start with an empty source index on each iteration.
+            wipe_directory(accelerator.config.source_index)
+            # Get the pep8 package from the git repository.
+            num_installed = accelerator.install_from_arguments([
+                '--ignore-installed', self.pep8_git_repo,
+            ])
+            assert num_installed == 1, "Expected pip-accel to install exactly one package!"
+            # Get the last modified time of the cached binary distribution.
+            last_modified_times.extend(map(os.path.getmtime, find_files(accelerator.config.binary_cache, 'pep8')))
+        # The code above wiped the source index directory but it never
+        # touched the binary index, so if two *pep8* files with unique
+        # `last modified times' are seen in the binary index then the
+        # cache invalidation kicked in!
+        assert len(set(last_modified_times)) == iterations
 
     def test_cli_install(self):
         """
@@ -663,6 +691,28 @@ class PipAccelTestCase(unittest.TestCase):
         finally:
             # Never leave the dummy configuration file behind.
             os.remove(dummy_deps_config)
+
+    @cached_property
+    def pep8_git_repo(self):
+        """The pathname of a git clone of the ``pep8`` package (:data:`None` if git fails)."""
+        git_checkout = os.path.join(create_temporary_directory(), 'pep8')
+        git_remote = 'https://github.com/PyCQA/pep8.git'
+        if subprocess.call(['git', 'clone', '--depth=1', git_remote, git_checkout]) == 0:
+            return git_checkout
+        else:
+            return None
+
+
+def wipe_directory(pathname):
+    """
+    Delete and recreate a directory.
+
+    :param pathname: The directory's pathname (a string).
+    """
+    if os.path.isdir(pathname):
+        shutil.rmtree(pathname)
+    os.makedirs(pathname)
+
 
 def uninstall_through_subprocess(package_name):
     """
