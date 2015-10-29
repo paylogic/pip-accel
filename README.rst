@@ -30,8 +30,9 @@ detects missing system packages when a build fails and prompts the user whether
 to install the missing dependencies and retry the build.
 
 The pip-accel program is currently tested on cPython 2.6, 2.7 and 3.4 and PyPy
-(2.7). The automated test suite regularly runs on Ubuntu Linux but other Linux
-variants (also those not based on Debian Linux) should work fine.
+(2.7). The automated test suite regularly runs on Ubuntu Linux (`Travis CI`_)
+as well as Microsoft Windows (AppVeyor_). In addition to these platforms
+pip-accel should work fine on most UNIX systems (e.g. Mac OS X).
 
 .. contents::
 
