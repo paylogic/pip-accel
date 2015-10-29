@@ -1,7 +1,7 @@
 # Utility functions for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: October 28, 2015
+# Last Change: October 29, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -148,6 +148,33 @@ def same_directories(path1, path2):
             return os.path.realpath(path1) == os.path.realpath(path2)
     else:
         return False
+
+def replace_file(src, dst):
+    """
+    Overwrite a file (in an atomic fashion when possible).
+
+    :param src: The pathname of the source file (a string).
+    :param dst: The pathname of the destination file (a string).
+    """
+    # Try os.replace() which was introduced in Python 3.3
+    # (this should work on POSIX as well as Windows systems).
+    try:
+        os.replace(src, dst)
+        return
+    except AttributeError:
+        pass
+    # Try os.rename() which is atomic on UNIX but refuses to overwrite existing
+    # files on Windows.
+    try:
+        os.rename(src, dst)
+        return
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise
+    # Finally we fall back to the dumb approach required only on Windows.
+    # See https://bugs.python.org/issue8828 for a long winded discussion.
+    os.remove(dst)
+    os.rename(src, dst)
 
 def is_installed(package_name):
     """
