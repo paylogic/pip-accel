@@ -1,7 +1,7 @@
 # Tests for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: October 29, 2015
+# Last Change: October 30, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -161,23 +161,52 @@ class PipAccelTestCase(unittest.TestCase):
             else:
                 del os.environ['VIRTUAL_ENV']
 
+    def test_config_object_handling(self):
+        """Test that configuration options can be overridden in the Python API."""
+        config = Config()
+        # Create a unique value that compares equal only to itself.
+        unique_value = object()
+        # Check the default value of a configuration option.
+        assert config.cache_format_revision != unique_value
+        # Override the default value.
+        config.cache_format_revision = unique_value
+        # Ensure that the override is respected.
+        assert config.cache_format_revision == unique_value
+        # Test that environment variables can set configuration options.
+        os.environ['PIP_ACCEL_AUTO_INSTALL'] = 'true'
+        os.environ['PIP_ACCEL_MAX_RETRIES'] = '41'
+        os.environ['PIP_ACCEL_S3_TIMEOUT'] = '51'
+        os.environ['PIP_ACCEL_S3_RETRIES'] = '61'
+        config = Config()
+        assert config.auto_install is True
+        assert config.max_retries == 41
+        assert config.s3_cache_timeout == 51
+        assert config.s3_cache_retries == 61
+
     def test_config_file_handling(self):
         """
         Test error handling during loading of configuration files.
 
         This tests the :py:func:`~pip_accel.config.Config.load_configuration_file()` method.
         """
+        directory = create_temporary_directory()
+        config_file = os.path.join(directory, 'pip-accel.ini')
         # Create a dummy configuration object.
         config = Config(load_configuration_files=False, load_environment_variables=False)
         # Check that loading of non-existing configuration files raises the expected exception.
         self.assertRaises(Exception, config.load_configuration_file, generate_nonexisting_pathname())
         # Check that loading of invalid configuration files raises the expected exception.
-        directory = create_temporary_directory()
-        config_file = os.path.join(directory, 'pip-accel.ini')
         with open(config_file, 'w') as handle:
             handle.write('[a-section-not-called-pip-accel]\n')
             handle.write('name = value\n')
         self.assertRaises(Exception, config.load_configuration_file, config_file)
+        # Check that valid configuration files are successfully loaded.
+        with open(config_file, 'w') as handle:
+            handle.write('[pip-accel]\n')
+            handle.write('data-directory = %s\n' % directory)
+        os.environ['PIP_ACCEL_CONFIG'] = config_file
+        config = Config()
+        assert config.data_directory == directory
 
     def test_cleanup_of_broken_links(self):
         """
