@@ -12,4 +12,4 @@ build: off
 test_script:
   - cmd: '"%PYTHON%\Scripts\coverage.exe" run setup.py test'
 on_success:
-  - cmd: 'coveralls'
+  - cmd: '"%PYTHON%\Scripts\coveralls.exe"'
