@@ -28,6 +28,7 @@ import glob
 import logging
 import operator
 import os
+import platform
 import random
 import re
 import shutil
@@ -41,7 +42,7 @@ import unittest
 # External dependencies.
 import coloredlogs
 from cached_property import cached_property
-from humanfriendly import coerce_boolean
+from humanfriendly import coerce_boolean, compact
 from pip.commands.install import InstallCommand
 from pip.exceptions import DistributionNotFound
 
@@ -111,6 +112,22 @@ class PipAccelTestCase(unittest.TestCase):
     def setUp(self):
         """Reset logging verbosity before each test."""
         coloredlogs.set_level(logging.INFO)
+
+    def skipTest(self, text, *args, **kw):
+        """
+        Enable backwards compatible "marking of tests to skip".
+
+        By calling this method from a return statement in the test to be
+        skipped the test can be marked as skipped when possible, without
+        breaking the test suite when unittest.TestCase.skipTest() isn't
+        available.
+        """
+        reason = compact(text, *args, **kw)
+        try:
+            super(PipAccelTestCase, self).skipTest(reason)
+        except AttributeError:
+            # unittest.TestCase.skipTest() isn't available in Python 2.6.
+            logger.warning("%s", reason)
 
     def initialize_pip_accel(self, load_environment_variables=False, **overrides):
         """
@@ -222,8 +239,7 @@ class PipAccelTestCase(unittest.TestCase):
         This tests the :py:func:`~pip_accel.PipAccelerator.clean_source_index()` method.
         """
         if WINDOWS:
-            logger.warning("Skipping broken symlink cleanup test (Windows doesn't support symbolic links).")
-            return
+            return self.skipTest("Skipping broken symbolic link cleanup test (Windows doesn't support symbolic links).")
         source_index = create_temporary_directory()
         broken_link = os.path.join(source_index, 'this-is-a-broken-link')
         os.symlink(generate_nonexisting_pathname(), broken_link)
@@ -288,8 +304,10 @@ class PipAccelTestCase(unittest.TestCase):
     def test_package_downgrade(self):
         """Test installation of older versions over newer version (package downgrades)."""
         if find_installed_version('requests') != '2.6.0':
-            logger.warning("Skipping package downgrade test (requests==2.6.0 should be installed beforehand).")
-            return
+            return self.skipTest("""
+                Skipping package downgrade test because requests==2.6.0 should
+                be installed beforehand (see scripts/collect-full-coverage).
+            """)
         accelerator = self.initialize_pip_accel()
         # Downgrade to requests 2.2.1.
         accelerator.install_from_arguments(['requests==2.2.1'])
@@ -326,8 +344,10 @@ class PipAccelTestCase(unittest.TestCase):
         fakes3_pid = int(os.environ.get('PIP_ACCEL_FAKES3_PID', '0'))
         fakes3_root = os.environ.get('PIP_ACCEL_FAKES3_ROOT', '')
         if not (fakes3_pid and fakes3_root):
-            logger.warning("Skipping S3 cache backend test (it looks like FakeS3 isn't running).")
-            return
+            return self.skipTest("""
+                Skipping S3 cache backend test because it looks like FakeS3
+                isn't running (see scripts/collect-full-coverage).
+            """)
         pip_install_args = ['--ignore-installed', '--no-binary=:all:', 'pep8==1.6.2']
         # Initialize an instance of pip-accel with an empty cache.
         accelerator = self.initialize_pip_accel(load_environment_variables=True,
@@ -418,11 +438,18 @@ class PipAccelTestCase(unittest.TestCase):
         user to uninstall a package with pip even if the package was installed
         using pip-accel.
         """
-        # Prevent unsuspecting users from accidentally running the find_files()
-        # tests below on their complete `/usr' or `/usr/local' tree :-).
         if not hasattr(sys, 'real_prefix'):
-            logger.warning("Skipping installed files tracking test (not running in a recognized virtual environment).")
-            return
+            # Prevent unsuspecting users from accidentally running the find_files()
+            # tests below on their complete `/usr' or `/usr/local' tree :-).
+            return self.skipTest("""
+                Skipping installed files tracking test because the test suite
+                isn't running in a recognized virtual environment.
+            """)
+        elif platform.python_implementation() == 'PyPy':
+            return self.skipTest("""
+                Skipping installed files tracking test because iPython can't be
+                properly installed on PyPy (in my experience).
+            """)
         # Install the iPython 1.0 source distribution using pip.
         command = InstallCommand()
         opts, args = command.parse_args([
@@ -558,8 +585,10 @@ class PipAccelTestCase(unittest.TestCase):
         # Make sure pep8 isn't already installed when this test starts.
         uninstall_through_subprocess('pep8')
         if not self.pep8_git_repo:
-            logger.warning("Skipping editable installation test (git clone seems to have failed).")
-            return
+            return self.skipTest("""
+                Skipping editable installation test (git clone of pep8
+                repository from GitHub seems to have failed).
+            """)
         # Install the package from the checkout as an editable package.
         accelerator = self.initialize_pip_accel()
         num_installed = accelerator.install_from_arguments([
@@ -594,8 +623,10 @@ class PipAccelTestCase(unittest.TestCase):
         ensures that the cache invalidation logic works as expected.
         """
         if not self.pep8_git_repo:
-            logger.warning("Skipping cache invalidation test (git clone seems to have failed).")
-            return
+            return self.skipTest("""
+                Skipping cache invalidation test (git clone of pep8
+                repository from GitHub seems to have failed).
+            """)
         iterations = 2
         last_modified_times = []
         accelerator = self.initialize_pip_accel()
@@ -678,12 +709,16 @@ class PipAccelTestCase(unittest.TestCase):
                      ``PIP_ACCEL_TEST_AUTO_INSTALL=yes`` is set (opt-in).
         """
         if WINDOWS:
-            logger.warning("Skipping system package dependency installation test (not relevant on Windows).")
-            return
+            return self.skipTest("""
+                Skipping system package dependency installation
+                test (not supported on Windows).
+            """)
         elif not coerce_boolean(os.environ.get('PIP_ACCEL_TEST_AUTO_INSTALL')):
-            logger.warning("Skipping system package dependency installation test (set the environment variable"
-                           " PIP_ACCEL_TEST_AUTO_INSTALL=true to allow the test suite to use `sudo').")
-            return
+            return self.skipTest("""
+                Skipping system package dependency installation test because
+                you need to set $PIP_ACCEL_TEST_AUTO_INSTALL=true to allow the
+                test suite to use `sudo'.
+            """)
         # Force the removal of a system package required by `lxml' without
         # removing any (reverse) dependencies (we don't actually want to
         # break the system, thank you very much :-). Disclaimer: you opt in
