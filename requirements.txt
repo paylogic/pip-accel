@@ -1,4 +1,4 @@
 cached-property >= 0.1.5
 coloredlogs >= 0.8
-humanfriendly >= 1.14
+humanfriendly >= 1.42
 pip >= 7.0, < 7.2

@@ -23,7 +23,6 @@ import logging
 import os
 import shlex
 import subprocess
-import sys
 
 # Modules included in our package.
 from pip_accel.compat import WINDOWS, configparser
@@ -31,7 +30,8 @@ from pip_accel.exceptions import DependencyInstallationFailed, DependencyInstall
 from pip_accel.utils import is_root
 
 # External dependencies.
-from humanfriendly import Timer, concatenate, pluralize
+from humanfriendly import Timer, concatenate, format, pluralize
+from humanfriendly.prompts import prompt_for_confirmation
 
 # Initialize a logger for this module.
 logger = logging.getLogger(__name__)
@@ -222,16 +222,13 @@ class SystemPackageManager(object):
                                 to install the missing dependencies.
         :raises: :py:exc:`.DependencyInstallationRefused` when the operator refuses.
         """
-        terminal = "\n"
         try:
-            # FIXME raw_input() doesn't exist on Python 3. Switch to humanfriendly.prompts.prompt_for_confirmation()?
-            prompt = "\n  Do you want me to install %s %s? [Y/n] "
-            choice = raw_input(prompt % ("this" if len(missing_dependencies) == 1 else "these",
-                                         "dependency" if len(missing_dependencies) == 1 else "dependencies"))
-            return choice.lower().strip() in ('y', '')
-        except (Exception, KeyboardInterrupt):
-            # Swallow regular exceptions and KeyBoardInterrupt but not SystemExit.
-            terminal = "\n\n"
+            return prompt_for_confirmation(format(
+                "Do you want me to install %s %s?",
+                "this" if len(missing_dependencies) == 1 else "these",
+                "dependency" if len(missing_dependencies) == 1 else "dependencies",
+            ), default=True)
+        except KeyboardInterrupt:
+            # Control-C is a negative response but doesn't
+            # otherwise interrupt the program flow.
             return False
-        finally:
-            sys.stdout.write(terminal)
