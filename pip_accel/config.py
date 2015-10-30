@@ -1,7 +1,7 @@
 # Configuration defaults for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: October 27, 2015
+# Last Change: October 30, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -89,6 +89,7 @@ logger = logging.getLogger(__name__)
 # The locations of the user specific and system wide configuration files.
 LOCAL_CONFIG = '~/.pip-accel/pip-accel.conf'
 GLOBAL_CONFIG = '/etc/pip-accel.conf'
+
 
 class Config(object):
 

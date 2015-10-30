@@ -43,9 +43,6 @@ installed from wheels (their metadata is different).
 .. _wheels: https://pypi.python.org/pypi/wheel
 """
 
-# Semi-standard module versioning.
-__version__ = '0.33'
-
 # Standard library modules.
 import logging
 import os
@@ -69,8 +66,12 @@ from pip.commands import install as pip_install_module
 from pip.commands.install import InstallCommand
 from pip.exceptions import DistributionNotFound
 
+# Semi-standard module versioning.
+__version__ = '0.33'
+
 # Initialize a logger for this module.
 logger = logging.getLogger(__name__)
+
 
 class PipAccelerator(object):
 
@@ -558,6 +559,7 @@ class PipAccelerator(object):
             self.create_build_directory()
         return self.build_directories[-1]
 
+
 class CustomPackageFinder(pip_index_module.PackageFinder):
 
     """
@@ -584,6 +586,7 @@ class CustomPackageFinder(pip_index_module.PackageFinder):
     def dependency_links(self, value):
         pass
 
+
 class PatchedAttribute(object):
 
     """
@@ -604,6 +607,7 @@ class PatchedAttribute(object):
 
     def __exit__(self, exc_type=None, exc_value=None, traceback=None):
         setattr(self.object, self.attribute, self.original_value)
+
 
 class AttributeOverrides(object):
 

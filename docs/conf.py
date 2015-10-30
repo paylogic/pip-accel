@@ -1,9 +1,13 @@
-# -*- coding: utf-8 -*-
+# Accelerator for pip, the Python package manager.
 #
-# pip-accel documentation build configuration file. This file is execfile()d
-# with the current directory set to its containing dir.
+# Author: Peter Odding <peter.odding@paylogic.com>
+# Last Change: October 30, 2015
+# URL: https://github.com/paylogic/pip-accel
 
-import sys, os
+"""Sphinx documentation configuration for the `pip-accel` project."""
+
+import os
+import sys
 
 # Add the pip_accel source distribution's root directory to the module path.
 sys.path.insert(0, os.path.abspath('..'))
@@ -29,14 +33,14 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'pip-accel'
-copyright = u'2013, Peter Odding and Paylogic International'
+copyright = u'2015, Peter Odding and Paylogic International'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
 # built documents.
 
 # Find the package version and make it the release.
-from pip_accel import __version__ as pip_accel_version
+from pip_accel import __version__ as pip_accel_version  # NOQA
 
 # The short X.Y version.
 version = '.'.join(pip_accel_version.split('.')[:2])
@@ -74,6 +78,7 @@ html_theme = 'default'
 
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'pip-acceldoc'
+
 
 def setup(app):
     def skip_member(app, what, name, obj, skip, options):

@@ -1,7 +1,7 @@
 # Extension of pip-accel that deals with dependencies on system packages.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: October 28, 2015
+# Last Change: October 30, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -36,6 +36,7 @@ from humanfriendly import Timer, concatenate, pluralize
 # Initialize a logger for this module.
 logger = logging.getLogger(__name__)
 
+
 class SystemPackageManager(object):
 
     """Interface to the system's package manager."""
@@ -65,7 +66,9 @@ class SystemPackageManager(object):
                 supported_command = parser.get('commands', 'supported')
                 logger.debug("Checking if configuration is supported: %s", supported_command)
                 with open(os.devnull, 'wb') as null_device:
-                    if subprocess.call(supported_command, shell=True, stdout=null_device, stderr=subprocess.STDOUT) == 0:
+                    if subprocess.call(supported_command, shell=True,
+                                       stdout=null_device,
+                                       stderr=subprocess.STDOUT) == 0:
                         logger.debug("System package manager configuration is supported!")
                         # Get the commands to list and install system packages.
                         self.list_command = parser.get('commands', 'list')
@@ -114,8 +117,11 @@ class SystemPackageManager(object):
                 # Refuse automatic installation and don't prompt the operator when the configuration says no.
                 self.installation_refused(requirement, missing_dependencies, "automatic installation is disabled")
             # Get the operator's permission to install the missing package(s).
-            if self.config.auto_install or self.confirm_installation(requirement, missing_dependencies, install_command):
-                logger.info("Got permission to install %s.",
+            if self.config.auto_install:
+                logger.info("Got permission to install %s (via auto_install option).",
+                            pluralize(len(missing_dependencies), "dependency", "dependencies"))
+            elif self.confirm_installation(requirement, missing_dependencies, install_command):
+                logger.info("Got permission to install %s (via interactive prompt).",
                             pluralize(len(missing_dependencies), "dependency", "dependencies"))
             else:
                 logger.error("Refused installation of missing %s!",
@@ -130,8 +136,10 @@ class SystemPackageManager(object):
                 logger.error("Failed to install %s.",
                              pluralize(len(missing_dependencies), "dependency", "dependencies"))
                 msg = "Failed to install %s required by Python package %s! (%s)"
-                raise DependencyInstallationFailed(msg % (pluralize(len(missing_dependencies), "system package", "system packages"),
-                                                          requirement.name, concatenate(missing_dependencies)))
+                raise DependencyInstallationFailed(msg % (pluralize(len(missing_dependencies),
+                                                                    "system package", "system packages"),
+                                                          requirement.name,
+                                                          concatenate(missing_dependencies)))
         return False
 
     def find_missing_dependencies(self, requirement):
@@ -196,9 +204,13 @@ class SystemPackageManager(object):
         :param reason: The reason why installation was refused (a string).
         """
         msg = "Missing %s (%s) required by Python package %s (%s) but %s!"
-        raise DependencyInstallationRefused(msg % (pluralize(len(missing_dependencies), "system package", "system packages"),
-                                                   concatenate(missing_dependencies), requirement.name, requirement.version,
-                                                   reason))
+        raise DependencyInstallationRefused(
+            msg % (pluralize(len(missing_dependencies), "system package", "system packages"),
+                   concatenate(missing_dependencies),
+                   requirement.name,
+                   requirement.version,
+                   reason)
+        )
 
     def confirm_installation(self, requirement, missing_dependencies, install_command):
         """

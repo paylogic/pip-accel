@@ -1,7 +1,7 @@
 # Simple wrapper for pip and pkg_resources Requirement objects.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: May 3, 2015
+# Last Change: October 30, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -41,6 +41,7 @@ from cached_property import cached_property
 from pip._vendor.distlib.util import ARCHIVE_EXTENSIONS
 from pip._vendor.pkg_resources import find_distributions
 from pip.req import InstallRequirement
+
 
 class Requirement(object):
 
@@ -160,19 +161,21 @@ class Requirement(object):
         elif probably_sdist and not probably_wheel:
             return False
         elif probably_sdist and probably_wheel:
+            variables = dict(requirement=self.setuptools_requirement,
+                             directory=self.source_directory)
             raise UnknownDistributionFormat("""
                 The unpacked distribution of {requirement} in {directory} looks
                 like a source distribution and a wheel distribution, I'm
                 confused!
-            """, requirement=self.setuptools_requirement,
-                 directory=self.source_directory)
+            """, **variables)
         else:
+            variables = dict(requirement=self.setuptools_requirement,
+                             directory=self.source_directory)
             raise UnknownDistributionFormat("""
                 The unpacked distribution of {requirement} in {directory}
                 doesn't look like a source distribution and also doesn't look
                 like a wheel distribution, I'm confused!
-            """, requirement=self.setuptools_requirement,
-                 directory=self.source_directory)
+            """, **variables)
 
     @cached_property
     def is_transitive(self):
@@ -228,6 +231,7 @@ class Requirement(object):
         """
         return "%s (%s)" % (self.name, self.version)
 
+
 def escape_name(requirement_name):
     """
     Escape a requirement's name for use in a regular expression.
@@ -240,6 +244,7 @@ def escape_name(requirement_name):
     :returns: The requirement's name as a regular expression (a string).
     """
     return re.sub('[^A-Za-z0-9]', escape_name_callback, requirement_name)
+
 
 def escape_name_callback(match):
     """

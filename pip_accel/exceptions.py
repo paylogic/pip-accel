@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: April 4, 2015
+# Last Change: October 30, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -26,13 +26,16 @@ Hierarchy of exceptions
 If you're interested in implementing structured handling of exceptions reported
 by pip-accel the following diagram may help by visualizing the hierarchy:
 
-.. inheritance-diagram:: EnvironmentMismatchError UnknownDistributionFormat InvalidSourceDistribution BuildFailed NoBuildOutput CacheBackendError CacheBackendDisabledError DependencyInstallationRefused DependencyInstallationFailed
+.. inheritance-diagram:: EnvironmentMismatchError UnknownDistributionFormat InvalidSourceDistribution \
+                         BuildFailed NoBuildOutput CacheBackendError CacheBackendDisabledError \
+                         DependencyInstallationRefused DependencyInstallationFailed
    :parts: 1
 
 ----
 """
 
 from pip_accel.utils import compact
+
 
 class PipAcceleratorError(Exception):
 
@@ -45,6 +48,7 @@ class PipAcceleratorError(Exception):
         """Accepts the same arguments as :py:func:`.compact()`."""
         super(PipAcceleratorError, self).__init__(compact(text, **kw))
 
+
 class NothingToDoError(PipAcceleratorError):
     """
     Raised by :py:func:`~pip_accel.PipAccelerator.get_pip_requirement_set()`
@@ -52,11 +56,13 @@ class NothingToDoError(PipAcceleratorError):
     set (this happens when the user specifies an empty requirements file).
     """
 
+
 class EnvironmentMismatchError(PipAcceleratorError):
     """
     Raised by :py:func:`~pip_accel.PipAccelerator.validate_environment()` when
     it detects a mismatch between :py:data:`sys.prefix` and ``$VIRTUAL_ENV``.
     """
+
 
 class UnknownDistributionFormat(PipAcceleratorError):
     """
@@ -65,8 +71,10 @@ class UnknownDistributionFormat(PipAcceleratorError):
     wheel distribution.
     """
 
+
 class BinaryDistributionError(PipAcceleratorError):
     """Base class for exceptions related to the generation of binary distributions."""
+
 
 class InvalidSourceDistribution(BinaryDistributionError):
     """
@@ -74,11 +82,13 @@ class InvalidSourceDistribution(BinaryDistributionError):
     when the given directory doesn't contain a Python source distribution.
     """
 
+
 class BuildFailed(BinaryDistributionError):
     """
     Raised by :py:func:`~pip_accel.bdist.BinaryDistributionManager.build_binary_dist()`
     when a binary distribution build fails.
     """
+
 
 class NoBuildOutput(BinaryDistributionError):
     """
@@ -87,14 +97,18 @@ class NoBuildOutput(BinaryDistributionError):
     distribution archive.
     """
 
+
 class CacheBackendError(PipAcceleratorError):
     """Raised by cache backends when they fail in a controlled manner."""
+
 
 class CacheBackendDisabledError(CacheBackendError):
     """Raised by cache backends when they require configuration."""
 
+
 class SystemDependencyError(PipAcceleratorError):
     """Base class for exceptions related to missing system packages."""
+
 
 class DependencyInstallationRefused(SystemDependencyError):
     """
@@ -102,6 +116,7 @@ class DependencyInstallationRefused(SystemDependencyError):
     required system packages are missing and automatic installation of missing
     dependencies is disabled by the operator.
     """
+
 
 class DependencyInstallationFailed(SystemDependencyError):
     """

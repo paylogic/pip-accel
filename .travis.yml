@@ -16,6 +16,7 @@ install:
   - LC_ALL=C scripts/retry-command pip install coveralls --editable "file://${PWD}[s3]"
   - scripts/retry-command gem install fakes3
 script:
+  - make check
   - scripts/collect-full-coverage
 after_success:
   - scripts/retry-command coveralls

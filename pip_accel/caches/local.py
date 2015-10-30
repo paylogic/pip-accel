@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: October 29, 2015
+# Last Change: October 30, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -30,6 +30,7 @@ from pip_accel.utils import makedirs, replace_file
 
 # Initialize a logger for this module.
 logger = logging.getLogger(__name__)
+
 
 class LocalCacheBackend(AbstractCacheBackend):
 

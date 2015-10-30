@@ -1,7 +1,7 @@
 # Utility functions for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: October 29, 2015
+# Last Change: October 30, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -27,6 +27,7 @@ from humanfriendly import parse_path
 from pip.commands.uninstall import UninstallCommand
 from pkg_resources import WorkingSet
 
+
 def compact(text, **kw):
     """
     Compact whitespace in a string and format any keyword arguments into the
@@ -37,6 +38,7 @@ def compact(text, **kw):
     :returns: The compacted, formatted string.
     """
     return '\n\n'.join(' '.join(p.split()) for p in text.split('\n\n')).format(**kw)
+
 
 def expand_path(pathname):
     """
@@ -60,6 +62,7 @@ def expand_path(pathname):
         pathname = os.path.join(home_directory, pathname[2:])
     return parse_path(pathname)
 
+
 def find_home_directory():
     """
     Look up the home directory of the effective user id.
@@ -82,9 +85,11 @@ def find_home_directory():
         directory = entry.pw_dir
     return directory
 
+
 def is_root():
     """Detect whether we're running with super user privileges."""
     return False if WINDOWS else os.getuid() == 0
+
 
 def get_python_version():
     """
@@ -107,6 +112,7 @@ def get_python_version():
     return '%s-%i.%i' % (platform.python_implementation(),
                          sys.version_info[0],
                          sys.version_info[1])
+
 
 def makedirs(path, mode=0o777):
     """
@@ -131,6 +137,7 @@ def makedirs(path, mode=0o777):
             raise
         return False
 
+
 def same_directories(path1, path2):
     """
     Check if two pathnames refer to the same directory.
@@ -148,6 +155,7 @@ def same_directories(path1, path2):
             return os.path.realpath(path1) == os.path.realpath(path2)
     else:
         return False
+
 
 def replace_file(src, dst):
     """
@@ -176,6 +184,7 @@ def replace_file(src, dst):
     os.remove(dst)
     os.rename(src, dst)
 
+
 def is_installed(package_name):
     """
     Check whether a package is installed in the current environment.
@@ -184,6 +193,7 @@ def is_installed(package_name):
     :returns: ``True`` if the package is installed, ``False`` otherwise.
     """
     return package_name.lower() in (d.key.lower() for d in WorkingSet())
+
 
 def uninstall(*package_names):
     """
@@ -199,6 +209,7 @@ def uninstall(*package_names):
     opts, args = command.parse_args(['--yes'] + list(package_names))
     command.run(opts, args)
 
+
 def find_installed_version(package_name):
     """
     Find the version of an installed package.
@@ -212,6 +223,7 @@ def find_installed_version(package_name):
         if distribution.key.lower() == package_name:
             return distribution.version
 
+
 def match_option(argument, short_option, long_option):
     """
     Match a command line argument against a short and long option.
@@ -223,6 +235,7 @@ def match_option(argument, short_option, long_option):
     """
     return short_option[1] in argument[1:] if is_short_option(argument) else argument == long_option
 
+
 def is_short_option(argument):
     """
     Check if a command line argument is a short option.
@@ -231,6 +244,7 @@ def is_short_option(argument):
     :returns: ``True`` if the argument is a short option, ``False`` otherwise.
     """
     return len(argument) >= 2 and argument[0] == '-' and argument[1] != '-'
+
 
 def match_option_with_value(arguments, option, value):
     """
@@ -244,6 +258,7 @@ def match_option_with_value(arguments, option, value):
     """
     return ('%s=%s' % (option, value) in arguments or
             contains_sublist(arguments, [option, value]))
+
 
 def contains_sublist(lst, sublst):
     """

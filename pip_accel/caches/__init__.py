@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: October 28, 2015
+# Last Change: October 30, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -39,6 +39,7 @@ registered_backends = set()
 # On Windows it is not allowed to have colons in filenames so we use a dollar sign instead.
 FILENAME_PATTERN = 'v%i\\%s$%s$%s.tar.gz' if WINDOWS else 'v%i/%s:%s:%s.tar.gz'
 
+
 class CacheBackendMeta(type):
 
     """Metaclass to intercept cache backend definitions."""
@@ -46,6 +47,7 @@ class CacheBackendMeta(type):
     def __init__(cls, name, bases, dict):
         type.__init__(cls, name, bases, dict)
         registered_backends.add(cls)
+
 
 class AbstractCacheBackend(object):
 
@@ -107,12 +109,14 @@ class AbstractCacheBackend(object):
     def __repr__(self):
         return self.__class__.__name__
 
+
 # Obscure syntax gymnastics to define a class with a metaclass whose
 # definition is compatible with Python 2.x as well as Python 3.x.
 # See also: https://wiki.python.org/moin/PortingToPy3k/BilingualQuickRef#metaclasses
 AbstractCacheBackend = CacheBackendMeta('AbstractCacheBackend',
                                         AbstractCacheBackend.__bases__,
                                         dict(AbstractCacheBackend.__dict__))
+
 
 class CacheManager(object):
 

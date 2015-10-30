@@ -1,7 +1,7 @@
 # Functions to manipulate Python binary distribution archives.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: October 28, 2015
+# Last Change: October 30, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -32,13 +32,13 @@ from humanfriendly import Spinner, Timer, concatenate
 
 # Modules included in our package.
 from pip_accel.caches import CacheManager
-from pip_accel.compat import WINDOWS
 from pip_accel.deps import SystemPackageManager
 from pip_accel.exceptions import BuildFailed, InvalidSourceDistribution, NoBuildOutput
 from pip_accel.utils import compact, makedirs
 
 # Initialize a logger for this module.
 logger = logging.getLogger(__name__)
+
 
 class BinaryDistributionManager(object):
 
@@ -194,8 +194,11 @@ class BinaryDistributionManager(object):
         # (amongst other things) enables tracking of installed files.
         command_line = [
             self.config.python_executable, '-c',
-            "import setuptools;__file__=%r;"\
-            "exec(compile(open(__file__).read().replace('\\r\\n', '\\n'), __file__, 'exec'))" % os.path.join(requirement.source_directory, 'setup.py')
+            ';'.join([
+                'import setuptools',
+                '__file__=%r' % setup_script,
+                r"exec(compile(open(__file__).read().replace('\r\n', '\n'), __file__, 'exec'))",
+            ])
         ] + setup_command
         # Redirect all output of the build to a temporary file.
         fd, temporary_file = tempfile.mkstemp()
@@ -224,8 +227,13 @@ class BinaryDistributionManager(object):
                 # Check if we can find the binary distribution archive.
                 filenames = os.listdir(dist_directory)
                 if len(filenames) != 1:
-                    raise NoBuildOutput("Build of {name} ({version}) produced more than one distribution archive! (matches: {filenames})",
-                                        name=requirement.name, version=requirement.version, filenames=concatenate(sorted(filenames)))
+                    variables = dict(name=requirement.name,
+                                     version=requirement.version,
+                                     filenames=concatenate(sorted(filenames)))
+                    raise NoBuildOutput("""
+                        Build of {name} ({version}) produced more than one
+                        distribution archive! (matches: {filenames})
+                    """, **variables)
             except Exception as e:
                 # Decorate the exception with the output of the failed build.
                 with open(temporary_file) as handle:
@@ -305,7 +313,8 @@ class BinaryDistributionManager(object):
             elif not member.isdir():
                 modified_pathname = os.path.relpath(absolute_pathname, self.config.install_prefix)
                 if os.path.isabs(modified_pathname):
-                    logger.warn("Failed to transform pathname in binary distribution to relative path! (original: %r, modified: %r)",
+                    logger.warn("Failed to transform pathname in binary distribution"
+                                " to relative path! (original: %r, modified: %r)",
                                 original_pathname, modified_pathname)
                 else:
                     # Rewrite /usr/local to /usr (same goes for all prefixes of course).
@@ -323,7 +332,8 @@ class BinaryDistributionManager(object):
                     yield member, handle
         archive.close()
 
-    def install_binary_dist(self, members, virtualenv_compatible=True, prefix=None, python=None, track_installed_files=False):
+    def install_binary_dist(self, members, virtualenv_compatible=True, prefix=None,
+                            python=None, track_installed_files=False):
         """
         Install a binary distribution created by :py:class:`build_binary_dist()`
         into the given prefix (a directory like ``/usr``, ``/usr/local`` or a

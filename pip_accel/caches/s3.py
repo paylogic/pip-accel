@@ -3,7 +3,7 @@
 # Authors:
 #  - Adam Feuer <adam@adamfeuer.com>
 #  - Peter Odding <peter.odding@paylogic.com>
-# Last Change: May 3, 2015
+# Last Change: October 30, 2015
 # URL: https://github.com/paylogic/pip-accel
 #
 # A word of warning: Do *not* use the cached_property decorator here, because
@@ -133,6 +133,7 @@ BOTO_CONFIG_SOCKET_TIMEOUT_OPTION = 'http_socket_timeout'
 if coerce_boolean(os.environ.get('PIP_ACCEL_SILENCE_BOTO', 'true')):
     logging.getLogger('boto').setLevel(logging.FATAL)
 
+
 class S3CacheBackend(AbstractCacheBackend):
 
     """The S3 cache backend stores distribution archives in a user defined Amazon S3 bucket."""
@@ -224,7 +225,8 @@ class S3CacheBackend(AbstractCacheBackend):
                     self.cached_bucket = self.s3_connection.get_bucket(self.config.s3_cache_bucket)
                 except S3ResponseError as e:
                     if e.status == 404 and self.config.s3_cache_create_bucket:
-                        logger.info("Amazon S3 bucket doesn't exist yet, creating it now: %s", self.config.s3_cache_bucket)
+                        logger.info("Amazon S3 bucket doesn't exist yet, creating it now: %s",
+                                    self.config.s3_cache_bucket)
                         self.s3_connection.create_bucket(self.config.s3_cache_bucket)
                         self.cached_bucket = self.s3_connection.get_bucket(self.config.s3_cache_bucket)
                     else:
@@ -273,7 +275,8 @@ class S3CacheBackend(AbstractCacheBackend):
                 endpoint = urlparse(self.config.s3_cache_url)
                 host, _, port = endpoint.netloc.partition(':')
                 is_secure = (endpoint.scheme == 'https')
-                calling_format = SubdomainCallingFormat() if host == S3Connection.DefaultHost else OrdinaryCallingFormat()
+                calling_format = (SubdomainCallingFormat() if host == S3Connection.DefaultHost
+                                  else OrdinaryCallingFormat())
                 try:
                     self.cached_connection = S3Connection(host=host,
                                                           port=int(port) if port else None,

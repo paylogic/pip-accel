@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: April 6, 2015
+# Last Change: October 30, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -26,6 +26,7 @@ import coloredlogs
 
 # Initialize a logger for this module.
 logger = logging.getLogger(__name__)
+
 
 def main():
     """The command line interface for the ``pip-accel`` program."""
@@ -62,6 +63,7 @@ def main():
     except Exception:
         logger.exception("Caught unhandled exception!")
         sys.exit(1)
+
 
 def usage():
     """Print a usage message to the terminal."""
