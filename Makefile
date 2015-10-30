@@ -38,7 +38,7 @@ reset:
 
 test: install
 	$(ACTIVATE) && pip-accel install --quiet -r requirements-testing.txt
-	$(ACTIVATE) && tox -- -v
+	$(ACTIVATE) && detox -- -v
 
 coverage: install
 	test -x "$(VIRTUAL_ENV)/bin/coverage" || ($(ACTIVATE) && pip-accel install --quiet coverage)
