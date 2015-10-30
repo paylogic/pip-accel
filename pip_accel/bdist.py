@@ -247,8 +247,7 @@ class BinaryDistributionManager(object):
                     Build output:
 
                     {output}
-                """, message=e.args[0],
-                     output=build_output.strip())
+                """, message=e.args[0], output=build_output.strip())
                 e.args = (enhanced_message,)
                 raise
             logger.info("Finished building %s in %s.", requirement.name, build_timer)
