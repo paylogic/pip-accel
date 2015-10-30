@@ -730,11 +730,14 @@ class PipAccelTestCase(unittest.TestCase):
         self.assertRaises(DependencyInstallationRefused, accelerator.install_from_arguments, [
             '--ignore-installed', 'lxml==3.2.1'
         ])
-        # Try to ask for permission but make the prompt fail because standard
-        # input cannot be read (this test suite obviously needs to be
-        # non-interactive) and make sure the system package manager refuses to
-        # install the missing dependency.
-        with PatchedAttribute(sys, 'stdin', open(os.devnull)):
+
+        # A file-like object that always says no :-).
+        class FakeStandardInput(object):
+            def readline(self):
+                return 'no\n'
+
+        # Try to ask for permission but refuse to give it.
+        with PatchedAttribute(sys, 'stdin', FakeStandardInput()):
             accelerator = self.initialize_pip_accel(auto_install=None, data_directory=create_temporary_directory())
             self.assertRaises(DependencyInstallationRefused, accelerator.install_from_arguments, [
                 '--ignore-installed', 'lxml==3.2.1'

@@ -67,7 +67,7 @@ from pip.commands.install import InstallCommand
 from pip.exceptions import DistributionNotFound
 
 # Semi-standard module versioning.
-__version__ = '0.33.1'
+__version__ = '0.33.2'
 
 # Initialize a logger for this module.
 logger = logging.getLogger(__name__)
