@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: April 11, 2015
+# Last Change: October 28, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -22,6 +22,7 @@ which automatically disables backends that report errors.
 import logging
 
 # Modules included in our package.
+from pip_accel.compat import WINDOWS
 from pip_accel.exceptions import CacheBackendDisabledError
 from pip_accel.utils import get_python_version
 
@@ -34,6 +35,9 @@ logger = logging.getLogger(__name__)
 
 # Initialize the registry of cache backends.
 registered_backends = set()
+
+# On Windows it is not allowed to have colons in filenames so we use a dollar sign instead.
+FILENAME_PATTERN = 'v%i\\%s$%s$%s.tar.gz' if WINDOWS else 'v%i/%s:%s:%s.tar.gz'
 
 class CacheBackendMeta(type):
 
@@ -193,5 +197,6 @@ class CacheManager(object):
                   including a single leading directory component to indicate
                   the cache format revision.
         """
-        return 'v%i/%s:%s:%s.tar.gz' % (self.config.cache_format_revision,
-                                        requirement.name, requirement.version, get_python_version())
+        return FILENAME_PATTERN % (self.config.cache_format_revision,
+                                   requirement.name, requirement.version,
+                                   get_python_version())

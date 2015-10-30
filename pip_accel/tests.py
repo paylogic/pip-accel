@@ -1,9 +1,7 @@
-#!/usr/bin/env python
-
 # Tests for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: September 22, 2015
+# Last Change: October 30, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -30,11 +28,11 @@ import glob
 import logging
 import operator
 import os
-import pipes
 import random
 import re
 import shutil
 import signal
+import stat
 import subprocess
 import sys
 import tempfile
@@ -42,6 +40,7 @@ import unittest
 
 # External dependencies.
 import coloredlogs
+from cached_property import cached_property
 from humanfriendly import coerce_boolean
 from pip.commands.install import InstallCommand
 from pip.exceptions import DistributionNotFound
@@ -49,7 +48,7 @@ from pip.exceptions import DistributionNotFound
 # Modules included in our package.
 from pip_accel import PatchedAttribute, PipAccelerator
 from pip_accel.cli import main
-from pip_accel.compat import StringIO
+from pip_accel.compat import WINDOWS, StringIO
 from pip_accel.config import Config
 from pip_accel.deps import DependencyInstallationRefused, SystemPackageManager
 from pip_accel.exceptions import EnvironmentMismatchError
@@ -71,7 +70,20 @@ def tearDownModule():
     while TEMPORARY_DIRECTORIES:
         directory = TEMPORARY_DIRECTORIES.pop(0)
         logger.debug("Cleaning up temporary directory: %s", directory)
-        shutil.rmtree(directory)
+        shutil.rmtree(directory, onerror=delete_read_only)
+
+def delete_read_only(action, pathname, exc_info):
+    """
+    Force removal of read only files on Windows.
+
+    Based on http://stackoverflow.com/a/21263493/788200.
+    Needed because of https://ci.appveyor.com/project/xolox/pip-accel/build/1.0.24.
+    """
+    if action in (os.remove, os.rmdir):
+        # Mark the directory or file as writable.
+        os.chmod(pathname, stat.S_IWUSR)
+        # Retry the action.
+        action(pathname)
 
 def create_temporary_directory():
     """
@@ -112,6 +124,9 @@ class PipAccelTestCase(unittest.TestCase):
         """
         config = Config(load_configuration_files=False,
                         load_environment_variables=load_environment_variables)
+        if not overrides.get('data_directory'):
+            # Always use a data directory isolated to the current test.
+            overrides['data_directory'] = create_temporary_directory()
         for name, value in overrides.items():
             setattr(config, name, value)
         accelerator = PipAccelerator(config)
@@ -136,12 +151,37 @@ class PipAccelTestCase(unittest.TestCase):
 
         This tests the :py:func:`~pip_accel.PipAccelerator.validate_environment()` method.
         """
-        original_value = os.environ.get('VIRTUAL_ENV')
+        original_value = os.environ.get('VIRTUAL_ENV', None)
         try:
             os.environ['VIRTUAL_ENV'] = generate_nonexisting_pathname()
             self.assertRaises(EnvironmentMismatchError, self.initialize_pip_accel)
         finally:
-            os.environ['VIRTUAL_ENV'] = original_value
+            if original_value is not None:
+                os.environ['VIRTUAL_ENV'] = original_value
+            else:
+                del os.environ['VIRTUAL_ENV']
+
+    def test_config_object_handling(self):
+        """Test that configuration options can be overridden in the Python API."""
+        config = Config()
+        # Create a unique value that compares equal only to itself.
+        unique_value = object()
+        # Check the default value of a configuration option.
+        assert config.cache_format_revision != unique_value
+        # Override the default value.
+        config.cache_format_revision = unique_value
+        # Ensure that the override is respected.
+        assert config.cache_format_revision == unique_value
+        # Test that environment variables can set configuration options.
+        os.environ['PIP_ACCEL_AUTO_INSTALL'] = 'true'
+        os.environ['PIP_ACCEL_MAX_RETRIES'] = '41'
+        os.environ['PIP_ACCEL_S3_TIMEOUT'] = '51'
+        os.environ['PIP_ACCEL_S3_RETRIES'] = '61'
+        config = Config()
+        assert config.auto_install is True
+        assert config.max_retries == 41
+        assert config.s3_cache_timeout == 51
+        assert config.s3_cache_retries == 61
 
     def test_config_file_handling(self):
         """
@@ -149,17 +189,24 @@ class PipAccelTestCase(unittest.TestCase):
 
         This tests the :py:func:`~pip_accel.config.Config.load_configuration_file()` method.
         """
+        directory = create_temporary_directory()
+        config_file = os.path.join(directory, 'pip-accel.ini')
         # Create a dummy configuration object.
         config = Config(load_configuration_files=False, load_environment_variables=False)
         # Check that loading of non-existing configuration files raises the expected exception.
         self.assertRaises(Exception, config.load_configuration_file, generate_nonexisting_pathname())
         # Check that loading of invalid configuration files raises the expected exception.
-        directory = create_temporary_directory()
-        config_file = os.path.join(directory, 'pip-accel.ini')
         with open(config_file, 'w') as handle:
             handle.write('[a-section-not-called-pip-accel]\n')
             handle.write('name = value\n')
         self.assertRaises(Exception, config.load_configuration_file, config_file)
+        # Check that valid configuration files are successfully loaded.
+        with open(config_file, 'w') as handle:
+            handle.write('[pip-accel]\n')
+            handle.write('data-directory = %s\n' % directory)
+        os.environ['PIP_ACCEL_CONFIG'] = config_file
+        config = Config()
+        assert config.data_directory == directory
 
     def test_cleanup_of_broken_links(self):
         """
@@ -167,6 +214,9 @@ class PipAccelTestCase(unittest.TestCase):
 
         This tests the :py:func:`~pip_accel.PipAccelerator.clean_source_index()` method.
         """
+        if WINDOWS:
+            logger.warning("Skipping broken symlink cleanup test (Windows doesn't support symbolic links).")
+            return
         source_index = create_temporary_directory()
         broken_link = os.path.join(source_index, 'this-is-a-broken-link')
         os.symlink(generate_nonexisting_pathname(), broken_link)
@@ -178,11 +228,10 @@ class PipAccelTestCase(unittest.TestCase):
         """
         Verify pip-accel's "keeping pip off the internet" logic using an empty cache.
 
-        This test downloads, builds and installs verboselogs 1.0.1 (a trivial
-        Python package I created once) to verify that pip-accel keeps pip off
-        the internet when intended.
+        This test downloads, builds and installs pep8 1.6.2 to verify that
+        pip-accel keeps pip off the internet when intended.
         """
-        pip_install_args = ['--ignore-installed', 'verboselogs==1.0.1']
+        pip_install_args = ['--ignore-installed', 'pep8==1.6.2']
         # Initialize an instance of pip-accel with an empty cache.
         accelerator = self.initialize_pip_accel(data_directory=create_temporary_directory())
         # First we do a simple sanity check that unpack_source_dists() does not
@@ -202,14 +251,14 @@ class PipAccelTestCase(unittest.TestCase):
         requirements = accelerator.download_source_dists(pip_install_args)
         assert isinstance(requirements, list), "Unexpected return value type from download_source_dists()!"
         assert len(requirements) == 1, "Expected download_source_dists() to return one requirement!"
-        assert requirements[0].name == 'verboselogs', "Requirement has unexpected name!"
-        assert requirements[0].version == '1.0.1', "Requirement has unexpected version!"
+        assert requirements[0].name == 'pep8', "Requirement has unexpected name!"
+        assert requirements[0].version == '1.6.2', "Requirement has unexpected version!"
         assert os.path.isdir(requirements[0].source_directory), "Requirement's source directory doesn't exist!"
         # Test the build and installation of the binary package.
         num_installed = accelerator.install_requirements(requirements)
         assert num_installed == 1, "Expected pip-accel to install exactly one package!"
-        # Make sure the `verboselogs' module can be imported after installation.
-        __import__('verboselogs')
+        # Make sure the `pep8' module can be imported after installation.
+        __import__('pep8')
         # We now have a non-empty download cache and source index so this
         # should not raise an exception (it should use the source index).
         accelerator.unpack_source_dists(pip_install_args)
@@ -217,11 +266,15 @@ class PipAccelTestCase(unittest.TestCase):
     def test_package_upgrade(self):
         """Test installation of newer versions over older versions."""
         accelerator = self.initialize_pip_accel()
-        # Install version 1.0 of the `verboselogs' package.
-        num_installed = accelerator.install_from_arguments(['--ignore-installed', 'verboselogs==1.0'])
+        # Install version 1.6 of the `pep8' package.
+        num_installed = accelerator.install_from_arguments([
+            '--ignore-installed', '--no-binary=:all:', 'pep8==1.6',
+        ])
         assert num_installed == 1, "Expected pip-accel to install exactly one package!"
-        # Install version 1.0.1 of the `verboselogs' package.
-        num_installed = accelerator.install_from_arguments(['--ignore-installed', 'verboselogs==1.0.1'])
+        # Install version 1.6.2 of the `pep8' package.
+        num_installed = accelerator.install_from_arguments([
+            '--ignore-installed', '--no-binary=:all:', 'pep8==1.6.2',
+        ])
         assert num_installed == 1, "Expected pip-accel to install exactly one package!"
 
     def test_package_downgrade(self):
@@ -240,9 +293,8 @@ class PipAccelTestCase(unittest.TestCase):
         """
         Verify the successful usage of the S3 cache backend.
 
-        This test downloads, builds and installs verboselogs 1.0.1 (a trivial
-        Python package I created once) to verify that the S3 cache backend
-        works. It depends on FakeS3 (refer to the shell script
+        This test downloads, builds and installs pep8 1.6.2 to verify that the
+        S3 cache backend works. It depends on FakeS3 (refer to the shell script
         ``scripts/collect-full-coverage`` in the pip-accel git repository).
 
         This test uses a temporary binary index which it wipes after a
@@ -268,7 +320,7 @@ class PipAccelTestCase(unittest.TestCase):
         if not (fakes3_pid and fakes3_root):
             logger.warning("Skipping S3 cache backend test (it looks like FakeS3 isn't running).")
             return
-        pip_install_args = ['--ignore-installed', 'verboselogs==1.0.1']
+        pip_install_args = ['--ignore-installed', '--no-binary=:all:', 'pep8==1.6.2']
         # Initialize an instance of pip-accel with an empty cache.
         accelerator = self.initialize_pip_accel(load_environment_variables=True,
                                                 data_directory=create_temporary_directory(),
@@ -278,17 +330,15 @@ class PipAccelTestCase(unittest.TestCase):
         for i in [1, 2, 3, 4]:
             if i > 1:
                 logger.debug("Resetting binary index to force binary distribution download from S3 ..")
-                shutil.rmtree(accelerator.config.binary_cache)
-                os.mkdir(accelerator.config.binary_cache)
+                wipe_directory(accelerator.config.binary_cache)
             if i == 3:
                 logger.debug("Making FakeS3 root (%s) read only to emulate read only S3 bucket ..", fakes3_root)
-                shutil.rmtree(fakes3_root)
-                os.makedirs(fakes3_root)
+                wipe_directory(fakes3_root)
                 os.chmod(fakes3_root, 0o555)
             if i == 4:
                 logger.debug("Killing FakeS3 (%i) to force S3 cache backend failure ..", fakes3_pid)
                 os.kill(fakes3_pid, signal.SIGKILL)
-            # Install the verboselogs package using the S3 cache backend.
+            # Install the pep8 package using the S3 cache backend.
             num_installed = accelerator.install_from_arguments(pip_install_args)
             assert num_installed == 1, "Expected pip-accel to install exactly one package!"
             # Check the state of the S3 cache backend? This test is only valid
@@ -479,13 +529,13 @@ class PipAccelTestCase(unittest.TestCase):
         """
         Test the installation of editable packages using ``pip install --editable``.
 
-        This test clones the git repository of my trivial `verboselogs` Python
-        package and installs the package as an editable package.
+        This test clones the git repository of the Python package `pep8` and
+        installs the package as an editable package.
 
-        We want to import the `verboselogs` module to confirm that it was
+        We want to import the `pep8` module to confirm that it was
         properly installed but we can't do that in the process that's running
         the test suite because it will fail with an import error. Python
-        subprocesses however will import the `verboselogs` module just fine.
+        subprocesses however will import the `pep8` module just fine.
 
         This happens because ``easy-install.pth`` (used for editable packages)
         is loaded once during startup of the Python interpreter and never
@@ -495,38 +545,64 @@ class PipAccelTestCase(unittest.TestCase):
 
         .. _issue 402 in the Gunicorn issue tracker: https://github.com/benoitc/gunicorn/issues/402
         """
-        # Make sure verboselogs isn't already installed when this test starts.
-        uninstall_through_subprocess('verboselogs')
-        # Clone the remote git repository.
-        temporary_directory = create_temporary_directory()
-        git_checkout = os.path.join(temporary_directory, 'verboselogs')
-        git_remote = 'https://github.com/xolox/python-verboselogs.git'
-        if os.system('git clone --depth=1 %s %s' % (pipes.quote(git_remote), pipes.quote(git_checkout))) != 0:
+        # Make sure pep8 isn't already installed when this test starts.
+        uninstall_through_subprocess('pep8')
+        if not self.pep8_git_repo:
             logger.warning("Skipping editable installation test (git clone seems to have failed).")
             return
         # Install the package from the checkout as an editable package.
         accelerator = self.initialize_pip_accel()
         num_installed = accelerator.install_from_arguments([
-            '--ignore-installed', '--editable', git_checkout
+            '--ignore-installed', '--editable', self.pep8_git_repo,
         ])
         assert num_installed == 1, "Expected pip-accel to install exactly one package!"
-        # Importing verboselogs here fails even though the package is properly
+        # Importing pep8 here fails even though the package is properly
         # installed. We start a Python interpreter in a subprocess to verify
-        # that verboselogs is properly installed to work around this.
-        python = subprocess.Popen([sys.executable, '-c', 'print(__import__("verboselogs").__file__)'],
+        # that pep8 is properly installed to work around this.
+        python = subprocess.Popen([sys.executable, '-c', 'print(__import__("pep8").__file__)'],
                                   stdout=subprocess.PIPE)
         stdout, stderr = python.communicate()
         python_module = stdout.decode().strip()
         # Under Mac OS X the following startswith() check will fail if we don't
         # resolve symbolic links (under Mac OS X /var is a symbolic link to
         # /private/var).
-        git_checkout = os.path.realpath(git_checkout)
+        git_checkout = os.path.realpath(self.pep8_git_repo)
         python_module = os.path.realpath(python_module)
         assert python_module.startswith(git_checkout), "Editable Python module not located under git checkout of project!"
         # Cleanup after ourselves so that unrelated tests involving the
-        # verboselogs package don't get confused when they're run after
+        # pep8 package don't get confused when they're run after
         # this test and encounter an editable package.
-        uninstall_through_subprocess('verboselogs')
+        uninstall_through_subprocess('pep8')
+
+    def test_cache_invalidation(self):
+        """
+        Test the cache invalidation logic.
+
+        When a source distribution archive is newer than its cached binary
+        distribution archive the binary is invalidated and rebuilt. This test
+        ensures that the cache invalidation logic works as expected.
+        """
+        if not self.pep8_git_repo:
+            logger.warning("Skipping cache invalidation test (git clone seems to have failed).")
+            return
+        iterations = 2
+        last_modified_times = []
+        accelerator = self.initialize_pip_accel()
+        for _ in range(iterations):
+            # Start with an empty source index on each iteration.
+            wipe_directory(accelerator.config.source_index)
+            # Get the pep8 package from the git repository.
+            num_installed = accelerator.install_from_arguments([
+                '--ignore-installed', self.pep8_git_repo,
+            ])
+            assert num_installed == 1, "Expected pip-accel to install exactly one package!"
+            # Get the last modified time of the cached binary distribution.
+            last_modified_times.extend(map(os.path.getmtime, find_files(accelerator.config.binary_cache, 'pep8')))
+        # The code above wiped the source index directory but it never
+        # touched the binary index, so if two *pep8* files with unique
+        # `last modified times' are seen in the binary index then the
+        # cache invalidation kicked in!
+        assert len(set(last_modified_times)) == iterations
 
     def test_cli_install(self):
         """
@@ -568,7 +644,9 @@ class PipAccelTestCase(unittest.TestCase):
 
         .. _issue 47: https://github.com/paylogic/pip-accel/issues/47
         """
-        returncode = test_cli('pip-accel', 'install', '--requirement', '/dev/null')
+        empty_file = os.path.join(create_temporary_directory(), 'empty-requirements-file.txt')
+        open(empty_file, 'w').close()
+        returncode = test_cli('pip-accel', 'install', '--requirement', empty_file)
         assert returncode == 0, "pip-accel command line interface failed on empty requirements file!"
 
     def test_system_package_dependency_installation(self):
@@ -588,8 +666,10 @@ class PipAccelTestCase(unittest.TestCase):
                      the test is skipped unless the environment variable
                      ``PIP_ACCEL_TEST_AUTO_INSTALL=yes`` is set (opt-in).
         """
-        # Test system package dependency handling.
-        if not coerce_boolean(os.environ.get('PIP_ACCEL_TEST_AUTO_INSTALL')):
+        if WINDOWS:
+            logger.warning("Skipping system package dependency installation test (not relevant on Windows).")
+            return
+        elif not coerce_boolean(os.environ.get('PIP_ACCEL_TEST_AUTO_INSTALL')):
             logger.warning("Skipping system package dependency installation test (set the environment variable"
                            " PIP_ACCEL_TEST_AUTO_INSTALL=true to allow the test suite to use `sudo').")
             return
@@ -597,7 +677,7 @@ class PipAccelTestCase(unittest.TestCase):
         # removing any (reverse) dependencies (we don't actually want to
         # break the system, thank you very much :-). Disclaimer: you opt in
         # to this with $PIP_ACCEL_TEST_AUTO_INSTALL...
-        os.system('sudo dpkg --remove --force-depends libxslt1-dev')
+        subprocess.call(['sudo', 'dpkg', '--remove', '--force-depends', 'libxslt1-dev'])
         # Make sure that when automatic installation is disabled the system
         # package manager refuses to install the missing dependency.
         accelerator = self.initialize_pip_accel(auto_install=False, data_directory=create_temporary_directory())
@@ -641,6 +721,28 @@ class PipAccelTestCase(unittest.TestCase):
             # Never leave the dummy configuration file behind.
             os.remove(dummy_deps_config)
 
+    @cached_property
+    def pep8_git_repo(self):
+        """The pathname of a git clone of the ``pep8`` package (:data:`None` if git fails)."""
+        git_checkout = os.path.join(create_temporary_directory(), 'pep8')
+        git_remote = 'https://github.com/PyCQA/pep8.git'
+        if subprocess.call(['git', 'clone', '--depth=1', git_remote, git_checkout]) == 0:
+            return git_checkout
+        else:
+            return None
+
+
+def wipe_directory(pathname):
+    """
+    Delete and recreate a directory.
+
+    :param pathname: The directory's pathname (a string).
+    """
+    if os.path.isdir(pathname):
+        shutil.rmtree(pathname)
+    os.makedirs(pathname)
+
+
 def uninstall_through_subprocess(package_name):
     """
     Remove an installed Python package by running ``pip`` as a subprocess.
@@ -652,7 +754,10 @@ def uninstall_through_subprocess(package_name):
 
     :param package_name: The name of the package (a string).
     """
-    subprocess.call([os.path.join(sys.prefix, 'bin', 'pip'), 'uninstall', '--yes', 'verboselogs'])
+    subprocess.call([
+        find_python_program('pip'),
+        'uninstall', '--yes', package_name,
+    ])
 
 def find_files(directory, substring):
     """
@@ -682,7 +787,7 @@ def try_program(program_name):
                          :py:data:`sys.prefix` and this argument.
     :raises: :py:exc:`~exceptions.AssertionError` when a test fails.
     """
-    program_path = os.path.join(sys.prefix, 'bin', program_name)
+    program_path = find_python_program(program_name)
     logger.debug("Making sure %s is installed ..", program_path)
     assert os.path.isfile(program_path), \
         ("Missing program file! (%s)" % program_path)
@@ -690,8 +795,23 @@ def try_program(program_name):
     assert os.access(program_path, os.X_OK), \
         ("Program file not executable! (%s)" % program_path)
     logger.debug("Making sure %s --help works ..", program_path)
-    assert os.system('%s --help 1>/dev/null 2>&1' % pipes.quote(program_path)) == 0, \
-        ("Program doesn't run! (%s --help failed)" % program_path)
+    with open(os.devnull, 'wb') as null_device:
+        # Redirect stdout to /dev/null and stderr to stdout.
+        assert subprocess.call([program_path, '--help'], stdout=null_device, stderr=subprocess.STDOUT) == 0, \
+            ("Program doesn't run! (%s --help failed)" % program_path)
+
+def find_python_program(program_name):
+    """
+    Get the absolute pathname of a Python program installed in the current environment.
+
+    :param name: The base name of the program (a string).
+    :returns: The absolute pathname of the program (a string).
+    """
+    directory = 'Scripts' if WINDOWS else 'bin'
+    pathname = os.path.join(sys.prefix, directory, program_name)
+    if WINDOWS:
+        pathname += '.exe'
+    return pathname
 
 def generate_nonexisting_pathname():
     """

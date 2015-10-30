@@ -1,3 +1,6 @@
+# .travis.yml: Configuration for continuous integration (automated tests)
+# hosted on Travis CI, see https://travis-ci.org/paylogic/pip-accel.
+
 sudo: required
 language: python
 python:
@@ -10,7 +13,7 @@ env:
 before_install:
   - scripts/retry-command sudo apt-get update
 install:
-  - scripts/retry-command pip install coveralls --editable "file://${PWD}[s3]"
+  - LC_ALL=C scripts/retry-command pip install coveralls --editable "file://${PWD}[s3]"
   - scripts/retry-command gem install fakes3
 script:
   - scripts/collect-full-coverage

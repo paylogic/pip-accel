@@ -1,7 +1,7 @@
 # Extension of pip-accel that deals with dependencies on system packages.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: November 22, 2014
+# Last Change: October 28, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -26,8 +26,9 @@ import subprocess
 import sys
 
 # Modules included in our package.
-from pip_accel.compat import configparser
+from pip_accel.compat import WINDOWS, configparser
 from pip_accel.exceptions import DependencyInstallationFailed, DependencyInstallationRefused, SystemDependencyError
+from pip_accel.utils import is_root
 
 # External dependencies.
 from humanfriendly import Timer, concatenate, pluralize
@@ -63,19 +64,20 @@ class SystemPackageManager(object):
                 # Check if the package manager is supported.
                 supported_command = parser.get('commands', 'supported')
                 logger.debug("Checking if configuration is supported: %s", supported_command)
-                if subprocess.call(supported_command, shell=True) == 0:
-                    logger.debug("System package manager configuration is supported!")
-                    # Get the commands to list and install system packages.
-                    self.list_command = parser.get('commands', 'list')
-                    self.install_command = parser.get('commands', 'install')
-                    # Get the known dependencies.
-                    self.dependencies = dict((n.lower(), v.split()) for n, v
-                                             in parser.items('dependencies'))
-                    logger.debug("Loaded dependencies of %s: %s",
-                                 pluralize(len(self.dependencies), "Python package"),
-                                 concatenate(sorted(self.dependencies)))
-                else:
-                    logger.debug("Command failed, assuming configuration doesn't apply ..")
+                with open(os.devnull, 'wb') as null_device:
+                    if subprocess.call(supported_command, shell=True, stdout=null_device, stderr=subprocess.STDOUT) == 0:
+                        logger.debug("System package manager configuration is supported!")
+                        # Get the commands to list and install system packages.
+                        self.list_command = parser.get('commands', 'list')
+                        self.install_command = parser.get('commands', 'install')
+                        # Get the known dependencies.
+                        self.dependencies = dict((n.lower(), v.split()) for n, v
+                                                 in parser.items('dependencies'))
+                        logger.debug("Loaded dependencies of %s: %s",
+                                     pluralize(len(self.dependencies), "Python package"),
+                                     concatenate(sorted(self.dependencies)))
+                    else:
+                        logger.debug("Command failed, assuming configuration doesn't apply ..")
 
     def install_dependencies(self, requirement):
         """
@@ -97,8 +99,10 @@ class SystemPackageManager(object):
         if missing_dependencies:
             # Compose the command line for the install command.
             install_command = shlex.split(self.install_command) + missing_dependencies
-            if os.getuid() != 0:
-                # Prepend `sudo' to the command line.
+            # Prepend `sudo' to the command line?
+            if not WINDOWS and not is_root():
+                # FIXME Ideally this should properly detect the presence of `sudo'.
+                #       Or maybe this should just be embedded in the *.ini files?
                 install_command.insert(0, 'sudo')
             # Always suggest the installation command to the operator.
             logger.info("You seem to be missing %s: %s",
@@ -208,6 +212,7 @@ class SystemPackageManager(object):
         """
         terminal = "\n"
         try:
+            # FIXME raw_input() doesn't exist on Python 3. Switch to humanfriendly.prompts.prompt_for_confirmation()?
             prompt = "\n  Do you want me to install %s %s? [Y/n] "
             choice = raw_input(prompt % ("this" if len(missing_dependencies) == 1 else "these",
                                          "dependency" if len(missing_dependencies) == 1 else "dependencies"))

@@ -1,7 +1,7 @@
 # Utility functions for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: September 22, 2015
+# Last Change: October 29, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -17,17 +17,15 @@ with any single module.
 import errno
 import os
 import platform
-import pwd
-import re
 import sys
 
+# Modules included in our package.
+from pip_accel.compat import WINDOWS
+
 # External dependencies.
+from humanfriendly import parse_path
 from pip.commands.uninstall import UninstallCommand
 from pkg_resources import WorkingSet
-
-# Look up the home directory of the effective user id so we can generate
-# pathnames relative to the home directory.
-HOME = pwd.getpwuid(os.getuid()).pw_dir
 
 def compact(text, **kw):
     """
@@ -40,7 +38,7 @@ def compact(text, **kw):
     """
     return '\n\n'.join(' '.join(p.split()) for p in text.split('\n\n')).format(**kw)
 
-def expand_user(pathname):
+def expand_path(pathname):
     """
     Variant of :py:func:`os.path.expanduser()` that doesn't use ``$HOME`` but
     instead uses the home directory of the effective user id. This is basically
@@ -49,8 +47,44 @@ def expand_user(pathname):
     :param pathname: A pathname that may start with ``~/``, indicating the path
                      should be interpreted as being relative to the home
                      directory of the current (effective) user.
+    :returns: The (modified) pathname.
     """
-    return re.sub('^~(?=/)', HOME, pathname)
+    # The following logic previously used regular expressions but that approach
+    # turned out to be very error prone, hence the current contraption based on
+    # direct string manipulation :-).
+    home_directory = find_home_directory()
+    separators = set([os.sep])
+    if os.altsep is not None:
+        separators.add(os.altsep)
+    if len(pathname) >= 2 and pathname[0] == '~' and pathname[1] in separators:
+        pathname = os.path.join(home_directory, pathname[2:])
+    return parse_path(pathname)
+
+def find_home_directory():
+    """
+    Look up the home directory of the effective user id.
+
+    :returns: The pathname of the home directory (a string).
+
+    .. note:: On Windows this uses the ``%APPDATA%`` environment variable (if
+              available) and otherwise falls back to ``~/Application Data``.
+    """
+    if WINDOWS:
+        directory = os.environ.get('APPDATA')
+        if not directory:
+            directory = os.path.expanduser(r'~\Application Data')
+    else:
+        # This module isn't available on Windows so we have to import it here.
+        import pwd
+        # Look up the home directory of the effective user id so we can
+        # generate pathnames relative to the home directory.
+        entry = pwd.getpwuid(os.getuid())
+        directory = entry.pw_dir
+    return directory
+
+def is_root():
+    """Detect whether we're running with super user privileges."""
+    return False if WINDOWS else os.getuid() == 0
 
 def get_python_version():
     """
@@ -96,6 +130,51 @@ def makedirs(path, mode=0o777):
             # because we could be obscuring a real problem.
             raise
         return False
+
+def same_directories(path1, path2):
+    """
+    Check if two pathnames refer to the same directory.
+
+    :param path1: The first pathname (a string).
+    :param path2: The second pathname (a string).
+    :returns: :data:`True` if both pathnames refer to the same directory,
+              :data:`False` otherwise.
+    """
+    if all(os.path.isdir(p) for p in (path1, path2)):
+        try:
+            return os.path.samefile(path1, path2)
+        except AttributeError:
+            # On Windows and Python 2 os.path.samefile() is unavailable.
+            return os.path.realpath(path1) == os.path.realpath(path2)
+    else:
+        return False
+
+def replace_file(src, dst):
+    """
+    Overwrite a file (in an atomic fashion when possible).
+
+    :param src: The pathname of the source file (a string).
+    :param dst: The pathname of the destination file (a string).
+    """
+    # Try os.replace() which was introduced in Python 3.3
+    # (this should work on POSIX as well as Windows systems).
+    try:
+        os.replace(src, dst)
+        return
+    except AttributeError:
+        pass
+    # Try os.rename() which is atomic on UNIX but refuses to overwrite existing
+    # files on Windows.
+    try:
+        os.rename(src, dst)
+        return
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise
+    # Finally we fall back to the dumb approach required only on Windows.
+    # See https://bugs.python.org/issue8828 for a long winded discussion.
+    os.remove(dst)
+    os.rename(src, dst)
 
 def is_installed(package_name):
     """

@@ -3,33 +3,40 @@
 # Setup script for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: April 10, 2015
+# Last Change: October 29, 2015
 # URL: https://github.com/paylogic/pip-accel
 
+# Standard library modules.
+import codecs
+import os
 import re
-from os.path import abspath, dirname, join
+
+# De-facto standard solution for Python packaging.
 from setuptools import setup, find_packages
 
 # Find the directory where the source distribution was unpacked.
-source_directory = dirname(abspath(__file__))
+source_directory = os.path.dirname(os.path.abspath(__file__))
 
 # Find the current version.
-module = join(source_directory, 'pip_accel', '__init__.py')
-for line in open(module):
-    match = re.match(r'^__version__\s*=\s*["\']([^"\']+)["\']$', line)
-    if match:
-        version_string = match.group(1)
-        break
-else:
-    raise Exception("Failed to extract version from %s!" % module)
+module = os.path.join(source_directory, 'pip_accel', '__init__.py')
+with open(module) as handle:
+    for line in handle:
+        match = re.match(r'^__version__\s*=\s*["\']([^"\']+)["\']$', line)
+        if match:
+            version_string = match.group(1)
+            break
+    else:
+        raise Exception("Failed to extract version from %s!" % module)
 
 # Fill in the long description (for the benefit of PyPI)
 # with the contents of README.rst (rendered by GitHub).
-readme_file = join(source_directory, 'README.rst')
-readme_text = open(readme_file).read()
+readme_file = os.path.join(source_directory, 'README.rst')
+with codecs.open(readme_file, 'r', 'utf-8') as handle:
+    readme_text = handle.read()
 
 # Fill in the "install_requires" field based on requirements.txt.
-requirements = [l.strip() for l in open(join(source_directory, 'requirements.txt'))]
+with open(os.path.join(source_directory, 'requirements.txt')) as handle:
+    requirements = [line.strip() for line in handle]
 
 setup(name='pip-accel',
       version=version_string,
@@ -51,4 +58,24 @@ setup(name='pip-accel',
       extras_require={'s3': 'boto >= 2.32'},
       package_data={'pip_accel.deps': ['*.ini']},
       install_requires=requirements,
-      test_suite='pip_accel.tests')
+      test_suite='pip_accel.tests',
+      classifiers=[
+          'Development Status :: 5 - Production/Stable',
+          'Environment :: Console',
+          'Intended Audience :: Developers',
+          'Intended Audience :: Information Technology',
+          'Intended Audience :: System Administrators',
+          'License :: OSI Approved :: MIT License',
+          'Operating System :: MacOS :: MacOS X',
+          'Operating System :: Microsoft :: Windows',
+          'Operating System :: POSIX :: Linux',
+          'Operating System :: Unix',
+          'Programming Language :: Python :: 2.6',
+          'Programming Language :: Python :: 2.7',
+          'Programming Language :: Python :: 3.4',
+          'Topic :: Software Development :: Build Tools',
+          'Topic :: Software Development :: Libraries :: Python Modules',
+          'Topic :: System :: Archiving :: Packaging',
+          'Topic :: System :: Installation/Setup',
+          'Topic :: System :: Software Distribution',
+      ])

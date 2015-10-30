@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: September 22, 2015
+# Last Change: October 30, 2015
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Permanently store logs in the pip-accel directory (think about log rotation).
@@ -44,7 +44,7 @@ installed from wheels (their metadata is different).
 """
 
 # Semi-standard module versioning.
-__version__ = '0.32.1'
+__version__ = '0.33'
 
 # Standard library modules.
 import logging
@@ -58,7 +58,7 @@ import tempfile
 from pip_accel.bdist import BinaryDistributionManager
 from pip_accel.exceptions import EnvironmentMismatchError, NothingToDoError
 from pip_accel.req import Requirement
-from pip_accel.utils import is_installed, makedirs, match_option_with_value, uninstall
+from pip_accel.utils import is_installed, makedirs, match_option_with_value, same_directories, uninstall
 
 # External dependencies.
 from humanfriendly import concatenate, Timer, pluralize
@@ -118,12 +118,7 @@ class PipAccelerator(object):
         """
         environment = os.environ.get('VIRTUAL_ENV')
         if environment:
-            try:
-                # Because os.path.samefile() itself can raise exceptions, e.g.
-                # when $VIRTUAL_ENV points to a non-existing directory, we use
-                # an assertion to allow us to use a single code path :-)
-                assert os.path.samefile(sys.prefix, environment)
-            except Exception:
+            if not same_directories(sys.prefix, environment):
                 raise EnvironmentMismatchError("""
                     You are trying to install packages in environment #1 which
                     is different from environment #2 where pip-accel is
@@ -133,8 +128,7 @@ class PipAccelerator(object):
                     Environment #1: {environment} (defined by $VIRTUAL_ENV)
 
                     Environment #2: {prefix} (Python's installation prefix)
-                """, environment=environment,
-                     prefix=sys.prefix)
+                """, environment=environment, prefix=sys.prefix)
 
     def initialize_directories(self):
         """Automatically create the local source distribution index directory."""

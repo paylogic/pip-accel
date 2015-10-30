@@ -1,0 +1,15 @@
+# appveyor.yml: Configuration for continuous integration (automated tests)
+# hosted on AppVeyor, see https://ci.appveyor.com/project/xolox/pip-accel.
+
+version: 1.0.{build}
+environment:
+  PYTHON: C:\Python27
+  COVERALLS_REPO_TOKEN:
+    secure: DCxZQaYFWVR0zWqjTPXhhlRlLdmKNMS2qDUwIR8jRar13clunOqJIaXn+vKInS7g
+install:
+  - cmd: '"%PYTHON%\Scripts\pip.exe" install coveralls .'
+build: off
+test_script:
+  - cmd: '"%PYTHON%\Scripts\coverage.exe" run setup.py test'
+on_success:
+  - cmd: '"%PYTHON%\Scripts\coveralls.exe"'

@@ -1,7 +1,7 @@
 # Functions to manipulate Python binary distribution archives.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: September 9, 2015
+# Last Change: October 28, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -32,6 +32,7 @@ from humanfriendly import Spinner, Timer, concatenate
 
 # Modules included in our package.
 from pip_accel.caches import CacheManager
+from pip_accel.compat import WINDOWS
 from pip_accel.deps import SystemPackageManager
 from pip_accel.exceptions import BuildFailed, InvalidSourceDistribution, NoBuildOutput
 from pip_accel.utils import compact, makedirs
@@ -89,13 +90,19 @@ class BinaryDistributionManager(object):
             fd, transformed_file = tempfile.mkstemp(prefix='pip-accel-bdist-', suffix='.tar.gz')
             try:
                 archive = tarfile.open(transformed_file, 'w:gz')
-                for member, from_handle in self.transform_binary_dist(raw_file):
-                    archive.addfile(member, from_handle)
-                archive.close()
+                try:
+                    for member, from_handle in self.transform_binary_dist(raw_file):
+                        archive.addfile(member, from_handle)
+                finally:
+                    archive.close()
                 # Push the binary distribution archive to all available backends.
                 with open(transformed_file, 'rb') as handle:
                     self.cache.put(requirement, handle)
             finally:
+                # Close file descriptor before removing the temporary file.
+                # Without closing Windows is complaining that the file cannot
+                # be removed because it is used by another process.
+                os.close(fd)
                 # Cleanup the temporary file.
                 os.remove(transformed_file)
             # Get the absolute pathname of the file in the local cache.
@@ -145,7 +152,7 @@ class BinaryDistributionManager(object):
             return self.build_binary_dist_helper(requirement, ['bdist_dumb', '--format=tar'])
         except (BuildFailed, NoBuildOutput):
             logger.warning("Build of %s failed, falling back to alternative method ..", requirement)
-            return self.build_binary_dist_helper(requirement, ['bdist'])
+            return self.build_binary_dist_helper(requirement, ['bdist', '--formats=gztar'])
 
     def build_binary_dist_helper(self, requirement, setup_command):
         """
@@ -239,6 +246,10 @@ class BinaryDistributionManager(object):
             logger.info("Finished building %s in %s.", requirement.name, build_timer)
             return os.path.join(dist_directory, filenames[0])
         finally:
+            # Close file descriptor before removing the temporary file.
+            # Without closing Windows is complaining that the file cannot
+            # be removed because it is used by another process.
+            os.close(fd)
             os.unlink(temporary_file)
 
     def transform_binary_dist(self, archive_path):
