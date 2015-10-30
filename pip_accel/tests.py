@@ -723,7 +723,11 @@ class PipAccelTestCase(unittest.TestCase):
         # removing any (reverse) dependencies (we don't actually want to
         # break the system, thank you very much :-). Disclaimer: you opt in
         # to this with $PIP_ACCEL_TEST_AUTO_INSTALL...
-        subprocess.call(['sudo', 'dpkg', '--remove', '--force-depends', 'libxslt1-dev'])
+        lxml_dependency = 'libxslt1-dev'
+        subprocess.call([
+            'sudo', '-p', "\n Please provide sudo access to (temporarily) remove %s: " % lxml_dependency,
+            'dpkg', '--remove', '--force-depends', lxml_dependency,
+        ])
         # Make sure that when automatic installation is disabled the system
         # package manager refuses to install the missing dependency.
         accelerator = self.initialize_pip_accel(auto_install=False, data_directory=create_temporary_directory())
