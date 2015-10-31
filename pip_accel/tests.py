@@ -318,7 +318,7 @@ class PipAccelTestCase(unittest.TestCase):
 
         This test downloads, builds and installs pep8 1.6.2 to verify that the
         S3 cache backend works. It depends on FakeS3 (refer to the shell script
-        ``scripts/collect-full-coverage`` in the pip-accel git repository).
+        ``scripts/collect-full-coverage.sh`` in the pip-accel git repository).
 
         This test uses a temporary binary index which it wipes after a
         successful installation and then it installs the exact same package
@@ -343,7 +343,7 @@ class PipAccelTestCase(unittest.TestCase):
         if not (fakes3_pid and fakes3_root):
             return self.skipTest("""
                 Skipping S3 cache backend test because it looks like FakeS3
-                isn't running (see scripts/collect-full-coverage).
+                isn't running (see scripts/collect-full-coverage.sh).
             """)
         pip_install_args = ['--ignore-installed', '--no-binary=:all:', 'pep8==1.6.2']
         # Initialize an instance of pip-accel with an empty cache.

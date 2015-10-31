@@ -1,7 +1,7 @@
 # Makefile for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: October 30, 2015
+# Last Change: October 31, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 WORKON_HOME ?= $(HOME)/.virtualenvs
@@ -42,7 +42,7 @@ test: install
 
 coverage: install
 	test -x "$(VIRTUAL_ENV)/bin/coverage" || ($(ACTIVATE) && pip-accel install --quiet coverage)
-	$(ACTIVATE) && scripts/collect-full-coverage
+	$(ACTIVATE) && scripts/collect-full-coverage.sh
 	# Report coverage statistics on the command line.
 	$(ACTIVATE) && coverage report
 	# Generate an HTML report of coverage statistics.
