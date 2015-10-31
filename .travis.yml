@@ -18,6 +18,6 @@ install:
   - scripts/retry-command gem install fakes3
 script:
   - make check
-  - scripts/collect-full-coverage
+  - scripts/collect-full-coverage.sh
 after_success:
   - scripts/retry-command coveralls
