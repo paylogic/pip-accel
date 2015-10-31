@@ -30,3 +30,8 @@
 :: allowing the test suite to compare the files installed and removed by pip
 :: and pip-accel.
 "%PYTHON%\Scripts\pip.exe" uninstall --yes ipython
+
+:: If iPython wasn't installed to begin with, the previous command will have
+:: returned with a nonzero exit code. We don't want this to terminate the
+:: AppVeyor CI build.
+exit /b 0
