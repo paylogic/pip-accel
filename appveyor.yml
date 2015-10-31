@@ -1,5 +1,8 @@
 # appveyor.yml: Configuration for continuous integration (automated tests)
 # hosted on AppVeyor, see https://ci.appveyor.com/project/xolox/pip-accel.
+#
+# This uses a forked coveralls-python until my pull request is merged:
+# https://github.com/coagulant/coveralls-python/pull/97
 
 version: 1.0.{build}
 environment:
