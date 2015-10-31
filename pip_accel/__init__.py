@@ -54,7 +54,14 @@ import tempfile
 from pip_accel.bdist import BinaryDistributionManager
 from pip_accel.exceptions import EnvironmentMismatchError, NothingToDoError
 from pip_accel.req import Requirement
-from pip_accel.utils import is_installed, makedirs, match_option_with_value, same_directories, uninstall
+from pip_accel.utils import (
+    is_installed,
+    makedirs,
+    match_option,
+    match_option_with_value,
+    same_directories,
+    uninstall,
+)
 
 # External dependencies.
 from humanfriendly import concatenate, Timer, pluralize
@@ -66,7 +73,7 @@ from pip.commands.install import InstallCommand
 from pip.exceptions import DistributionNotFound
 
 # Semi-standard module versioning.
-__version__ = '0.33.4'
+__version__ = '0.34'
 
 # Initialize a logger for this module.
 logger = logging.getLogger(__name__)
@@ -273,13 +280,18 @@ class PipAccelerator(object):
         """
         # Use a new build directory for each run of get_requirements().
         self.create_build_directory()
-        # If all requirements can be satisfied using the archives in
-        # pip-accel's local source index we don't need pip to connect
-        # to PyPI looking for new versions (that will slow us down).
-        try:
-            return self.unpack_source_dists(arguments, use_wheels=use_wheels)
-        except DistributionNotFound:
-            logger.info("We don't have all distribution archives yet!")
+        # Check whether -U or --upgrade was given.
+        if any(match_option(a, '-U', '--upgrade') for a in arguments):
+            logger.info("Checking index(es) for new version (-U or --upgrade was given) ..")
+        else:
+            # If -U or --upgrade wasn't given and all requirements can be
+            # satisfied using the archives in pip-accel's local source index we
+            # don't need pip to connect to PyPI looking for new versions (that
+            # will just slow us down).
+            try:
+                return self.unpack_source_dists(arguments, use_wheels=use_wheels)
+            except DistributionNotFound:
+                logger.info("We don't have all distribution archives yet!")
         # Get the maximum number of retries from the configuration if the
         # caller didn't specify a preference.
         if max_retries is None:
