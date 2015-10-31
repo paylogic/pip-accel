@@ -5,11 +5,10 @@
 # URL: https://github.com/paylogic/pip-accel
 
 """
-:py:mod:`pip_accel.utils` - Utility functions
-=============================================
+Utility functions for the pip accelerator.
 
-The :py:mod:`pip_accel.utils` module defines several miscellaneous/utility
-functions that are used throughout :py:mod:`pip_accel` but don't really belong
+The :mod:`pip_accel.utils` module defines several miscellaneous/utility
+functions that are used throughout :mod:`pip_accel` but don't really belong
 with any single module.
 """
 
@@ -34,26 +33,29 @@ logger = logging.getLogger(__name__)
 
 def compact(text, **kw):
     """
-    Compact whitespace in a string and format any keyword arguments into the
-    resulting string. Preserves paragraphs.
+    Compact whitespace in a string and format any keyword arguments into the string.
 
     :param text: The text to compact (a string).
-    :param kw: Any keyword arguments to apply using :py:func:`str.format()`.
+    :param kw: Any keyword arguments to apply using :func:`str.format()`.
     :returns: The compacted, formatted string.
+
+    The whitespace compaction preserves paragraphs.
     """
     return '\n\n'.join(' '.join(p.split()) for p in text.split('\n\n')).format(**kw)
 
 
 def expand_path(pathname):
     """
-    Variant of :py:func:`os.path.expanduser()` that doesn't use ``$HOME`` but
-    instead uses the home directory of the effective user id. This is basically
-    a workaround for ``sudo -s`` not resetting ``$HOME``.
+    Expand the home directory in a pathname based on the effective user id.
 
     :param pathname: A pathname that may start with ``~/``, indicating the path
                      should be interpreted as being relative to the home
                      directory of the current (effective) user.
     :returns: The (modified) pathname.
+
+    This function is a variant of :func:`os.path.expanduser()` that doesn't use
+    ``$HOME`` but instead uses the home directory of the effective user id.
+    This is basically a workaround for ``sudo -s`` not resetting ``$HOME``.
     """
     # The following logic previously used regular expressions but that approach
     # turned out to be very error prone, hence the current contraption based on
@@ -64,6 +66,7 @@ def expand_path(pathname):
         separators.add(os.altsep)
     if len(pathname) >= 2 and pathname[0] == '~' and pathname[1] in separators:
         pathname = os.path.join(home_directory, pathname[2:])
+    # Also expand environment variables.
     return parse_path(pathname)
 
 
@@ -101,8 +104,8 @@ def get_python_version():
 
     This function generates a string that uniquely identifies the currently
     running Python implementation and version. The Python implementation is
-    discovered using :py:func:`platform.python_implementation()` and the major
-    and minor version numbers are extracted from :py:data:`sys.version_info`.
+    discovered using :func:`platform.python_implementation()` and the major
+    and minor version numbers are extracted from :data:`sys.version_info`.
 
     :returns: A string containing the name of the Python implementation
               and the major and minor version numbers.
@@ -125,10 +128,10 @@ def makedirs(path, mode=0o777):
     :param path: The pathname of the directory to create (a string).
     :param mode: The mode to apply to newly created directories (an integer,
                  defaults to the octal number ``0777``).
-    :returns: ``True`` when the directory was created, ``False`` if it already
+    :returns: :data:`True` when the directory was created, :data:`False` if it already
               existed.
-    :raises: Any exceptions raised by :py:func:`os.makedirs()` except for
-             :py:data:`errno.EEXIST` (this error is swallowed and ``False`` is
+    :raises: Any exceptions raised by :func:`os.makedirs()` except for
+             :data:`errno.EEXIST` (this error is swallowed and :data:`False` is
              returned instead).
     """
     try:
@@ -226,7 +229,7 @@ def is_installed(package_name):
     Check whether a package is installed in the current environment.
 
     :param package_name: The name of the package (a string).
-    :returns: ``True`` if the package is installed, ``False`` otherwise.
+    :returns: :data:`True` if the package is installed, :data:`False` otherwise.
     """
     return package_name.lower() in (d.key.lower() for d in WorkingSet())
 
@@ -237,7 +240,7 @@ def uninstall(*package_names):
 
     The package(s) to uninstall must be installed, otherwise pip will raise an
     ``UninstallationError``. You can check for installed packages using
-    :py:func:`is_installed()`.
+    :func:`is_installed()`.
 
     :param package_names: The names of one or more Python packages (strings).
     """
@@ -251,7 +254,7 @@ def find_installed_version(package_name):
     Find the version of an installed package.
 
     :param package_name: The name of the package (a string).
-    :returns: The package's version (a string) or ``None`` if the package can't
+    :returns: The package's version (a string) or :data:`None` if the package can't
               be found.
     """
     package_name = package_name.lower()
@@ -267,7 +270,7 @@ def match_option(argument, short_option, long_option):
     :param argument: The command line argument (a string).
     :param short_option: The short option (a string).
     :param long_option: The long option (a string).
-    :returns: ``True`` if the argument matches, ``False`` otherwise.
+    :returns: :data:`True` if the argument matches, :data:`False` otherwise.
     """
     return short_option[1] in argument[1:] if is_short_option(argument) else argument == long_option
 
@@ -277,7 +280,7 @@ def is_short_option(argument):
     Check if a command line argument is a short option.
 
     :param argument: The command line argument (a string).
-    :returns: ``True`` if the argument is a short option, ``False`` otherwise.
+    :returns: :data:`True` if the argument is a short option, :data:`False` otherwise.
     """
     return len(argument) >= 2 and argument[0] == '-' and argument[1] != '-'
 
@@ -289,8 +292,8 @@ def match_option_with_value(arguments, option, value):
     :param arguments: The command line arguments (a list of strings).
     :param option: The long option (a string).
     :param value: The expected value (a string).
-    :returns: ``True`` if the command line contains the option/value pair,
-              ``False`` otherwise.
+    :returns: :data:`True` if the command line contains the option/value pair,
+              :data:`False` otherwise.
     """
     return ('%s=%s' % (option, value) in arguments or
             contains_sublist(arguments, [option, value]))

@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 
-# Setup script for the pip accelerator.
+# Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: October 29, 2015
+# Last Change: October 30, 2015
 # URL: https://github.com/paylogic/pip-accel
+
+"""Setup script for the `pip-accel` package."""
 
 # Standard library modules.
 import codecs

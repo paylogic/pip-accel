@@ -1,12 +1,11 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: October 30, 2015
+# Last Change: October 31, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
-:py:mod:`pip_accel.exceptions` - Exceptions for structured error handling
-=========================================================================
+Exceptions for structured error handling.
 
 This module defines named exceptions raised by pip-accel when it encounters
 error conditions that:
@@ -39,87 +38,116 @@ from pip_accel.utils import compact
 
 class PipAcceleratorError(Exception):
 
-    """
-    Base exception for all exception types explicitly raised by
-    :py:mod:`pip_accel`.
-    """
+    """Base exception for all exception types explicitly raised by :mod:`pip_accel`."""
 
     def __init__(self, text, **kw):
-        """Accepts the same arguments as :py:func:`.compact()`."""
+        """
+        Initialize a :class:`PipAcceleratorError` object.
+
+        Accepts the same arguments as :func:`.compact()`.
+        """
         super(PipAcceleratorError, self).__init__(compact(text, **kw))
 
 
 class NothingToDoError(PipAcceleratorError):
+
     """
-    Raised by :py:func:`~pip_accel.PipAccelerator.get_pip_requirement_set()`
+    Custom exception raised on empty requirement sets.
+
+    Raised by :func:`~pip_accel.PipAccelerator.get_pip_requirement_set()`
     when pip doesn't report an error but also doesn't generate a requirement
     set (this happens when the user specifies an empty requirements file).
     """
 
 
 class EnvironmentMismatchError(PipAcceleratorError):
+
     """
-    Raised by :py:func:`~pip_accel.PipAccelerator.validate_environment()` when
-    it detects a mismatch between :py:data:`sys.prefix` and ``$VIRTUAL_ENV``.
+    Custom exception raised when a cross-environment action is attempted.
+
+    Raised by :func:`~pip_accel.PipAccelerator.validate_environment()` when
+    it detects a mismatch between :data:`sys.prefix` and ``$VIRTUAL_ENV``.
     """
 
 
 class UnknownDistributionFormat(PipAcceleratorError):
+
     """
-    Raised by :py:attr:`~pip_accel.req.Requirement.is_wheel` when it cannot
+    Custom exception raised on unrecognized distribution archives.
+
+    Raised by :attr:`~pip_accel.req.Requirement.is_wheel` when it cannot
     discern whether a given unpacked distribution is a source distribution or a
     wheel distribution.
     """
 
 
 class BinaryDistributionError(PipAcceleratorError):
+
     """Base class for exceptions related to the generation of binary distributions."""
 
 
 class InvalidSourceDistribution(BinaryDistributionError):
+
     """
-    Raised by :py:func:`~pip_accel.bdist.BinaryDistributionManager.build_binary_dist()`
+    Custom exception raised when a source distribution's setup script is missing.
+
+    Raised by :func:`~pip_accel.bdist.BinaryDistributionManager.build_binary_dist()`
     when the given directory doesn't contain a Python source distribution.
     """
 
 
 class BuildFailed(BinaryDistributionError):
+
     """
-    Raised by :py:func:`~pip_accel.bdist.BinaryDistributionManager.build_binary_dist()`
+    Custom exception raised when a binary distribution build fails.
+
+    Raised by :func:`~pip_accel.bdist.BinaryDistributionManager.build_binary_dist()`
     when a binary distribution build fails.
     """
 
 
 class NoBuildOutput(BinaryDistributionError):
+
     """
-    Raised by :py:func:`~pip_accel.bdist.BinaryDistributionManager.build_binary_dist()`
+    Custom exception raised when binary distribution builds don't generate an archive.
+
+    Raised by :func:`~pip_accel.bdist.BinaryDistributionManager.build_binary_dist()`
     when a binary distribution build fails to produce the expected binary
     distribution archive.
     """
 
 
 class CacheBackendError(PipAcceleratorError):
-    """Raised by cache backends when they fail in a controlled manner."""
+
+    """Custom exception raised by cache backends when they fail in a controlled manner."""
 
 
 class CacheBackendDisabledError(CacheBackendError):
-    """Raised by cache backends when they require configuration."""
+
+    """Custom exception raised by cache backends when they require configuration."""
 
 
 class SystemDependencyError(PipAcceleratorError):
+
     """Base class for exceptions related to missing system packages."""
 
 
 class DependencyInstallationRefused(SystemDependencyError):
+
     """
-    Raised by :py:class:`.SystemPackageManager` when one or more known to be
+    Custom exception raised when installation of dependencies is refused.
+
+    Raised by :class:`.SystemPackageManager` when one or more known to be
     required system packages are missing and automatic installation of missing
     dependencies is disabled by the operator.
     """
 
 
 class DependencyInstallationFailed(SystemDependencyError):
+
     """
-    Raised by :py:class:`.SystemPackageManager` when the installation of
+    Custom exception raised when installation of dependencies fails.
+
+    Raised by :class:`.SystemPackageManager` when the installation of
     missing system packages fails.
     """

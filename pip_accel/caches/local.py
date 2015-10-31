@@ -5,14 +5,13 @@
 # URL: https://github.com/paylogic/pip-accel
 
 """
-:py:mod:`pip_accel.caches.local` - Local cache backend
-======================================================
+Local file system cache backend.
 
 This module implements the local cache backend which stores distribution
 archives on the local file system. This is a very simple cache backend, all it
 does is create directories and write local files. The only trick here is that
 new binary distribution archives are written to temporary files which are
-then moved into place atomically using :py:func:`os.rename()` to avoid partial
+then moved into place atomically using :func:`os.rename()` to avoid partial
 reads caused by running multiple invocations of pip-accel at the same time
 (which happened in `issue 25`_).
 
@@ -44,7 +43,7 @@ class LocalCacheBackend(AbstractCacheBackend):
 
         :param filename: The filename of the distribution archive (a string).
         :returns: The pathname of a distribution archive on the local file
-                  system or ``None``.
+                  system or :data:`None`.
         """
         pathname = os.path.join(self.config.binary_cache, filename)
         if os.path.isfile(pathname):

@@ -303,6 +303,7 @@ pip-accel is based).
 .. _.boto file: http://boto.readthedocs.org/en/latest/boto_config_tut.html
 .. _Amazon S3 cache backend: http://pip-accel.readthedocs.org/en/latest/developers.html#module-pip_accel.caches.s3
 .. _Amazon S3: http://aws.amazon.com/s3/
+.. _AppVeyor: https://ci.appveyor.com/project/xolox/pip-accel
 .. _behind a CDN: http://mail.python.org/pipermail/distutils-sig/2013-May/020848.html
 .. _Binary distributions: http://docs.python.org/2/distutils/builtdist.html
 .. _Boto: https://github.com/boto/boto
@@ -323,3 +324,4 @@ pip-accel is based).
 .. _requirements files: http://www.pip-installer.org/en/latest/cookbook.html#requirements-files
 .. _S3 compatible storage service: http://en.wikipedia.org/wiki/Amazon_S3#S3_API_and_competing_services
 .. _Tox: https://tox.readthedocs.org/
+.. _Travis CI: https://travis-ci.org/paylogic/pip-accel

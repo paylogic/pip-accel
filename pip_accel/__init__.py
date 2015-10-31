@@ -8,14 +8,13 @@
 # TODO Maybe we should save the output of `python setup.py bdist_dumb` somewhere as well?
 
 """
-:py:mod:`pip_accel` - Top level functionality
-=============================================
+Top level functionality of `pip-accel`.
 
-The Python module :py:mod:`pip_accel` defines the classes that implement the
+The Python module :mod:`pip_accel` defines the classes that implement the
 top level functionality of the pip accelerator. Instead of using the
 ``pip-accel`` command you can also use the pip accelerator as a Python module,
 in this case you'll probably want to start by taking a look at
-the :py:class:`PipAccelerator` class.
+the :class:`PipAccelerator` class.
 
 Wheel support
 -------------
@@ -78,10 +77,10 @@ class PipAccelerator(object):
     """
     Accelerator for pip, the Python package manager.
 
-    The :py:class:`PipAccelerator` class brings together the top level logic of
+    The :class:`PipAccelerator` class brings together the top level logic of
     pip-accel. This top level logic was previously just a collection of
     functions but that became more unwieldy as the amount of internal state
-    increased. The :py:class:`PipAccelerator` class is intended to make it
+    increased. The :class:`PipAccelerator` class is intended to make it
     (relatively) easy to build something on top of pip and pip-accel.
     """
 
@@ -89,10 +88,10 @@ class PipAccelerator(object):
         """
         Initialize the pip accelerator.
 
-        :param config: The pip-accel configuration (a :py:class:`.Config`
+        :param config: The pip-accel configuration (a :class:`.Config`
                        object).
-        :param validate: ``True`` to run :py:func:`validate_environment()`,
-                         ``False`` otherwise.
+        :param validate: :data:`True` to run :func:`validate_environment()`,
+                         :data:`False` otherwise.
         """
         self.config = config
         self.bdists = BinaryDistributionManager(self.config)
@@ -108,7 +107,7 @@ class PipAccelerator(object):
 
     def validate_environment(self):
         """
-        Make sure :py:data:`sys.prefix` matches ``$VIRTUAL_ENV`` (if defined).
+        Make sure :data:`sys.prefix` matches ``$VIRTUAL_ENV`` (if defined).
 
         This may seem like a strange requirement to dictate but it avoids hairy
         issues like `documented here <https://github.com/paylogic/pip-accel/issues/5>`_.
@@ -137,6 +136,8 @@ class PipAccelerator(object):
 
     def clean_source_index(self):
         """
+        Cleanup broken symbolic links in the local source distribution index.
+
         The purpose of this method requires some context to understand. Let me
         preface this by stating that I realize I'm probably overcomplicating
         things, but I like to preserve forward / backward compatibility when
@@ -150,7 +151,7 @@ class PipAccelerator(object):
           from pip's download cache, broken symbolic links remained in
           pip-accel's local source distribution index directory. This resulted
           in very confusing error messages. To avoid this
-          :py:func:`clean_source_index()` cleaned up broken symbolic links
+          :func:`clean_source_index()` cleaned up broken symbolic links
           whenever pip-accel was about to invoke pip.
 
         - More recent versions of pip (6.x) no longer support the same style of
@@ -201,8 +202,8 @@ class PipAccelerator(object):
         """
         Download, unpack, build and install the specified requirements.
 
-        This function is a simple wrapper for :py:func:`get_requirements()`,
-        :py:func:`install_requirements()` and :py:func:`cleanup_temporary_directories()`
+        This function is a simple wrapper for :func:`get_requirements()`,
+        :func:`install_requirements()` and :func:`cleanup_temporary_directories()`
         that implements the default behavior of the pip accelerator. If you're
         extending or embedding pip-accel you may want to call the underlying
         methods instead.
@@ -215,8 +216,8 @@ class PipAccelerator(object):
         :param arguments: The command line arguments to ``pip install ..`` (a
                           list of strings).
         :param kw: Any keyword arguments are passed on to
-                   :py:func:`install_requirements()`.
-        :returns: The result of :py:func:`install_requirements()`.
+                   :func:`install_requirements()`.
+        :returns: The result of :func:`install_requirements()`.
         """
         try:
             requirements = self.get_requirements(arguments, use_wheels=self.arguments_allow_wheels(arguments))
@@ -236,7 +237,7 @@ class PipAccelerator(object):
         """
         Check whether setuptools should be upgraded to ``>= 0.8`` for wheel support.
 
-        :returns: ``True`` when setuptools needs to be upgraded, ``False`` otherwise.
+        :returns: :data:`True` when setuptools needs to be upgraded, :data:`False` otherwise.
         """
         # Don't use pkg_resources.Requirement.parse, to avoid the override
         # in distribute, that converts `setuptools' to `distribute'.
@@ -260,10 +261,10 @@ class PipAccelerator(object):
         :param max_retries: The maximum number of times that pip will be asked
                             to download distribution archives (this helps to
                             deal with intermittent failures). If this is
-                            ``None`` then :py:attr:`~.Config.max_retries` is
+                            :data:`None` then :attr:`~.Config.max_retries` is
                             used.
         :param use_wheels: Whether pip and pip-accel are allowed to use wheels_
-                           (``False`` by default for backwards compatibility
+                           (:data:`False` by default for backwards compatibility
                            with callers that use pip-accel as a Python API).
 
         .. warning:: Requirements which are already installed are not included
@@ -303,26 +304,28 @@ class PipAccelerator(object):
 
     def unpack_source_dists(self, arguments, use_wheels=False):
         """
-        Check whether there are local source distributions available for all
-        requirements, unpack the source distribution archives and find the
-        names and versions of the requirements. By using the ``pip install
-        --download`` command we avoid reimplementing the following pip
-        features:
-
-        - Parsing of ``requirements.txt`` (including recursive parsing)
-        - Resolution of possibly conflicting pinned requirements
-        - Unpacking source distributions in multiple formats
-        - Finding the name & version of a given source distribution
+        Find and unpack local source distributions and discover their metadata.
 
         :param arguments: The command line arguments to ``pip install ...`` (a
                           list of strings).
         :param use_wheels: Whether pip and pip-accel are allowed to use wheels_
-                           (``False`` by default for backwards compatibility
+                           (:data:`False` by default for backwards compatibility
                            with callers that use pip-accel as a Python API).
-        :returns: A list of :py:class:`pip_accel.req.Requirement` objects.
+        :returns: A list of :class:`pip_accel.req.Requirement` objects.
         :raises: Any exceptions raised by pip, for example
-                 :py:exc:`pip.exceptions.DistributionNotFound` when not all
+                 :exc:`pip.exceptions.DistributionNotFound` when not all
                  requirements can be satisfied.
+
+        This function checks whether there are local source distributions
+        available for all requirements, unpacks the source distribution
+        archives and finds the names and versions of the requirements. By using
+        the ``pip install --download`` command we avoid reimplementing the
+        following pip features:
+
+        - Parsing of ``requirements.txt`` (including recursive parsing).
+        - Resolution of possibly conflicting pinned requirements.
+        - Unpacking source distributions in multiple formats.
+        - Finding the name & version of a given source distribution.
         """
         unpack_timer = Timer()
         logger.info("Unpacking distribution(s) ..")
@@ -338,7 +341,7 @@ class PipAccelerator(object):
         :param arguments: The command line arguments to ``pip install ...`` (a
                           list of strings).
         :param use_wheels: Whether pip and pip-accel are allowed to use wheels_
-                           (``False`` by default for backwards compatibility
+                           (:data:`False` by default for backwards compatibility
                            with callers that use pip-accel as a Python API).
         :raises: Any exceptions raised by pip.
         """
@@ -358,9 +361,9 @@ class PipAccelerator(object):
                                  connect to the main package index
                                  (http://pypi.python.org by default).
         :param use_wheels: Whether pip and pip-accel are allowed to use wheels_
-                           (``False`` by default for backwards compatibility
+                           (:data:`False` by default for backwards compatibility
                            with callers that use pip-accel as a Python API).
-        :returns: A :py:class:`pip.req.RequirementSet` object created by pip.
+        :returns: A :class:`pip.req.RequirementSet` object created by pip.
         :raises: Any exceptions raised by pip.
         """
         # Compose the pip command line arguments. This is where a lot of the
@@ -444,12 +447,15 @@ class PipAccelerator(object):
 
     def transform_pip_requirement_set(self, requirement_set):
         """
-        Convert the :py:class:`pip.req.RequirementSet` object reported by pip
-        into a list of :py:class:`pip_accel.req.Requirement` objects.
+        Transform pip's requirement set into one that `pip-accel` can work with.
 
-        :param requirement_set: The :py:class:`pip.req.RequirementSet` object
+        :param requirement_set: The :class:`pip.req.RequirementSet` object
                                 reported by pip.
-        :returns: A list of :py:class:`pip_accel.req.Requirement` objects.
+        :returns: A list of :class:`pip_accel.req.Requirement` objects.
+
+        This function converts the :class:`pip.req.RequirementSet` object
+        reported by pip into a list of :class:`pip_accel.req.Requirement`
+        objects.
         """
         filtered_requirements = []
         for requirement in requirement_set.requirements.values():
@@ -469,9 +475,9 @@ class PipAccelerator(object):
         """
         Manually install a requirement set from binary and/or wheel distributions.
 
-        :param requirements: A list of :py:class:`pip_accel.req.Requirement` objects.
+        :param requirements: A list of :class:`pip_accel.req.Requirement` objects.
         :param kw: Any keyword arguments are passed on to
-                   :py:func:`~pip_accel.bdist.BinaryDistributionManager.install_binary_dist()`.
+                   :func:`~pip_accel.bdist.BinaryDistributionManager.install_binary_dist()`.
         :returns: The number of packages that were just installed (an integer).
         """
         install_timer = Timer()
@@ -525,7 +531,7 @@ class PipAccelerator(object):
                   they disallow wheels.
 
         Contrary to what the name of this method implies its implementation
-        actually checks if the user hasn't _disallowed_ the use of wheels using
+        actually checks if the user hasn't *disallowed* the use of wheels using
         the ``--no-use-wheel`` option (deprecated in pip 7.x) or the
         ``--no-binary=:all:`` option (introduced in pip 7.x). This is because
         wheels are "opt out" in recent versions of pip. I just didn't like the
@@ -534,9 +540,7 @@ class PipAccelerator(object):
         return not ('--no-use-wheel' in arguments or match_option_with_value(arguments, '--no-binary', ':all:'))
 
     def create_build_directory(self):
-        """
-        Create a new build directory for pip to unpack its archives.
-        """
+        """Create a new build directory for pip to unpack its archives."""
         self.build_directories.append(tempfile.mkdtemp(prefix='pip-accel-build-dir-'))
 
     def clear_build_directory(self):
@@ -563,7 +567,9 @@ class PipAccelerator(object):
 class CustomPackageFinder(pip_index_module.PackageFinder):
 
     """
-    This class customizes :py:class:`pip.index.PackageFinder` to enforce what
+    Custom :class:`pip.index.PackageFinder` to keep pip off the internet.
+
+    This class customizes :class:`pip.index.PackageFinder` to enforce what
     the ``--no-index`` option does for the default package index but doesn't do
     for package indexes registered with the ``--index=`` option in requirements
     files. Judging by pip's documentation the fact that this has to be monkey
@@ -572,47 +578,62 @@ class CustomPackageFinder(pip_index_module.PackageFinder):
 
     @property
     def index_urls(self):
+        """Dummy list of index URLs that is always empty."""
         return []
 
     @index_urls.setter
     def index_urls(self, value):
+        """Dummy setter for index URLs that ignores the value set."""
         pass
 
     @property
     def dependency_links(self):
+        """Dummy list of dependency links that is always empty."""
         return []
 
     @dependency_links.setter
     def dependency_links(self, value):
+        """Dummy setter for dependency links that ignores the value set."""
         pass
 
 
 class PatchedAttribute(object):
 
     """
+    Contact manager to temporarily patch an object attribute.
+
     This context manager changes the value of an object attribute when the
     context is entered and restores the original value when the context is
     exited.
     """
 
     def __init__(self, object, attribute, value):
+        """
+        Initialize a :class:`PatchedAttribute` object.
+
+        :param object: The object whose attribute should be patched.
+        :param attribute: The name of the attribute to be patched (a string).
+        :param value: The temporary value for the attribute.
+        """
         self.object = object
         self.attribute = attribute
         self.patched_value = value
         self.original_value = None
 
     def __enter__(self):
+        """Change the object attribute when entering the context."""
         self.original_value = getattr(self.object, self.attribute)
         setattr(self.object, self.attribute, self.patched_value)
 
     def __exit__(self, exc_type=None, exc_value=None, traceback=None):
+        """Restore the object attribute when leaving the context."""
         setattr(self.object, self.attribute, self.original_value)
 
 
 class AttributeOverrides(object):
 
     """
-    :py:class:`AttributeOverrides` enables overriding of object attributes.
+    :class:`AttributeOverrides` enables overriding of object attributes.
 
     During the pip 6.x upgrade pip-accel switched to using ``pip install
     --download`` which unintentionally broke backwards compatibility with
@@ -624,10 +645,10 @@ class AttributeOverrides(object):
     to avoid this behavior, so instead pip-accel resorts to monkey patching to
     restore backwards compatibility.
 
-    :py:class:`AttributeOverrides` is used to replace pip's parsed command line
+    :class:`AttributeOverrides` is used to replace pip's parsed command line
     options object with an object that defers all attribute access (gets and
     sets) to the original options object but always reports
-    ``ignore_installed`` as ``False``, even after it was set to ``True`` by pip
+    ``ignore_installed`` as :data:`False`, even after it was set to :data:`True` by pip
     (as described above).
 
     .. _issue 52: https://github.com/paylogic/pip-accel/issues/52
@@ -635,7 +656,7 @@ class AttributeOverrides(object):
 
     def __init__(self, opts, **overrides):
         """
-        Construct an :py:class:`AttributeOverrides` instance.
+        Construct an :class:`AttributeOverrides` instance.
 
         :param opts: The object to which attribute access is deferred.
         :param overrides: The attributes whose value should be overridden.

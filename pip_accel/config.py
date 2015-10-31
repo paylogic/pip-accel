@@ -1,15 +1,14 @@
-# Configuration defaults for the pip accelerator.
+# Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: October 30, 2015
+# Last Change: October 31, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
-:py:mod:`pip_accel.config` - Configuration handling
-===================================================
+Configuration handling for `pip-accel`.
 
-This module defines the :py:class:`Config` class which is used throughout the
-pip accelerator. At runtime an instance of :py:class:`Config` is created and
+This module defines the :class:`Config` class which is used throughout the
+pip accelerator. At runtime an instance of :class:`Config` is created and
 passed down like this:
 
 .. digraph:: config_dependency_injection
@@ -22,8 +21,8 @@ passed down like this:
    CacheManager -> S3CacheBackend
    BinaryDistributionManager -> SystemPackageManager
 
-The :py:class:`.PipAccelerator` class receives its configuration object from
-its caller. Usually this will be :py:func:`.main()` but when pip-accel is used
+The :class:`.PipAccelerator` class receives its configuration object from
+its caller. Usually this will be :func:`.main()` but when pip-accel is used
 as a Python API the person embedding or extending pip-accel is responsible for
 providing the configuration object. This is intended as a form of `dependency
 injection`_ that enables non-default configurations to be injected into
@@ -32,7 +31,7 @@ pip-accel.
 Support for runtime configuration
 ---------------------------------
 
-The properties of the :py:class:`Config` class can be set at runtime using
+The properties of the :class:`Config` class can be set at runtime using
 regular attribute assignment syntax. This overrides the default values of the
 properties (whether based on environment variables, configuration files or hard
 coded defaults).
@@ -99,10 +98,10 @@ class Config(object):
         """
         Initialize the configuration of the pip accelerator.
 
-        :param load_configuration_files: If this is ``True`` (the default) then
+        :param load_configuration_files: If this is :data:`True` (the default) then
                                          configuration files in known locations
                                          are automatically loaded.
-        :param load_environment_variables: If this is ``True`` (the default) then
+        :param load_environment_variables: If this is :data:`True` (the default) then
                                            environment variables are used to
                                            initialize the configuration.
         """
@@ -126,7 +125,7 @@ class Config(object):
 
         :param configuration_file: The pathname of a configuration file (a
                                    string).
-        :raises: :py:exc:`Exception` when the configuration file cannot be
+        :raises: :exc:`Exception` when the configuration file cannot be
                  loaded.
         """
         configuration_file = parse_path(configuration_file)
@@ -160,7 +159,7 @@ class Config(object):
         Internal shortcut to get a configuration option's value.
 
         :param property_name: The name of the property that users can set on
-                              the :py:class:`Config` class (a string).
+                              the :class:`Config` class (a string).
         :param environment_variable: The name of the environment variable (a
                                      string).
         :param configuration_option: The name of the option in the
@@ -195,7 +194,7 @@ class Config(object):
         """
         The absolute pathname of pip-accel's source index directory (a string).
 
-        This is the ``sources`` subdirectory of :py:data:`data_directory`.
+        This is the ``sources`` subdirectory of :data:`data_directory`.
         """
         return self.get(property_name='source_index',
                         default=os.path.join(self.data_directory, 'sources'))
@@ -205,7 +204,7 @@ class Config(object):
         """
         The absolute pathname of pip-accel's binary cache directory (a string).
 
-        This is the ``binaries`` subdirectory of :py:data:`data_directory`.
+        This is the ``binaries`` subdirectory of :data:`data_directory`.
         """
         return self.get(property_name='binary_cache',
                         default=os.path.join(self.data_directory, 'binaries'))
@@ -226,7 +225,7 @@ class Config(object):
 
     @cached_property
     def on_debian(self):
-        """``True`` if running on a Debian derived system, ``False`` otherwise."""
+        """:data:`True` if running on a Debian derived system, :data:`False` otherwise."""
         return self.get(property_name='on_debian',
                         default=os.path.exists('/etc/debian_version'))
 
@@ -235,8 +234,8 @@ class Config(object):
         """
         The absolute pathname of the installation prefix to use (a string).
 
-        This property is based on :py:data:`sys.prefix` except that when
-        :py:data:`sys.prefix` is ``/usr`` and we're running on a Debian derived
+        This property is based on :data:`sys.prefix` except that when
+        :data:`sys.prefix` is ``/usr`` and we're running on a Debian derived
         system ``/usr/local`` is used instead.
 
         The reason for this is that on Debian derived systems only apt (dpkg)
@@ -245,7 +244,7 @@ class Config(object):
         installation scheme in ``/usr/lib/pythonX.Y/sysconfig.py`` on Debian
         derived systems). Because pip-accel replaces ``python setup.py
         install`` it has to replicate this logic. Inferring all of this from
-        the :py:mod:`sysconfig` module would be nice but that module wasn't
+        the :mod:`sysconfig` module would be nice but that module wasn't
         available in Python 2.6.
         """
         return self.get(property_name='install_prefix',
@@ -260,16 +259,18 @@ class Config(object):
     @cached_property
     def auto_install(self):
         """
-        ``True`` if automatic installation of missing system packages is
-        enabled, ``False`` if it is disabled, ``None`` otherwise (in this case
+        Whether automatic installation of missing system packages is enabled.
+
+        :data:`True` if automatic installation of missing system packages is
+        enabled, :data:`False` if it is disabled, :data:`None` otherwise (in this case
         the user will be prompted at the appropriate time).
 
         - Environment variable: ``$PIP_ACCEL_AUTO_INSTALL`` (refer to
-          :py:func:`~humanfriendly.coerce_boolean()` for details on how the
+          :func:`~humanfriendly.coerce_boolean()` for details on how the
           value of the environment variable is interpreted)
         - Configuration option: ``auto-install`` (also parsed using
-          :py:func:`~humanfriendly.coerce_boolean()`)
-        - Default: ``None``
+          :func:`~humanfriendly.coerce_boolean()`)
+        - Default: :data:`None`
         """
         value = self.get(property_name='auto_install',
                          environment_variable='PIP_ACCEL_AUTO_INSTALL',
@@ -309,7 +310,7 @@ class Config(object):
         - Configuration option: ``s3-url``
         - Default: ``https://s3.amazonaws.com``
 
-        For details please refer to the :py:mod:`pip_accel.caches.s3` module.
+        For details please refer to the :mod:`pip_accel.caches.s3` module.
         """
         return self.get(property_name='s3_cache_url',
                         environment_variable='PIP_ACCEL_S3_URL',
@@ -319,14 +320,13 @@ class Config(object):
     @cached_property
     def s3_cache_bucket(self):
         """
-        The name of the Amazon S3 bucket where binary distribution archives are
-        cached (a string or ``None``).
+        Name of Amazon S3 bucket where binary distributions are cached (a string or :data:`None`).
 
         - Environment variable: ``$PIP_ACCEL_S3_BUCKET``
         - Configuration option: ``s3-bucket``
-        - Default: ``None``
+        - Default: :data:`None`
 
-        For details please refer to the :py:mod:`pip_accel.caches.s3` module.
+        For details please refer to the :mod:`pip_accel.caches.s3` module.
         """
         return self.get(property_name='s3_cache_bucket',
                         environment_variable='PIP_ACCEL_S3_BUCKET',
@@ -339,9 +339,9 @@ class Config(object):
 
         - Environment variable: ``$PIP_ACCEL_S3_CREATE_BUCKET``
         - Configuration option: ``s3-create-bucket``
-        - Default: ``False``
+        - Default: :data:`False`
 
-        For details please refer to the :py:mod:`pip_accel.caches.s3` module.
+        For details please refer to the :mod:`pip_accel.caches.s3` module.
         """
         return coerce_boolean(self.get(property_name='s3_cache_create_bucket',
                                        environment_variable='PIP_ACCEL_S3_CREATE_BUCKET',
@@ -351,14 +351,13 @@ class Config(object):
     @cached_property
     def s3_cache_prefix(self):
         """
-        The cache prefix for binary distribution archives in the Amazon S3
-        bucket (a string or ``None``).
+        Cache prefix for binary distribution archives in Amazon S3 bucket (a string or :data:`None`).
 
         - Environment variable: ``$PIP_ACCEL_S3_PREFIX``
         - Configuration option: ``s3-prefix``
-        - Default: ``None``
+        - Default: :data:`None`
 
-        For details please refer to the :py:mod:`pip_accel.caches.s3` module.
+        For details please refer to the :mod:`pip_accel.caches.s3` module.
         """
         return self.get(property_name='s3_cache_prefix',
                         environment_variable='PIP_ACCEL_S3_PREFIX',
@@ -367,19 +366,21 @@ class Config(object):
     @cached_property
     def s3_cache_readonly(self):
         """
-        If this is ``True`` then the Amazon S3 bucket will only be used for
-        :py:class:`~pip_accel.caches.s3.S3CacheBackend.get()` operations (all
-        :py:class:`~pip_accel.caches.s3.S3CacheBackend.put()` operations will
+        Whether the Amazon S3 bucket is considered read only.
+
+        If this is :data:`True` then the Amazon S3 bucket will only be used for
+        :class:`~pip_accel.caches.s3.S3CacheBackend.get()` operations (all
+        :class:`~pip_accel.caches.s3.S3CacheBackend.put()` operations will
         be disabled).
 
         - Environment variable: ``$PIP_ACCEL_S3_READONLY`` (refer to
-          :py:func:`~humanfriendly.coerce_boolean()` for details on how the
+          :func:`~humanfriendly.coerce_boolean()` for details on how the
           value of the environment variable is interpreted)
         - Configuration option: ``s3-readonly`` (also parsed using
-          :py:func:`~humanfriendly.coerce_boolean()`)
-        - Default: ``False``
+          :func:`~humanfriendly.coerce_boolean()`)
+        - Default: :data:`False`
 
-        For details please refer to the :py:mod:`pip_accel.caches.s3` module.
+        For details please refer to the :mod:`pip_accel.caches.s3` module.
         """
         return coerce_boolean(self.get(property_name='s3_cache_readonly',
                                        environment_variable='PIP_ACCEL_S3_READONLY',

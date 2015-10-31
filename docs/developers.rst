@@ -33,38 +33,68 @@ Here are the relevant Python modules that make up pip-accel:
 .. contents::
    :local:
 
+:mod:`pip_accel`
+~~~~~~~~~~~~~~~~
+
 .. automodule:: pip_accel
    :members:
+
+:mod:`pip_accel.config`
+~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: pip_accel.config
    :members:
 
+:mod:`pip_accel.req`
+~~~~~~~~~~~~~~~~~~~~~~~
+
 .. automodule:: pip_accel.req
    :members:
+
+:mod:`pip_accel.bdist`
+~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: pip_accel.bdist
    :members:
 
+:mod:`pip_accel.caches`
+~~~~~~~~~~~~~~~~~~~~~~~
+
 .. automodule:: pip_accel.caches
    :members:
+
+:mod:`pip_accel.caches.local`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: pip_accel.caches.local
    :members:
 
+:mod:`pip_accel.caches.s3`
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 .. automodule:: pip_accel.caches.s3
    :members:
+
+:mod:`pip_accel.deps`
+~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: pip_accel.deps
    :members:
 
+:mod:`pip_accel.utils`
+~~~~~~~~~~~~~~~~~~~~~~
+
 .. automodule:: pip_accel.utils
    :members:
+
+:mod:`pip_accel.exceptions`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: pip_accel.exceptions
    :members:
 
-.. automodule:: pip_accel.cli
-   :members:
+:mod:`pip_accel.tests`
+~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: pip_accel.tests
    :members:

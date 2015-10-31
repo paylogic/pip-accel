@@ -12,13 +12,12 @@
 # apparent that it was never going to work the way I wanted it to :-)
 
 """
-:py:mod:`pip_accel.caches.s3` - Amazon S3 cache backend
-=======================================================
+Amazon S3 cache backend.
 
 This module implements a cache backend that stores distribution archives in a
 user defined `Amazon S3 <http://aws.amazon.com/s3/>`_ bucket. To enable this
 backend you need to define the configuration option
-:py:attr:`~.Config.s3_cache_bucket` and configure your Amazon S3 API
+:attr:`~.Config.s3_cache_bucket` and configure your Amazon S3 API
 credentials (see the readme for details).
 
 Using S3 compatible storage services
@@ -26,7 +25,7 @@ Using S3 compatible storage services
 
 The Amazon S3 API has been implemented in several open source projects and
 dozens of online services. To use pip-accel with an S3 compatible storage
-service you can override the :py:attr:`~.Config.s3_cache_url` option. The
+service you can override the :attr:`~.Config.s3_cache_url` option. The
 pip-accel test suite actually uses this option to test the S3 cache backend by
 running FakeS3_ in the background and pointing pip-accel at the FakeS3 server.
 Below are some usage notes that may be relevant for people evaluating this
@@ -56,14 +55,14 @@ option.
 A note about robustness
 -----------------------
 
-The Amazon S3 cache backend implemented in :py:mod:`pip_accel.caches.s3` is
+The Amazon S3 cache backend implemented in :mod:`pip_accel.caches.s3` is
 specifically written to gracefully disable itself when it encounters known
 errors such as:
 
-- The configuration option :py:attr:`~.Config.s3_cache_bucket` is not set (i.e.
+- The configuration option :attr:`~.Config.s3_cache_bucket` is not set (i.e.
   the user hasn't configured the backend yet).
 
-- The :py:mod:`boto` package is not installed (i.e. the user ran ``pip install
+- The :mod:`boto` package is not installed (i.e. the user ran ``pip install
   pip-accel`` instead of ``pip install 'pip-accel[s3]'``).
 
 - The connection to the S3 API can't be established (e.g. because API
@@ -73,16 +72,16 @@ errors such as:
   the bucket doesn't exist or the configured credentials don't provide access to
   the bucket).
 
-Additionally :py:class:`~pip_accel.caches.CacheManager` automatically disables
+Additionally :class:`~pip_accel.caches.CacheManager` automatically disables
 cache backends that raise exceptions on
-:py:class:`~pip_accel.caches.AbstractCacheBackend.get()` and
-:py:class:`~pip_accel.caches.AbstractCacheBackend.put()` operations. The end
+:class:`~pip_accel.caches.AbstractCacheBackend.get()` and
+:class:`~pip_accel.caches.AbstractCacheBackend.put()` operations. The end
 result is that when the S3 backend fails you will just revert to using the
 cache on the local file system.
 
 Optionally if you are using read only credentials you can disable
-:py:class:`~S3CacheBackend.put()` operations by setting the configuration
-option :py:attr:`~.Config.s3_cache_readonly`.
+:class:`~S3CacheBackend.put()` operations by setting the configuration
+option :attr:`~.Config.s3_cache_readonly`.
 
 ----
 
@@ -142,13 +141,12 @@ class S3CacheBackend(AbstractCacheBackend):
 
     def get(self, filename):
         """
-        Download a cached distribution archive from the configured Amazon S3
-        bucket to the local cache.
+        Download a distribution archive from the configured Amazon S3 bucket.
 
         :param filename: The filename of the distribution archive (a string).
         :returns: The pathname of a distribution archive on the local file
-                  system or ``None``.
-        :raises: :py:exc:`.CacheBackendError` when any underlying method fails.
+                  system or :data:`None`.
+        :raises: :exc:`.CacheBackendError` when any underlying method fails.
         """
         timer = Timer()
         self.check_prerequisites()
@@ -174,13 +172,13 @@ class S3CacheBackend(AbstractCacheBackend):
         """
         Upload a distribution archive to the configured Amazon S3 bucket.
 
-        If the :py:attr:`~.Config.s3_cache_readonly` configuration option is
+        If the :attr:`~.Config.s3_cache_readonly` configuration option is
         enabled this method does nothing.
 
         :param filename: The filename of the distribution archive (a string).
         :param handle: A file-like object that provides access to the
                        distribution archive.
-        :raises: :py:exc:`.CacheBackendError` when any underlying method fails.
+        :raises: :exc:`.CacheBackendError` when any underlying method fails.
         """
         if self.config.s3_cache_readonly:
             logger.info('Skipping upload to S3 bucket (using S3 in read only mode).')
@@ -205,13 +203,13 @@ class S3CacheBackend(AbstractCacheBackend):
         """
         Connect to the user defined Amazon S3 bucket.
 
-        Called on demand by :py:func:`get()` and :py:func:`put()`. Caches its
+        Called on demand by :func:`get()` and :func:`put()`. Caches its
         return value so that only a single connection is created.
 
-        :returns: A :py:class:`boto.s3.bucket.Bucket` object.
-        :raises: :py:exc:`.CacheBackendDisabledError` when the user hasn't
-                 defined :py:attr:`.Config.s3_cache_bucket`.
-        :raises: :py:exc:`.CacheBackendError` when the connection to the Amazon
+        :returns: A :class:`boto.s3.bucket.Bucket` object.
+        :raises: :exc:`.CacheBackendDisabledError` when the user hasn't
+                 defined :attr:`.Config.s3_cache_bucket`.
+        :raises: :exc:`.CacheBackendError` when the connection to the Amazon
                  S3 bucket fails.
         """
         if not hasattr(self, 'cached_bucket'):
@@ -250,10 +248,10 @@ class S3CacheBackend(AbstractCacheBackend):
         If the connection attempt fails because Boto can't find credentials the
         attempt is retried once with an anonymous connection.
 
-        Called on demand by :py:attr:`s3_bucket`.
+        Called on demand by :attr:`s3_bucket`.
 
-        :returns: A :py:class:`boto.s3.connection.S3Connection` object.
-        :raises: :py:exc:`.CacheBackendError` when the connection to the Amazon
+        :returns: A :class:`boto.s3.connection.S3Connection` object.
+        :raises: :exc:`.CacheBackendError` when the connection to the Amazon
                  S3 API fails.
         """
         if not hasattr(self, 'cached_connection'):
@@ -300,8 +298,7 @@ class S3CacheBackend(AbstractCacheBackend):
 
     def get_cache_key(self, filename):
         """
-        Compose an S3 cache key based on :py:attr:`.Config.s3_cache_prefix` and
-        the given filename.
+        Compose an S3 cache key based on :attr:`.Config.s3_cache_prefix` and the given filename.
 
         :param filename: The filename of the distribution archive (a string).
         :returns: The cache key for the given filename (a string).
@@ -313,10 +310,10 @@ class S3CacheBackend(AbstractCacheBackend):
         Validate the prerequisites required to use the Amazon S3 cache backend.
 
         Makes sure the Amazon S3 cache backend is configured
-        (:py:attr:`.Config.s3_cache_bucket` is defined by the user) and
-        :py:mod:`boto` is available for use.
+        (:attr:`.Config.s3_cache_bucket` is defined by the user) and
+        :mod:`boto` is available for use.
 
-        :raises: :py:exc:`.CacheBackendDisabledError` when a prerequisite fails.
+        :raises: :exc:`.CacheBackendDisabledError` when a prerequisite fails.
         """
         if not self.config.s3_cache_bucket:
             raise CacheBackendDisabledError("""

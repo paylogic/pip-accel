@@ -1,15 +1,15 @@
-# Functions to manipulate Python binary distribution archives.
+# Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: October 30, 2015
+# Last Change: October 31, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
-:py:mod:`pip_accel.bdist` - Binary distribution archive manipulation
-====================================================================
+Functions to manipulate Python binary distribution archives.
 
 The functions in this module are used to create, transform and install from
-binary distribution archives.
+binary distribution archives (which are not supported by tools like
+easy_install and pip).
 """
 
 # Standard library modules.
@@ -48,7 +48,7 @@ class BinaryDistributionManager(object):
         """
         Initialize the binary distribution manager.
 
-        :param config: The pip-accel configuration (a :py:class:`.Config`
+        :param config: The pip-accel configuration (a :class:`.Config`
                        object).
         """
         self.config = config
@@ -57,19 +57,21 @@ class BinaryDistributionManager(object):
 
     def get_binary_dist(self, requirement):
         """
-        Get the cached binary distribution that was previously built for the
+        Get or create a cached binary distribution archive.
+
+        :param requirement: A :class:`.Requirement` object.
+        :returns: An iterable of tuples with two values each: A
+                  :class:`tarfile.TarInfo` object and a file-like object.
+
+        Gets the cached binary distribution that was previously built for the
         given requirement. If no binary distribution has been cached yet, a new
         binary distribution is built and added to the cache.
 
-        Uses :py:func:`build_binary_dist()` to build binary distribution
-        archives. If this fails with a build error :py:func:`get_binary_dist()`
-        will use :py:class:`.SystemPackageManager` to check for and install
+        Uses :func:`build_binary_dist()` to build binary distribution
+        archives. If this fails with a build error :func:`get_binary_dist()`
+        will use :class:`.SystemPackageManager` to check for and install
         missing system packages and retry the build when missing system
         packages were installed.
-
-        :param requirement: A :py:class:`.Requirement` object.
-        :returns: An iterable of tuples with two values each: A
-                  :py:class:`tarfile.TarInfo` object and a file-like object.
         """
         cache_file = self.cache.get(requirement)
         if cache_file and requirement.last_modified > os.path.getmtime(cache_file):
@@ -116,9 +118,9 @@ class BinaryDistributionManager(object):
         """
         Build a binary distribution archive from an unpacked source distribution.
 
-        :param requirement: A :py:class:`.Requirement` object.
+        :param requirement: A :class:`.Requirement` object.
         :returns: The pathname of a binary distribution archive (a string).
-        :raises: :py:exc:`.BinaryDistributionError` when the original command
+        :raises: :exc:`.BinaryDistributionError` when the original command
                 and the fall back both fail to produce a binary distribution
                 archive.
 
@@ -134,7 +136,7 @@ class BinaryDistributionManager(object):
         2. The ``setup.py`` script doesn't (properly) implement ``bdist_dumb``
            binary distribution format support.
 
-        The first case is dealt with in :py:func:`get_binary_dist()`. To deal
+        The first case is dealt with in :func:`get_binary_dist()`. To deal
         with the second case this method falls back to the following command:
 
         .. code-block:: sh
@@ -156,17 +158,16 @@ class BinaryDistributionManager(object):
 
     def build_binary_dist_helper(self, requirement, setup_command):
         """
-        Convert a single, unpacked source distribution to a binary
-        distribution. Raises an exception if it fails to create the binary
-        distribution (probably because of missing binary dependencies like
-        system libraries).
+        Convert an unpacked source distribution to a binary distribution.
 
-        :param requirement: A :py:class:`.Requirement` object.
+        :param requirement: A :class:`.Requirement` object.
         :param setup_command: A list of strings with the arguments to
                               ``setup.py``.
         :returns: The pathname of the resulting binary distribution (a string).
-        :raises: :py:exc:`.BuildFailed` when the build reports an error.
-        :raises: :py:exc:`.NoBuildOutput` when the build does not produce the
+        :raises: :exc:`.BuildFailed` when the build reports an error (e.g.
+                 because of missing binary dependencies like system
+                 libraries).
+        :raises: :exc:`.NoBuildOutput` when the build does not produce the
                  expected binary distribution archive.
         """
         build_timer = Timer()
@@ -261,16 +262,18 @@ class BinaryDistributionManager(object):
 
     def transform_binary_dist(self, archive_path):
         """
-        Transform a binary distribution archive created by
-        :py:func:`build_binary_dist()` into a form that can be cached for
-        future use. This comes down to making the pathnames inside the archive
-        relative to the `prefix` that the binary distribution was built for.
+        Transform binary distributions into a form that can be cached for future use.
 
         :param archive_path: The pathname of the original binary distribution archive.
         :returns: An iterable of tuples with two values each:
 
-                  1. A :py:class:`tarfile.TarInfo` object.
+                  1. A :class:`tarfile.TarInfo` object.
                   2. A file-like object.
+
+        This method transforms a binary distribution archive created by
+        :func:`build_binary_dist()` into a form that can be cached for future
+        use. This comes down to making the pathnames inside the archive
+        relative to the `prefix` that the binary distribution was built for.
         """
         # Copy the tar archive file by file so we can rewrite the pathnames.
         logger.debug("Transforming binary distribution: %s.", archive_path)
@@ -334,30 +337,32 @@ class BinaryDistributionManager(object):
     def install_binary_dist(self, members, virtualenv_compatible=True, prefix=None,
                             python=None, track_installed_files=False):
         """
-        Install a binary distribution created by :py:class:`build_binary_dist()`
-        into the given prefix (a directory like ``/usr``, ``/usr/local`` or a
-        virtual environment).
+        Install a binary distribution into the given prefix.
 
         :param members: An iterable of tuples with two values each:
 
-                        1. A :py:class:`tarfile.TarInfo` object.
+                        1. A :class:`tarfile.TarInfo` object.
                         2. A file-like object.
         :param prefix: The "prefix" under which the requirements should be
                        installed. This will be a pathname like ``/usr``,
                        ``/usr/local`` or the pathname of a virtual environment.
-                       Defaults to :py:attr:`.Config.install_prefix`.
+                       Defaults to :attr:`.Config.install_prefix`.
         :param python: The pathname of the Python executable to use in the shebang
                        line of all executable Python scripts inside the binary
-                       distribution. Defaults to :py:attr:`.Config.python_executable`.
+                       distribution. Defaults to :attr:`.Config.python_executable`.
         :param virtualenv_compatible: Whether to enable workarounds to make the
                                       resulting filenames compatible with
                                       virtual environments (defaults to
-                                      ``True``).
-        :param track_installed_files: If this is ``True`` (not the default for
+                                      :data:`True`).
+        :param track_installed_files: If this is :data:`True` (not the default for
                                       this method because of backwards
                                       compatibility) pip-accel will create
                                       ``installed-files.txt`` as required by
                                       pip to properly uninstall packages.
+
+        This method installs a binary distribution created by
+        :class:`build_binary_dist()` into the given prefix (a directory like
+        ``/usr``, ``/usr/local`` or a virtual environment).
         """
         # TODO This is quite slow for modules like Django. Speed it up! Two choices:
         #  1. Run the external tar program to unpack the archive. This will
@@ -410,8 +415,7 @@ class BinaryDistributionManager(object):
 
     def fix_hashbang(self, contents, python):
         """
-        Rewrite the hashbang_ in an executable script so that the correct
-        Python executable is used.
+        Rewrite hashbangs_ to use the correct Python executable.
 
         :param contents: The contents of the script whose hashbang should be
                          fixed (a string).
@@ -419,7 +423,7 @@ class BinaryDistributionManager(object):
                        string).
         :returns: The modified contents of the script (a string).
 
-        .. _hashbang: http://en.wikipedia.org/wiki/Shebang_(Unix)
+        .. _hashbangs: http://en.wikipedia.org/wiki/Shebang_(Unix)
         """
         lines = contents.splitlines()
         if lines:
@@ -439,8 +443,8 @@ class BinaryDistributionManager(object):
         """
         Track the files installed by a package so pip knows how to remove the package.
 
-        This method is used by :py:func:`install_binary_dist()` (which collects
-        the list of installed files for :py:func:`update_installed_files()`).
+        This method is used by :func:`install_binary_dist()` (which collects
+        the list of installed files for :func:`update_installed_files()`).
 
         :param installed_files: A list of absolute pathnames (strings) with the
                                 files that were just installed.

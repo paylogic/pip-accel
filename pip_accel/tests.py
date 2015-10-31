@@ -1,12 +1,11 @@
 # Tests for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: October 30, 2015
+# Last Change: October 31, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
-:py:mod:`pip_accel.tests` - Test suite for the pip accelerator
-==============================================================
+Test suite for the pip accelerator.
 
 I've decided to include the test suite in the online documentation of the pip
 accelerator and I realize this may be somewhat unconventional... My reason for
@@ -69,7 +68,7 @@ def setUpModule():
 
 
 def tearDownModule():
-    """Cleanup any temporary directories created by :py:func:`create_temporary_directory()`."""
+    """Cleanup any temporary directories created by :func:`create_temporary_directory()`."""
     while TEMPORARY_DIRECTORIES:
         directory = TEMPORARY_DIRECTORIES.pop(0)
         logger.debug("Cleaning up temporary directory: %s", directory)
@@ -95,7 +94,7 @@ def create_temporary_directory():
     Create a temporary directory that will be cleaned up when the test suite ends.
 
     :returns: The pathname of a directory created using
-              :py:func:`tempfile.mkdtemp()` (a string).
+              :func:`tempfile.mkdtemp()` (a string).
     """
     directory = tempfile.mkdtemp()
     logger.debug("Created temporary directory: %s", directory)
@@ -105,9 +104,7 @@ def create_temporary_directory():
 
 class PipAccelTestCase(unittest.TestCase):
 
-    """
-    Container for the tests in the pip-accel test suite.
-    """
+    """Container for the tests in the pip-accel test suite."""
 
     def setUp(self):
         """Reset logging verbosity before each test."""
@@ -137,11 +134,11 @@ class PipAccelTestCase(unittest.TestCase):
         load environment variables because that's how FakeS3 is enabled on
         Travis CI (and in my local tests).
 
-        :param load_environment_variables: If ``True`` the pip-accel instance
+        :param load_environment_variables: If :data:`True` the pip-accel instance
                                            will load environment variables (not
                                            the default).
         :param overrides: Any keyword arguments are set as properties on the
-                          :py:class:`~.Config` instance (overrides for
+                          :class:`~.Config` instance (overrides for
                           configuration defaults).
         """
         config = Config(load_configuration_files=False,
@@ -156,9 +153,9 @@ class PipAccelTestCase(unittest.TestCase):
 
     def test_related_archives_logic(self):
         """
-        Test filename translation logic used by :py:attr:`pip_accel.req.Requirement.related_archives`.
+        Test filename translation logic used by :attr:`pip_accel.req.Requirement.related_archives`.
 
-        The :py:func:`pip_accel.req.escape_name()` function generates regular
+        The :func:`pip_accel.req.escape_name()` function generates regular
         expression patterns that match the given requirement name literally
         while treating dashes and underscores as equivalent. This test ensures
         that the generated regular expression patterns work as expected.
@@ -171,9 +168,9 @@ class PipAccelTestCase(unittest.TestCase):
 
     def test_environment_validation(self):
         """
-        Test the validation of :py:data:`sys.prefix` versus ``$VIRTUAL_ENV``.
+        Test the validation of :data:`sys.prefix` versus ``$VIRTUAL_ENV``.
 
-        This tests the :py:func:`~pip_accel.PipAccelerator.validate_environment()` method.
+        This tests the :func:`~pip_accel.PipAccelerator.validate_environment()` method.
         """
         original_value = os.environ.get('VIRTUAL_ENV', None)
         try:
@@ -211,7 +208,7 @@ class PipAccelTestCase(unittest.TestCase):
         """
         Test error handling during loading of configuration files.
 
-        This tests the :py:func:`~pip_accel.config.Config.load_configuration_file()` method.
+        This tests the :func:`~pip_accel.config.Config.load_configuration_file()` method.
         """
         directory = create_temporary_directory()
         config_file = os.path.join(directory, 'pip-accel.ini')
@@ -236,7 +233,7 @@ class PipAccelTestCase(unittest.TestCase):
         """
         Verify that broken symbolic links in the source index are cleaned up.
 
-        This tests the :py:func:`~pip_accel.PipAccelerator.clean_source_index()` method.
+        This tests the :func:`~pip_accel.PipAccelerator.clean_source_index()` method.
         """
         if WINDOWS:
             return self.skipTest("Skipping broken symbolic link cleanup test (Windows doesn't support symbolic links).")
@@ -427,7 +424,7 @@ class PipAccelTestCase(unittest.TestCase):
         """
         Verify that tracking of installed files works correctly.
 
-        This tests the :py:func:`~pip_accel.bdist.BinaryDistributionManager.update_installed_files()`
+        This tests the :func:`~pip_accel.bdist.BinaryDistributionManager.update_installed_files()`
         method.
 
         When pip installs a Python package it also creates a file called
@@ -521,7 +518,7 @@ class PipAccelTestCase(unittest.TestCase):
 
     def test_requirement_objects(self):
         """
-        Test the public properties of :py:class:`pip_accel.req.Requirement` objects.
+        Test the public properties of :class:`pip_accel.req.Requirement` objects.
 
         This test confirms (amongst other things) that the logic which
         distinguishes transitive requirements from non-transitive (direct)
@@ -577,7 +574,7 @@ class PipAccelTestCase(unittest.TestCase):
         This happens because ``easy-install.pth`` (used for editable packages)
         is loaded once during startup of the Python interpreter and never
         refreshed. There's no public, documented way that I know of to refresh
-        :py:data:`sys.path` (see `issue 402 in the Gunicorn issue tracker`_ for
+        :data:`sys.path` (see `issue 402 in the Gunicorn issue tracker`_ for
         a related discussion).
 
         .. _issue 402 in the Gunicorn issue tracker: https://github.com/benoitc/gunicorn/issues/402
@@ -755,6 +752,7 @@ class PipAccelTestCase(unittest.TestCase):
         assert num_installed == 1, "Expected pip-accel to install exactly one package!"
 
     def test_system_package_dependency_failures(self):
+        """Test that unsupported platforms are handled gracefully in system package dependency management."""
         this_script = os.path.abspath(__file__)
         pip_accel_directory = os.path.dirname(this_script)
         deps_directory = os.path.join(pip_accel_directory, 'deps')
@@ -839,8 +837,8 @@ def try_program(program_name):
 
     :param program_name: The base name of the program to test (a string). The
                          absolute pathname will be calculated by combining
-                         :py:data:`sys.prefix` and this argument.
-    :raises: :py:exc:`~exceptions.AssertionError` when a test fails.
+                         :data:`sys.prefix` and this argument.
+    :raises: :exc:`~exceptions.AssertionError` when a test fails.
     """
     program_path = find_python_program(program_name)
     logger.debug("Making sure %s is installed ..", program_path)
@@ -875,7 +873,7 @@ def generate_nonexisting_pathname():
     Generate a pathname that is expected not to exist.
 
     :returns: A pathname (string) that doesn't refer to an existing directory
-              or file on the file system (assuming :py:func:`random.random()`
+              or file on the file system (assuming :func:`random.random()`
               does what it's documented to do :-).
     """
     return os.path.join(tempfile.gettempdir(),
@@ -887,11 +885,11 @@ def test_cli(*arguments):
     Test the pip-accel command line interface.
 
     Runs pip-accel's command line interface inside the current Python process
-    by temporarily changing :py:data:`sys.argv`, invoking the
-    :py:func:`pip_accel.cli.main()` function and catching
-    :py:exc:`~exceptions.SystemExit`.
+    by temporarily changing :data:`sys.argv`, invoking the
+    :func:`pip_accel.cli.main()` function and catching
+    :exc:`~exceptions.SystemExit`.
 
-    :param arguments: The value that :py:data:`sys.argv` should be set to (a
+    :param arguments: The value that :data:`sys.argv` should be set to (a
                       list of strings).
     :returns: The exit code of ``pip-accel``.
     """
@@ -908,24 +906,24 @@ def test_cli(*arguments):
 
 class CaptureOutput(object):
 
-    """Context manager that captures what's written to :py:data:`sys.stdout`."""
+    """Context manager that captures what's written to :data:`sys.stdout`."""
 
     def __init__(self):
-        """Initialize a string IO object to be used as :py:data:`sys.stdout`."""
+        """Initialize a string IO object to be used as :data:`sys.stdout`."""
         self.stream = StringIO()
 
     def __enter__(self):
-        """Start capturing what's written to :py:data:`sys.stdout`."""
+        """Start capturing what's written to :data:`sys.stdout`."""
         self.original_stdout = sys.stdout
         sys.stdout = self.stream
         return self
 
     def __exit__(self, exc_type=None, exc_value=None, traceback=None):
-        """Stop capturing what's written to :py:data:`sys.stdout`."""
+        """Stop capturing what's written to :data:`sys.stdout`."""
         sys.stdout = self.original_stdout
 
     def __str__(self):
-        """Get the text written to :py:data:`sys.stdout`."""
+        """Get the text written to :data:`sys.stdout`."""
         return self.stream.getvalue()
 
 

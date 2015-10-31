@@ -51,7 +51,7 @@ coverage: install
 	$(ACTIVATE) && coverage report --fail-under=90 &>/dev/null
 
 check: install
-	test -x "$(VIRTUAL_ENV)/bin/flake8" || ($(ACTIVATE) && pip-accel install --quiet flake8)
+	test -x "$(VIRTUAL_ENV)/bin/flake8" || ($(ACTIVATE) && pip-accel install --quiet --requirement requirements-flake8.txt)
 	flake8
 
 docs: install

@@ -1,8 +1,10 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: October 27, 2015
+# Last Change: October 30, 2015
 # URL: https://github.com/paylogic/pip-accel
+
+"""Operating system detection and Python version compatibility."""
 
 # Standard library modules.
 import sys
@@ -16,8 +18,8 @@ __all__ = (
     'urlparse',
 )
 
-# Detect whether we're running on Microsoft Windows.
 WINDOWS = sys.platform.startswith('win')
+""":data:`True` if running on Windows, :data:`False` otherwise."""
 
 # Compatibility between Python 2 and 3.
 try:

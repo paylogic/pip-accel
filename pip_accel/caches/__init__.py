@@ -1,19 +1,18 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: October 30, 2015
+# Last Change: October 31, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
-:py:mod:`pip_accel.caches` - Support for multiple cache backends
-================================================================
+Support for multiple cache backends.
 
-This module defines an abstract base class (:py:class:`AbstractCacheBackend`)
+This module defines an abstract base class (:class:`AbstractCacheBackend`)
 to be inherited by custom cache backends in order to easily integrate them in
 pip-accel. The cache backends included in pip-accel are built on top of the
 same mechanism.
 
-Additionally this module defines :py:class:`CacheManager` which makes it
+Additionally this module defines :class:`CacheManager` which makes it
 possible to merge the available cache backends into a single logical cache
 which automatically disables backends that report errors.
 """
@@ -45,6 +44,7 @@ class CacheBackendMeta(type):
     """Metaclass to intercept cache backend definitions."""
 
     def __init__(cls, name, bases, dict):
+        """Intercept cache backend definitions."""
         type.__init__(cls, name, bases, dict)
         registered_backends.add(cls)
 
@@ -77,36 +77,41 @@ class AbstractCacheBackend(object):
         """
         Initialize a cache backend.
 
-        :param config: The pip-accel configuration (a :py:class:`.Config`
+        :param config: The pip-accel configuration (a :class:`.Config`
                        object).
         """
         self.config = config
 
     def get(self, filename):
         """
-        This method is called by pip-accel before fetching or building a
-        distribution archive, in order to check whether a previously cached
-        distribution archive is available for re-use.
+        Get a previously cached distribution archive from the cache.
 
         :param filename: The expected filename of the distribution archive (a
                          string).
-        :returns: The absolute pathname of a local file or ``None`` when the
+        :returns: The absolute pathname of a local file or :data:`None` when the
                   distribution archive hasn't been cached.
+
+        This method is called by `pip-accel` before fetching or building a
+        distribution archive, in order to check whether a previously cached
+        distribution archive is available for re-use.
         """
         raise NotImplementedError()
 
     def put(self, filename, handle):
         """
-        This method is called by pip-accel after fetching or building a
-        distribution archive, in order to cache the distribution archive.
+        Store a newly built distribution archive in the cache.
 
         :param filename: The filename of the distribution archive (a string).
         :param handle: A file-like object that provides access to the
                        distribution archive.
+
+        This method is called by `pip-accel` after fetching or building a
+        distribution archive, in order to cache the distribution archive.
         """
         raise NotImplementedError()
 
     def __repr__(self):
+        """Generate a textual representation of the cache backend."""
         return self.__class__.__name__
 
 
@@ -136,7 +141,7 @@ class CacheManager(object):
         for external Python packages to register additional cache backends
         without any modifications to pip-accel.
 
-        :param config: The pip-accel configuration (a :py:class:`.Config`
+        :param config: The pip-accel configuration (a :class:`.Config`
                        object).
         """
         self.config = config
@@ -155,8 +160,8 @@ class CacheManager(object):
         """
         Get a distribution archive from any of the available caches.
 
-        :param requirement: A :py:class:`.Requirement` object.
-        :returns: The absolute pathname of a local file or ``None`` when the
+        :param requirement: A :class:`.Requirement` object.
+        :returns: The absolute pathname of a local file or :data:`None` when the
                   distribution archive is missing from all available caches.
         """
         filename = self.generate_filename(requirement)
@@ -176,7 +181,7 @@ class CacheManager(object):
         """
         Store a distribution archive in all of the available caches.
 
-        :param requirement: A :py:class:`.Requirement` object.
+        :param requirement: A :class:`.Requirement` object.
         :param handle: A file-like object that provides access to the
                        distribution archive.
         """
@@ -196,7 +201,7 @@ class CacheManager(object):
         """
         Generate a distribution archive filename for a package.
 
-        :param requirement: A :py:class:`.Requirement` object.
+        :param requirement: A :class:`.Requirement` object.
         :returns: The filename of the distribution archive (a string)
                   including a single leading directory component to indicate
                   the cache format revision.

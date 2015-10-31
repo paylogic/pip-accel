@@ -13,6 +13,7 @@ env:
 before_install:
   - scripts/retry-command sudo apt-get update
 install:
+  - pip install --requirement=requirements-flake8.txt
   - LC_ALL=C scripts/retry-command pip install coveralls --editable "file://${PWD}[s3]"
   - scripts/retry-command gem install fakes3
 script:

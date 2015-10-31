@@ -1,20 +1,19 @@
 # Extension of pip-accel that deals with dependencies on system packages.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: October 30, 2015
+# Last Change: October 31, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
-:py:mod:`pip_accel.deps` - System package dependency handling
-=============================================================
+System package dependency handling.
 
-The :py:mod:`pip_accel.deps` module is an extension of pip-accel that deals
+The :mod:`pip_accel.deps` module is an extension of pip-accel that deals
 with dependencies on system packages. Currently only Debian Linux and
 derivative Linux distributions are supported by this extension but it should be
 fairly easy to add support for other platforms.
 
-The interface between pip-accel and :py:class:`SystemPackageManager` focuses on
-:py:func:`~SystemPackageManager.install_dependencies()` (the other methods are
+The interface between pip-accel and :class:`SystemPackageManager` focuses on
+:func:`~SystemPackageManager.install_dependencies()` (the other methods are
 used internally).
 """
 
@@ -45,7 +44,7 @@ class SystemPackageManager(object):
         """
         Initialize the system package dependency manager.
 
-        :param config: The pip-accel configuration (a :py:class:`.Config`
+        :param config: The pip-accel configuration (a :class:`.Config`
                        object).
         """
         # Defaults for unsupported systems.
@@ -84,18 +83,20 @@ class SystemPackageManager(object):
 
     def install_dependencies(self, requirement):
         """
-        If :py:mod:`pip_accel` fails to build a binary distribution, it will
-        call this method as a last chance to install missing dependencies. If
-        this function does not raise an exception, :py:mod:`pip_accel` will
-        retry the build once.
+        Install missing dependencies for the given requirement.
 
-        :param requirement: A :py:class:`.Requirement` object.
-        :returns: ``True`` when missing system packages were installed,
-                  ``False`` otherwise.
-        :raises: :py:exc:`.DependencyInstallationRefused` when automatic
+        :param requirement: A :class:`.Requirement` object.
+        :returns: :data:`True` when missing system packages were installed,
+                  :data:`False` otherwise.
+        :raises: :exc:`.DependencyInstallationRefused` when automatic
                  installation is disabled or refused by the operator.
-        :raises: :py:exc:`.DependencyInstallationFailed` when the installation
+        :raises: :exc:`.DependencyInstallationFailed` when the installation
                  of missing system packages fails.
+
+        If `pip-accel` fails to build a binary distribution, it will call this
+        method as a last chance to install missing dependencies. If this
+        function does not raise an exception, `pip-accel` will retry the build
+        once.
         """
         install_timer = Timer()
         missing_dependencies = self.find_missing_dependencies(requirement)
@@ -146,7 +147,7 @@ class SystemPackageManager(object):
         """
         Find missing dependencies of a Python package.
 
-        :param requirement: A :py:class:`.Requirement` object.
+        :param requirement: A :class:`.Requirement` object.
         :returns: A list of strings with system package names.
         """
         known_dependencies = self.find_known_dependencies(requirement)
@@ -166,7 +167,7 @@ class SystemPackageManager(object):
         """
         Find the known dependencies of a Python package.
 
-        :param requirement: A :py:class:`.Requirement` object.
+        :param requirement: A :class:`.Requirement` object.
         :returns: A list of strings with system package names.
         """
         logger.info("Checking for known dependencies of %s ..", requirement.name)
@@ -183,7 +184,7 @@ class SystemPackageManager(object):
         Find the installed system packages.
 
         :returns: A list of strings with system package names.
-        :raises: :py:exc:`.SystemDependencyError` when the command to list the
+        :raises: :exc:`.SystemDependencyError` when the command to list the
                  installed system packages fails.
         """
         list_command = subprocess.Popen(self.list_command, shell=True, stdout=subprocess.PIPE)
@@ -197,9 +198,9 @@ class SystemPackageManager(object):
 
     def installation_refused(self, requirement, missing_dependencies, reason):
         """
-        Raise :py:exc:`.DependencyInstallationRefused` with a user friendly message.
+        Raise :exc:`.DependencyInstallationRefused` with a user friendly message.
 
-        :param requirement: A :py:class:`.Requirement` object.
+        :param requirement: A :class:`.Requirement` object.
         :param missing_dependencies: A list of strings with missing dependencies.
         :param reason: The reason why installation was refused (a string).
         """
@@ -216,11 +217,11 @@ class SystemPackageManager(object):
         """
         Ask the operator's permission to install missing system packages.
 
-        :param requirement: A :py:class:`.Requirement` object.
+        :param requirement: A :class:`.Requirement` object.
         :param missing_dependencies: A list of strings with missing dependencies.
         :param install_command: A list of strings with the command line needed
                                 to install the missing dependencies.
-        :raises: :py:exc:`.DependencyInstallationRefused` when the operator refuses.
+        :raises: :exc:`.DependencyInstallationRefused` when the operator refuses.
         """
         try:
             return prompt_for_confirmation(format(

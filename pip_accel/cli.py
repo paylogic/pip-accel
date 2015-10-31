@@ -1,13 +1,10 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: October 30, 2015
+# Last Change: October 31, 2015
 # URL: https://github.com/paylogic/pip-accel
 
-"""
-:py:mod:`pip_accel.cli` - Command line interface for the ``pip-accel`` program
-==============================================================================
-"""
+"""Command line interface for the ``pip-accel`` program."""
 
 # Standard library modules.
 import logging
