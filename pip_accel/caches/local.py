@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: October 30, 2015
+# Last Change: October 31, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -26,7 +26,7 @@ import shutil
 
 # Modules included in our package.
 from pip_accel.caches import AbstractCacheBackend
-from pip_accel.utils import makedirs, replace_file
+from pip_accel.utils import AtomicReplace, makedirs
 
 # Initialize a logger for this module.
 logger = logging.getLogger(__name__)
@@ -68,12 +68,7 @@ class LocalCacheBackend(AbstractCacheBackend):
         # Stream the contents of the distribution archive to a temporary file
         # to avoid race conditions (e.g. partial reads) between multiple
         # processes that are using the local cache at the same time.
-        temporary_file = '%s.tmp-%i' % (file_in_cache, os.getpid())
-        logger.debug("Using temporary file to avoid partial reads: %s", temporary_file)
-        with open(temporary_file, 'wb') as temporary_file_handle:
-            shutil.copyfileobj(handle, temporary_file_handle)
-        logger.debug("Moving temporary file into place ..")
-        # Atomically move the distribution archive into its final place
-        # (again, to avoid race conditions between multiple processes).
-        replace_file(temporary_file, file_in_cache)
+        with AtomicReplace(file_in_cache) as temporary_file:
+            with open(temporary_file, 'wb') as temporary_file_handle:
+                shutil.copyfileobj(handle, temporary_file_handle)
         logger.debug("Finished caching distribution archive in local cache.")

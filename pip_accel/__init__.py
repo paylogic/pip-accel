@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: October 30, 2015
+# Last Change: October 31, 2015
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Permanently store logs in the pip-accel directory (think about log rotation).
@@ -67,7 +67,7 @@ from pip.commands.install import InstallCommand
 from pip.exceptions import DistributionNotFound
 
 # Semi-standard module versioning.
-__version__ = '0.33.2'
+__version__ = '0.33.3'
 
 # Initialize a logger for this module.
 logger = logging.getLogger(__name__)

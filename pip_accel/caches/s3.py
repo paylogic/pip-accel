@@ -3,7 +3,7 @@
 # Authors:
 #  - Adam Feuer <adam@adamfeuer.com>
 #  - Peter Odding <peter.odding@paylogic.com>
-# Last Change: October 30, 2015
+# Last Change: October 31, 2015
 # URL: https://github.com/paylogic/pip-accel
 #
 # A word of warning: Do *not* use the cached_property decorator here, because
@@ -101,7 +101,7 @@ from humanfriendly import coerce_boolean, Timer
 from pip_accel.caches import AbstractCacheBackend
 from pip_accel.compat import urlparse
 from pip_accel.exceptions import CacheBackendDisabledError, CacheBackendError
-from pip_accel.utils import makedirs
+from pip_accel.utils import AtomicReplace, makedirs
 
 # Initialize a logger for this module.
 logger = logging.getLogger(__name__)
@@ -163,11 +163,12 @@ class S3CacheBackend(AbstractCacheBackend):
             # TODO Shouldn't this use LocalCacheBackend.put() instead of
             #      implementing the same steps manually?!
             logger.info("Downloading distribution archive from S3 bucket ..")
-            local_file = os.path.join(self.config.binary_cache, filename)
-            makedirs(os.path.dirname(local_file))
-            key.get_contents_to_filename(local_file)
+            file_in_cache = os.path.join(self.config.binary_cache, filename)
+            makedirs(os.path.dirname(file_in_cache))
+            with AtomicReplace(file_in_cache) as temporary_file:
+                key.get_contents_to_filename(temporary_file)
             logger.debug("Finished downloading distribution archive from S3 bucket in %s.", timer)
-            return local_file
+            return file_in_cache
 
     def put(self, filename, handle):
         """

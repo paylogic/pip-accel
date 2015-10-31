@@ -1,7 +1,7 @@
 # Utility functions for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: October 30, 2015
+# Last Change: October 31, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -15,6 +15,7 @@ with any single module.
 
 # Standard library modules.
 import errno
+import logging
 import os
 import platform
 import sys
@@ -26,6 +27,9 @@ from pip_accel.compat import WINDOWS
 from humanfriendly import parse_path
 from pip.commands.uninstall import UninstallCommand
 from pkg_resources import WorkingSet
+
+# Initialize a logger for this module.
+logger = logging.getLogger(__name__)
 
 
 def compact(text, **kw):
@@ -183,6 +187,38 @@ def replace_file(src, dst):
     # See https://bugs.python.org/issue8828 for a long winded discussion.
     os.remove(dst)
     os.rename(src, dst)
+
+
+class AtomicReplace(object):
+
+    """Context manager to atomically replace a file's contents."""
+
+    def __init__(self, filename):
+        """
+        Initialize a :class:`AtomicReplace` object.
+
+        :param filename: The pathname of the file to replace (a string).
+        """
+        self.filename = filename
+        self.temporary_file = '%s.tmp-%i' % (filename, os.getpid())
+
+    def __enter__(self):
+        """
+        Prepare to replace the file's contents.
+
+        :returns: The pathname of a temporary file in the same directory as the
+                  file to replace (a string). Using this temporary file ensures
+                  that :func:`replace_file()` doesn't fail due to a
+                  cross-device rename operation.
+        """
+        logger.debug("Using temporary file to avoid partial reads: %s", self.temporary_file)
+        return self.temporary_file
+
+    def __exit__(self, exc_type=None, exc_value=None, traceback=None):
+        """Replace the file's contents (if no exception occurred) using :func:`replace_file()`."""
+        if exc_type is None:
+            logger.debug("Moving temporary file into place: %s", self.filename)
+            replace_file(self.temporary_file, self.filename)
 
 
 def is_installed(package_name):
