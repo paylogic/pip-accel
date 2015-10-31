@@ -61,8 +61,11 @@ def fix_branch_name():
     ``$CI_BRANCH`` environment variable can be used to change the branch name
     that's reported to Coveralls.
 
+    This hack was confirmed to work in `build 1.0.57`_.
+
     .. _environment variables: http://www.appveyor.com/docs/environment-variables
     .. _the source code: https://github.com/coagulant/coveralls-python/blob/master/coveralls/api.py
+    .. _build 1.0.57: https://ci.appveyor.com/project/xolox/pip-accel/build/1.0.57
     """
     logger.debug("Existing environment variables (sanitized): %s", dump_environment())
     if os.environ.get('APPVEYOR_REPO_BRANCH') == 'master' and os.environ.get('CI_BRANCH') != 'master':
