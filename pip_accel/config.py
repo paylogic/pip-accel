@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: October 31, 2015
+# Last Change: November 7, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -296,6 +296,25 @@ class Config(object):
                 return n
         except:
             return 3
+
+    @cached_property
+    def trust_mod_times(self):
+        """
+        Whether to trust file modification times for cache invalidation.
+
+        - Environment variable: ``$PIP_ACCEL_TRUST_MOD_TIMES``
+        - Configuration option: ``trust-mod-times``
+        - Default: :data:`True` unless the AppVeyor_ continuous integration
+                   environment is detected (see `issue 62`_).
+
+        .. _AppVeyor: http://www.appveyor.com
+        .. _issue 62: https://github.com/paylogic/pip-accel/issues/62
+        """
+        on_appveyor = coerce_boolean(os.environ.get('APPVEYOR', 'False'))
+        return coerce_boolean(self.get(property_name='trust_mod_times',
+                                       environment_variable='PIP_ACCEL_TRUST_MOD_TIMES',
+                                       configuration_option='trust-mod-times',
+                                       default=(not on_appveyor)))
 
     @cached_property
     def s3_cache_url(self):

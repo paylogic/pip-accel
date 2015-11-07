@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: October 31, 2015
+# Last Change: November 7, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -34,6 +34,7 @@ import time
 
 # Modules included in our package.
 from pip_accel.exceptions import UnknownDistributionFormat
+from pip_accel.utils import hash_files
 
 # External dependencies.
 from cached_property import cached_property
@@ -83,14 +84,14 @@ class Requirement(object):
     @cached_property
     def related_archives(self):
         """
-        Try to find the source distribution archive(s) for this requirement.
+        The pathnames of the source distribution(s) for this requirement (a list of strings).
 
-        Returns a list of pathnames (strings).
-
-        This property is very new in pip-accel and its logic may need some time
-        to mature. For now any misbehavior by this property shouldn't be too
-        much of a problem because the pathnames reported by this property are
-        only used for cache invalidation (see :attr:`last_modified`).
+        .. note:: This property is very new in pip-accel and its logic may need
+                  some time to mature. For now any misbehavior by this property
+                  shouldn't be too much of a problem because the pathnames
+                  reported by this property are only used for cache
+                  invalidation (see the :attr:`last_modified` and
+                  :attr:`checksum` properties).
         """
         # Escape the requirement's name for use in a regular expression.
         name_pattern = escape_name(self.name)
@@ -112,17 +113,27 @@ class Requirement(object):
     @cached_property
     def last_modified(self):
         """
-        Try to find the last modified time of the requirement's source distribution archive(s).
+        The last modified time of the requirement's source distribution archive(s) (a number).
 
-        Returns a number.
-
-        Based on :attr:`related_archives`. If no related archives are found
-        the current time is reported. In the balance between not invalidating
-        cached binary distributions enough and invalidating them too
-        frequently, this property causes the latter to happen.
+        The value of this property is based on the :attr:`related_archives`
+        property. If no related archives are found the current time is
+        reported. In the balance between not invalidating cached binary
+        distributions enough and invalidating them too frequently, this
+        property causes the latter to happen.
         """
         mtimes = list(map(os.path.getmtime, self.related_archives))
         return max(mtimes) if mtimes else time.time()
+
+    @cached_property
+    def checksum(self):
+        """
+        The SHA1 checksum of the requirement's source distribution archive(s) (a string).
+
+        The value of this property is based on the :attr:`related_archives`
+        property. If no related archives are found the SHA1 digest of the empty
+        string is reported.
+        """
+        return hash_files('sha1', *sorted(self.related_archives))
 
     @cached_property
     def source_directory(self):

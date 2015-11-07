@@ -1,7 +1,7 @@
 # Tests for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: October 31, 2015
+# Last Change: November 7, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -24,6 +24,7 @@ have to do so retroactively.
 
 # Standard library modules.
 import glob
+import fnmatch
 import logging
 import operator
 import os
@@ -89,14 +90,16 @@ def delete_read_only(action, pathname, exc_info):
         action(pathname)
 
 
-def create_temporary_directory():
+def create_temporary_directory(**kw):
     """
     Create a temporary directory that will be cleaned up when the test suite ends.
 
+    :param kw: Any keyword arguments are passed on to
+               :func:`tempfile.mkdtemp()`.
     :returns: The pathname of a directory created using
               :func:`tempfile.mkdtemp()` (a string).
     """
-    directory = tempfile.mkdtemp()
+    directory = tempfile.mkdtemp(**kw)
     logger.debug("Created temporary directory: %s", directory)
     TEMPORARY_DIRECTORIES.append(directory)
     return directory
@@ -145,7 +148,7 @@ class PipAccelTestCase(unittest.TestCase):
                         load_environment_variables=load_environment_variables)
         if not overrides.get('data_directory'):
             # Always use a data directory isolated to the current test.
-            overrides['data_directory'] = create_temporary_directory()
+            overrides['data_directory'] = create_temporary_directory(prefix='pip-accel-', suffix='-profile')
         for name, value in overrides.items():
             setattr(config, name, value)
         accelerator = PipAccelerator(config)
@@ -210,7 +213,7 @@ class PipAccelTestCase(unittest.TestCase):
 
         This tests the :func:`~pip_accel.config.Config.load_configuration_file()` method.
         """
-        directory = create_temporary_directory()
+        directory = create_temporary_directory(prefix='pip-accel-', suffix='-profile')
         config_file = os.path.join(directory, 'pip-accel.ini')
         # Create a dummy configuration object.
         config = Config(load_configuration_files=False, load_environment_variables=False)
@@ -237,7 +240,7 @@ class PipAccelTestCase(unittest.TestCase):
         """
         if WINDOWS:
             return self.skipTest("Skipping broken symbolic link cleanup test (Windows doesn't support symbolic links).")
-        source_index = create_temporary_directory()
+        source_index = create_temporary_directory(prefix='pip-accel-', suffix='-source-index')
         broken_link = os.path.join(source_index, 'this-is-a-broken-link')
         os.symlink(generate_nonexisting_pathname(), broken_link)
         assert os.path.islink(broken_link), "os.symlink() doesn't work, what the?!"
@@ -253,7 +256,7 @@ class PipAccelTestCase(unittest.TestCase):
         """
         pip_install_args = ['--ignore-installed', 'pep8==1.6.2']
         # Initialize an instance of pip-accel with an empty cache.
-        accelerator = self.initialize_pip_accel(data_directory=create_temporary_directory())
+        accelerator = self.initialize_pip_accel()
         # First we do a simple sanity check that unpack_source_dists() does not
         # connect to PyPI when it's missing distributions (it should raise a
         # DistributionNotFound exception instead).
@@ -348,7 +351,6 @@ class PipAccelTestCase(unittest.TestCase):
         pip_install_args = ['--ignore-installed', '--no-binary=:all:', 'pep8==1.6.2']
         # Initialize an instance of pip-accel with an empty cache.
         accelerator = self.initialize_pip_accel(load_environment_variables=True,
-                                                data_directory=create_temporary_directory(),
                                                 s3_cache_timeout=10,
                                                 s3_cache_retries=0)
         # Run the installation three times.
@@ -456,7 +458,7 @@ class PipAccelTestCase(unittest.TestCase):
         # Make sure the iPython program works after installation using pip.
         try_program('ipython3' if sys.version_info[0] == 3 else 'ipython')
         # Find the iPython related files installed by pip.
-        files_installed_using_pip = set(find_files(sys.prefix, 'ipython'))
+        files_installed_using_pip = set(find_files(sys.prefix, '*ipython*'))
         assert len(files_installed_using_pip) > 0, \
             "It looks like pip didn't install iPython where we expected it to do so?!"
         logger.debug("Found %i files installed using pip: %s",
@@ -472,7 +474,7 @@ class PipAccelTestCase(unittest.TestCase):
         # Make sure the iPython program works after installation using pip-accel.
         try_program('ipython3' if sys.version_info[0] == 3 else 'ipython')
         # Find the iPython related files installed by pip-accel.
-        files_installed_using_pip_accel = set(find_files(sys.prefix, 'ipython'))
+        files_installed_using_pip_accel = set(find_files(sys.prefix, '*ipython*'))
         assert len(files_installed_using_pip_accel) > 0, \
             "It looks like pip-accel didn't install iPython where we expected it to do so?!"
         logger.debug("Found %i files installed using pip-accel: %s",
@@ -484,7 +486,7 @@ class PipAccelTestCase(unittest.TestCase):
         # due to the installed-files.txt file generated by pip-accel.
         uninstall('ipython')
         # Make sure all files related to iPython were uninstalled by pip.
-        assert len(list(find_files(sys.prefix, 'ipython'))) == 0, \
+        assert len(list(find_files(sys.prefix, '*ipython*'))) == 0, \
             "It looks like pip didn't properly uninstall iPython after installation using pip-accel!"
 
     def test_setuptools_injection(self):
@@ -611,18 +613,19 @@ class PipAccelTestCase(unittest.TestCase):
         # this test and encounter an editable package.
         uninstall_through_subprocess('pep8')
 
-    def test_cache_invalidation(self):
+    def test_time_based_cache_invalidation(self):
         """
-        Test the cache invalidation logic.
+        Test default cache invalidation logic (based on modification times).
 
-        When a source distribution archive is newer than its cached binary
-        distribution archive the binary is invalidated and rebuilt. This test
-        ensures that the cache invalidation logic works as expected.
+        When a source distribution archive is changed the cached binary
+        distribution archive is invalidated and rebuilt. This test ensures that
+        the default cache invalidation logic (based on modification times of
+        files) works as expected.
         """
         if not self.pep8_git_repo:
             return self.skipTest("""
-                Skipping cache invalidation test (git clone of pep8
-                repository from GitHub seems to have failed).
+                Skipping default cache invalidation test (git clone of
+                `pep8' repository from GitHub seems to have failed).
             """)
         iterations = 2
         last_modified_times = []
@@ -636,12 +639,66 @@ class PipAccelTestCase(unittest.TestCase):
             ])
             assert num_installed == 1, "Expected pip-accel to install exactly one package!"
             # Get the last modified time of the cached binary distribution.
-            last_modified_times.extend(map(os.path.getmtime, find_files(accelerator.config.binary_cache, 'pep8')))
+            last_modified_times.extend(map(
+                os.path.getmtime,
+                find_files(accelerator.config.binary_cache, '*pep8*.tar.gz'),
+            ))
         # The code above wiped the source index directory but it never
         # touched the binary index, so if two *pep8* files with unique
         # `last modified times' are seen in the binary index then the
         # cache invalidation kicked in!
         assert len(set(last_modified_times)) == iterations
+
+    def test_checksum_based_cache_invalidation(self):
+        """
+        Test alternate cache invalidation logic (based on checksums).
+
+        When a source distribution archive is changed the cached binary
+        distribution archive is invalidated and rebuilt. This test ensures that
+        the alternate cache invalidation logic (based on SHA1 checksums of
+        files) works as expected.
+        """
+        if not self.pep8_git_repo:
+            return self.skipTest("""
+                Skipping alternate cache invalidation test (git clone of
+                `pep8' repository from GitHub seems to have failed).
+            """)
+        accelerator = self.initialize_pip_accel(trust_mod_times=False)
+        pep8_sdist = self.create_pep8_sdist()
+        # Install the pep8 package.
+        accelerator.install_from_arguments(['--ignore-installed', pep8_sdist])
+        # Find the modification times of the source and binary distributions.
+        sdist_mtime_1 = os.path.getmtime(find_one_file(accelerator.config.source_index, '*pep8*'))
+        bdist_mtime_1 = os.path.getmtime(find_one_file(accelerator.config.binary_cache, '*pep8*.tar.gz'))
+        # Wipe the source distribution index directory.
+        wipe_directory(accelerator.config.source_index)
+        # Install the pep8 package for the second time (using the source
+        # distribution archive that was also used the first time).
+        accelerator.install_from_arguments(['--ignore-installed', pep8_sdist])
+        # Find the modification times of the source and binary distributions.
+        sdist_mtime_2 = os.path.getmtime(find_one_file(accelerator.config.source_index, '*pep8*'))
+        bdist_mtime_2 = os.path.getmtime(find_one_file(accelerator.config.binary_cache, '*pep8*.tar.gz'))
+        # Check that the source distribution's modification time changed
+        # (because we wiped the source index directory).
+        assert sdist_mtime_2 > sdist_mtime_1, "Source distribution should have been refreshed!"
+        # Check that the binary distribution's modification time hasn't changed
+        # (because the source distribution archive contents haven't changed).
+        assert bdist_mtime_2 == bdist_mtime_1, "Binary distribution shouldn't have been refreshed!"
+        # Install the pep8 package for the third time, using a newly created
+        # source distribution archive with different contents.
+        with open(os.path.join(self.pep8_git_repo, 'MANIFEST.in'), 'w') as handle:
+            handle.write("\n# An innocent comment to change the checksum ..\n")
+        accelerator.install_from_arguments(['--ignore-installed', self.create_pep8_sdist()])
+        # Find the modification times of the source and binary distributions.
+        sdist_mtime_3 = os.path.getmtime(find_one_file(accelerator.config.source_index, '*pep8*'))
+        bdist_mtime_3 = os.path.getmtime(find_one_file(accelerator.config.binary_cache, '*pep8*.tar.gz'))
+        # Check that the source distribution's modification time changed
+        # (because we created it by running the `python setup.py sdist'
+        # command a second time).
+        assert sdist_mtime_3 > sdist_mtime_2, "Source distribution should have been refreshed!"
+        # Check that the binary distribution's modification time has changed
+        # (because we changed the contents of the source distribution).
+        assert bdist_mtime_3 > bdist_mtime_2, "Binary distribution should have been refreshed!"
 
     def test_cli_install(self):
         """
@@ -683,7 +740,8 @@ class PipAccelTestCase(unittest.TestCase):
 
         .. _issue 47: https://github.com/paylogic/pip-accel/issues/47
         """
-        empty_file = os.path.join(create_temporary_directory(), 'empty-requirements-file.txt')
+        empty_file = os.path.join(create_temporary_directory(prefix='pip-accel-', suffix='-empty-requirements-test'),
+                                  'empty-requirements-file.txt')
         open(empty_file, 'w').close()
         returncode = test_cli('pip-accel', 'install', '--requirement', empty_file)
         assert returncode == 0, "pip-accel command line interface failed on empty requirements file!"
@@ -727,7 +785,7 @@ class PipAccelTestCase(unittest.TestCase):
         ])
         # Make sure that when automatic installation is disabled the system
         # package manager refuses to install the missing dependency.
-        accelerator = self.initialize_pip_accel(auto_install=False, data_directory=create_temporary_directory())
+        accelerator = self.initialize_pip_accel(auto_install=False)
         self.assertRaises(DependencyInstallationRefused, accelerator.install_from_arguments, [
             '--ignore-installed', 'lxml==3.2.1'
         ])
@@ -739,13 +797,12 @@ class PipAccelTestCase(unittest.TestCase):
 
         # Try to ask for permission but refuse to give it.
         with PatchedAttribute(sys, 'stdin', FakeStandardInput()):
-            accelerator = self.initialize_pip_accel(auto_install=None, data_directory=create_temporary_directory())
+            accelerator = self.initialize_pip_accel(auto_install=None)
             self.assertRaises(DependencyInstallationRefused, accelerator.install_from_arguments, [
                 '--ignore-installed', 'lxml==3.2.1'
             ])
         # Install lxml while a system dependency is missing and automatic installation is allowed.
-        accelerator = self.initialize_pip_accel(auto_install=True,
-                                                data_directory=create_temporary_directory())
+        accelerator = self.initialize_pip_accel(auto_install=True)
         num_installed = accelerator.install_from_arguments([
             '--ignore-installed', 'lxml==3.2.1'
         ])
@@ -774,13 +831,26 @@ class PipAccelTestCase(unittest.TestCase):
 
     @cached_property
     def pep8_git_repo(self):
-        """The pathname of a git clone of the ``pep8`` package (:data:`None` if git fails)."""
-        git_checkout = os.path.join(create_temporary_directory(), 'pep8')
+        """The pathname of a git clone of the `pep8` package (:data:`None` if git fails)."""
+        git_checkout = create_temporary_directory(prefix='pip-accel-', suffix='-pep8-checkout')
         git_remote = 'https://github.com/PyCQA/pep8.git'
         if subprocess.call(['git', 'clone', '--depth=1', git_remote, git_checkout]) == 0:
             return git_checkout
         else:
             return None
+
+    def create_pep8_sdist(self):
+        """
+        Create a new source distribution archive in the `pep8` git checkout.
+
+        :returns: The pathname of the source distribution archive (a string)
+                  or :data:`None` if the checkout isn't available.
+        """
+        if self.pep8_git_repo:
+            distributions = os.path.join(self.pep8_git_repo, 'dist')
+            wipe_directory(distributions)
+            assert subprocess.call(['python', 'setup.py', 'sdist'], cwd=self.pep8_git_repo) == 0
+            return find_one_file(distributions, '*pep8*')
 
 
 def wipe_directory(pathname):
@@ -811,19 +881,34 @@ def uninstall_through_subprocess(package_name):
     ])
 
 
-def find_files(directory, substring):
+def find_one_file(directory, pattern):
+    """
+    Use :func:`find_files()` to find a file and make sure a single file is matched.
+
+    :param directory: The pathname of the directory to be searched (a string).
+    :param pattern: The filename pattern to match (a string).
+    :returns: The matched pathname (a string).
+    :raises: :exc:`~exceptions.AssertionError` when no file or more than one
+             file is matched.
+    """
+    matches = list(find_files(directory, pattern))
+    assert len(matches) == 1, "Expected to match exactly one pathname!"
+    return matches[0]
+
+
+def find_files(directory, pattern):
     """
     Find files whose pathname contains the given substring.
 
     :param directory: The pathname of the directory to be searched (a string).
-    :param substring: The substring that pathnames should contain (a string).
+    :param pattern: The filename pattern to match (a string).
     :returns: A generator of pathnames (strings).
     """
-    substring = substring.lower()
+    pattern = pattern.lower()
     for root, dirs, files in os.walk(directory):
         for filename in files:
             pathname = os.path.join(root, filename)
-            if substring in pathname.lower():
+            if fnmatch.fnmatch(pathname.lower(), pattern):
                 yield pathname
 
 

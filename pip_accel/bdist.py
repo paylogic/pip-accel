@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: October 31, 2015
+# Last Change: November 7, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -13,6 +13,7 @@ easy_install and pip).
 """
 
 # Standard library modules.
+import errno
 import fnmatch
 import logging
 import os
@@ -34,7 +35,7 @@ from humanfriendly import Spinner, Timer, concatenate
 from pip_accel.caches import CacheManager
 from pip_accel.deps import SystemPackageManager
 from pip_accel.exceptions import BuildFailed, InvalidSourceDistribution, NoBuildOutput
-from pip_accel.utils import compact, makedirs
+from pip_accel.utils import AtomicReplace, compact, makedirs
 
 # Initialize a logger for this module.
 logger = logging.getLogger(__name__)
@@ -74,11 +75,13 @@ class BinaryDistributionManager(object):
         packages were installed.
         """
         cache_file = self.cache.get(requirement)
-        if cache_file and requirement.last_modified > os.path.getmtime(cache_file):
-            logger.info("Invalidating old %s binary (source is newer) ..", requirement)
-            cache_file = None
-        if not cache_file:
+        if cache_file:
+            if self.needs_invalidation(requirement, cache_file):
+                logger.info("Invalidating old %s binary (source has changed) ..", requirement)
+                cache_file = None
+        else:
             logger.debug("%s hasn't been cached yet, doing so now.", requirement)
+        if not cache_file:
             # Build the binary distribution.
             try:
                 raw_file = self.build_binary_dist(requirement)
@@ -109,10 +112,67 @@ class BinaryDistributionManager(object):
                 os.remove(transformed_file)
             # Get the absolute pathname of the file in the local cache.
             cache_file = self.cache.get(requirement)
+            # Enable checksum based cache invalidation.
+            self.persist_checksum(requirement, cache_file)
         archive = tarfile.open(cache_file, 'r:gz')
-        for member in archive.getmembers():
-            yield member, archive.extractfile(member.name)
-        archive.close()
+        try:
+            for member in archive.getmembers():
+                yield member, archive.extractfile(member.name)
+        finally:
+            archive.close()
+
+    def needs_invalidation(self, requirement, cache_file):
+        """
+        Check whether a cached binary distribution needs to be invalidated.
+
+        :param requirement: A :class:`.Requirement` object.
+        :param cache_file: The pathname of a cached binary distribution (a string).
+        :returns: :data:`True` if the cached binary distribution needs to be
+                  invalidated, :data:`False` otherwise.
+        """
+        if self.config.trust_mod_times:
+            return requirement.last_modified > os.path.getmtime(cache_file)
+        else:
+            checksum = self.recall_checksum(cache_file)
+            return checksum and checksum != requirement.checksum
+
+    def recall_checksum(self, cache_file):
+        """
+        Get the checksum of the input used to generate a binary distribution archive.
+
+        :param cache_file: The pathname of the binary distribution archive (a string).
+        :returns: The checksum (a string) or :data:`None` (when no checksum is available).
+        """
+        # EAFP instead of LBYL because of concurrency between pip-accel
+        # processes (https://docs.python.org/2/glossary.html#term-lbyl).
+        checksum_file = '%s.txt' % cache_file
+        try:
+            with open(checksum_file) as handle:
+                contents = handle.read()
+            return contents.strip()
+        except IOError as e:
+            if e.errno == errno.ENOENT:
+                # Gracefully handle missing checksum files.
+                return None
+            else:
+                # Don't swallow exceptions we don't expect!
+                raise
+
+    def persist_checksum(self, requirement, cache_file):
+        """
+        Persist the checksum of the input used to generate a binary distribution.
+
+        :param requirement: A :class:`.Requirement` object.
+        :param cache_file: The pathname of a cached binary distribution (a string).
+
+        .. note:: The checksum is only calculated and persisted when
+                  :attr:`~.Config.trust_mod_times` is :data:`False`.
+        """
+        if not self.config.trust_mod_times:
+            checksum_file = '%s.txt' % cache_file
+            with AtomicReplace(checksum_file) as temporary_file:
+                with open(temporary_file, 'w') as handle:
+                    handle.write('%s\n' % requirement.checksum)
 
     def build_binary_dist(self, requirement):
         """
