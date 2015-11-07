@@ -1,7 +1,7 @@
 # Tests for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: November 7, 2015
+# Last Change: November 8, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -23,8 +23,8 @@ have to do so retroactively.
 """
 
 # Standard library modules.
-import glob
 import fnmatch
+import glob
 import logging
 import operator
 import os
@@ -37,6 +37,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 
 # External dependencies.
@@ -644,10 +645,15 @@ class PipAccelTestCase(unittest.TestCase):
                 os.path.getmtime,
                 find_files(accelerator.config.binary_cache, '*pep8*.tar.gz'),
             ))
+            # Make sure each iteration runs in `its own second'.
+            now = int(time.time())
+            while now == int(time.time()):
+                time.sleep(0.1)
         # The code above wiped the source index directory but it never
         # touched the binary index, so if two *pep8* files with unique
         # `last modified times' are seen in the binary index then the
         # cache invalidation kicked in!
+        logger.debug("Last modified times: %s", last_modified_times)
         assert len(set(last_modified_times)) == iterations
 
     def test_checksum_based_cache_invalidation(self):
@@ -659,7 +665,6 @@ class PipAccelTestCase(unittest.TestCase):
         the alternate cache invalidation logic (based on SHA1 checksums of
         files) works as expected.
         """
-        coloredlogs.set_level(logging.DEBUG)
         if not self.pep8_git_repo:
             return self.skipTest("""
                 Skipping alternate cache invalidation test (git clone of
