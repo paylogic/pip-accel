@@ -1,7 +1,7 @@
 # Utility functions for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: November 7, 2015
+# Last Change: November 8, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -21,7 +21,7 @@ import platform
 import sys
 
 # Modules included in our package.
-from pip_accel.compat import WINDOWS
+from pip_accel.compat import pathname2url, urljoin, WINDOWS
 
 # External dependencies.
 from humanfriendly import parse_path
@@ -69,6 +69,16 @@ def expand_path(pathname):
         pathname = os.path.join(home_directory, pathname[2:])
     # Also expand environment variables.
     return parse_path(pathname)
+
+
+def create_file_url(pathname):
+    """
+    Create a ``file:...`` URL from a local pathname.
+
+    :param pathname: The pathname of a local file or directory (a string).
+    :returns: A URL that refers to the local file or directory (a string).
+    """
+    return urljoin('file:', pathname2url(os.path.abspath(pathname)))
 
 
 def find_home_directory():

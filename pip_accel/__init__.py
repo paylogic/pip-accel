@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: November 7, 2015
+# Last Change: November 8, 2015
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Permanently store logs in the pip-accel directory (think about log rotation).
@@ -56,6 +56,7 @@ from pip_accel.compat import basestring
 from pip_accel.exceptions import EnvironmentMismatchError, NothingToDoError
 from pip_accel.req import Requirement
 from pip_accel.utils import (
+    create_file_url,
     hash_files,
     is_installed,
     makedirs,
@@ -75,7 +76,7 @@ from pip.commands.install import InstallCommand
 from pip.exceptions import DistributionNotFound
 
 # Semi-standard module versioning.
-__version__ = '0.36'
+__version__ = '0.36.1'
 
 # Initialize a logger for this module.
 logger = logging.getLogger(__name__)
@@ -358,7 +359,7 @@ class PipAccelerator(object):
             is_constraint_file = (i >= 1 and match_option(arguments[i - 1], '-c', '--constraint'))
             is_requirement_file = (i >= 1 and match_option(arguments[i - 1], '-r', '--requirement'))
             if not is_constraint_file and not is_requirement_file and os.path.isfile(value):
-                arguments[i] = 'file://%s#md5=%s' % (value, hash_files('md5', value))
+                arguments[i] = '%s#md5=%s' % (create_file_url(value), hash_files('md5', value))
         return arguments
 
     def unpack_source_dists(self, arguments, use_wheels=False):
@@ -444,7 +445,7 @@ class PipAccelerator(object):
         # distribution index directory. This ensures that source distribution
         # archives are never downloaded more than once (regardless of the HTTP
         # cache that was introduced in pip 6.x).
-        command_line.append('--find-links=file://%s' % self.config.source_index)
+        command_line.append('--find-links=%s' % create_file_url(self.config.source_index))
         # Use `--no-binary=:all:' to ignore wheel distributions by default in
         # order to preserve backwards compatibility with callers that expect a
         # requirement set consisting only of source distributions that can be

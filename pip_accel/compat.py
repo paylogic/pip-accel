@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: November 7, 2015
+# Last Change: November 8, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """Operating system detection and Python version compatibility."""
@@ -15,6 +15,8 @@ __all__ = (
     'WINDOWS',
     'StringIO',
     'configparser',
+    'pathname2url',
+    'urljoin',
     'urlparse',
 )
 
@@ -25,12 +27,14 @@ WINDOWS = sys.platform.startswith('win')
 try:
     # Python 2.
     basestring = basestring
-    from StringIO import StringIO
-    from urlparse import urlparse
     import ConfigParser as configparser
+    from StringIO import StringIO
+    from urllib import pathname2url
+    from urlparse import urljoin, urlparse
 except (ImportError, NameError):
     # Python 3.
     basestring = str
-    from io import StringIO
-    from urllib.parse import urlparse
     import configparser
+    from io import StringIO
+    from urllib.parse import urljoin, urlparse
+    from urllib.request import pathname2url
