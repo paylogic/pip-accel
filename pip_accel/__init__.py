@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: October 31, 2015
+# Last Change: November 7, 2015
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Permanently store logs in the pip-accel directory (think about log rotation).
@@ -52,9 +52,11 @@ import tempfile
 
 # Modules included in our package.
 from pip_accel.bdist import BinaryDistributionManager
+from pip_accel.compat import basestring
 from pip_accel.exceptions import EnvironmentMismatchError, NothingToDoError
 from pip_accel.req import Requirement
 from pip_accel.utils import (
+    hash_files,
     is_installed,
     makedirs,
     match_option,
@@ -73,7 +75,7 @@ from pip.commands.install import InstallCommand
 from pip.exceptions import DistributionNotFound
 
 # Semi-standard module versioning.
-__version__ = '0.34'
+__version__ = '0.35'
 
 # Initialize a logger for this module.
 logger = logging.getLogger(__name__)
@@ -278,41 +280,86 @@ class PipAccelerator(object):
                      in the result. If this breaks your use case consider using
                      pip's ``--ignore-installed`` option.
         """
-        # Use a new build directory for each run of get_requirements().
-        self.create_build_directory()
-        # Check whether -U or --upgrade was given.
-        if any(match_option(a, '-U', '--upgrade') for a in arguments):
-            logger.info("Checking index(es) for new version (-U or --upgrade was given) ..")
-        else:
-            # If -U or --upgrade wasn't given and all requirements can be
-            # satisfied using the archives in pip-accel's local source index we
-            # don't need pip to connect to PyPI looking for new versions (that
-            # will just slow us down).
-            try:
-                return self.unpack_source_dists(arguments, use_wheels=use_wheels)
-            except DistributionNotFound:
-                logger.info("We don't have all distribution archives yet!")
-        # Get the maximum number of retries from the configuration if the
-        # caller didn't specify a preference.
-        if max_retries is None:
-            max_retries = self.config.max_retries
-        # If not all requirements are available locally we use pip to download
-        # the missing source distribution archives from PyPI (we retry a couple
-        # of times in case pip reports recoverable errors).
-        for i in range(max_retries):
-            try:
-                return self.download_source_dists(arguments, use_wheels=use_wheels)
-            except Exception as e:
-                if i + 1 < max_retries:
-                    # On all but the last iteration we swallow exceptions
-                    # during downloading.
-                    logger.warning("pip raised exception while downloading distributions: %s", e)
-                else:
-                    # On the last iteration we don't swallow exceptions
-                    # during downloading because the error reported by pip
-                    # is the most sensible error for us to report.
-                    raise
-            logger.info("Retrying after pip failed (%i/%i) ..", i + 1, max_retries)
+        arguments = self.decorate_arguments(arguments)
+        with DownloadLogFilter():
+            # Use a new build directory for each run of get_requirements().
+            self.create_build_directory()
+            # Check whether -U or --upgrade was given.
+            if any(match_option(a, '-U', '--upgrade') for a in arguments):
+                logger.info("Checking index(es) for new version (-U or --upgrade was given) ..")
+            else:
+                # If -U or --upgrade wasn't given and all requirements can be
+                # satisfied using the archives in pip-accel's local source
+                # index we don't need pip to connect to PyPI looking for new
+                # versions (that will just slow us down).
+                try:
+                    return self.unpack_source_dists(arguments, use_wheels=use_wheels)
+                except DistributionNotFound:
+                    logger.info("We don't have all distribution archives yet!")
+            # Get the maximum number of retries from the configuration if the
+            # caller didn't specify a preference.
+            if max_retries is None:
+                max_retries = self.config.max_retries
+            # If not all requirements are available locally we use pip to
+            # download the missing source distribution archives from PyPI (we
+            # retry a couple of times in case pip reports recoverable
+            # errors).
+            for i in range(max_retries):
+                try:
+                    return self.download_source_dists(arguments, use_wheels=use_wheels)
+                except Exception as e:
+                    if i + 1 < max_retries:
+                        # On all but the last iteration we swallow exceptions
+                        # during downloading.
+                        logger.warning("pip raised exception while downloading distributions: %s", e)
+                    else:
+                        # On the last iteration we don't swallow exceptions
+                        # during downloading because the error reported by pip
+                        # is the most sensible error for us to report.
+                        raise
+                logger.info("Retrying after pip failed (%i/%i) ..", i + 1, max_retries)
+
+    def decorate_arguments(self, arguments):
+        """
+        Change pathnames of local files into ``file://`` URLs with ``#md5=...`` fragments.
+
+        :param arguments: The command line arguments to ``pip install ...`` (a
+                          list of strings).
+        :returns: A copy of the command line arguments with pathnames of local
+                  files rewritten to ``file://`` URLs.
+
+        When pip-accel calls pip to download missing distribution archives and
+        the user specified the pathname of a local distribution archive on the
+        command line, pip will (by default) *not* copy the archive into the
+        download directory if an archive for the same package name and
+        version is already present.
+
+        This can lead to the confusing situation where the user specifies a
+        local distribution archive to install, a different (older) archive for
+        the same package and version is present in the download directory and
+        `pip-accel` installs the older archive instead of the newer archive.
+
+        To avoid this confusing behavior, the :func:`decorate_arguments()`
+        method rewrites the command line arguments given to ``pip install`` so
+        that pathnames of local archives are changed into ``file://`` URLs that
+        include a fragment with the hash of the file's contents. Here's an
+        example:
+
+        - Local pathname: ``/tmp/pep8-1.6.3a0.tar.gz``
+        - File URL: ``file:///tmp/pep8-1.6.3a0.tar.gz#md5=19cbf0b633498ead63fb3c66e5f1caf6``
+
+        When pip fills the download directory and encounters a previously
+        cached distribution archive it will check the hash, realize the
+        contents have changed and replace the archive in the download
+        directory.
+        """
+        arguments = list(arguments)
+        for i, value in enumerate(arguments):
+            is_constraint_file = (i >= 1 and match_option(arguments[i - 1], '-c', '--constraint'))
+            is_requirement_file = (i >= 1 and match_option(arguments[i - 1], '-r', '--requirement'))
+            if not is_constraint_file and not is_requirement_file and os.path.isfile(value):
+                arguments[i] = 'file://%s#md5=%s' % (value, hash_files('md5', value))
+        return arguments
 
     def unpack_source_dists(self, arguments, use_wheels=False):
         """
@@ -367,7 +414,7 @@ class PipAccelerator(object):
         """
         Get the unpacked requirement(s) specified by the caller by running pip.
 
-        :param arguments: The command line arguments to ``pip install ..`` (a
+        :param arguments: The command line arguments to ``pip install ...`` (a
                           list of strings).
         :param use_remote_index: A boolean indicating whether pip is allowed to
                                  connect to the main package index
@@ -574,6 +621,41 @@ class PipAccelerator(object):
         if not self.build_directories:
             self.create_build_directory()
         return self.build_directories[-1]
+
+
+class DownloadLogFilter(logging.Filter):
+
+    """
+    Rewrite log messages emitted by pip's ``pip.download`` module.
+
+    When pip encounters hash mismatches it logs a message with the severity
+    :data:`~logging.CRITICAL`, however because of the interaction between
+    pip-accel and pip hash mismatches are to be expected and handled gracefully
+    (refer to :func:`~PipAccelerator.decorate_arguments()` for details). The
+    :class:`DownloadLogFilter` context manager changes the severity of these
+    log messages to :data:`~logging.DEBUG` in order to avoid confusing users of
+    pip-accel.
+    """
+
+    KEYWORDS = ("doesn't", "match", "expected", "hash")
+
+    def __enter__(self):
+        """Enable the download log filter."""
+        self.logger = logging.getLogger('pip.download')
+        self.logger.addFilter(self)
+
+    def __exit__(self, exc_type=None, exc_value=None, traceback=None):
+        """Disable the download log filter."""
+        self.logger.removeFilter(self)
+
+    def filter(self, record):
+        """Change the severity of selected log records."""
+        if isinstance(record.msg, basestring):
+            message = record.msg.lower()
+            if all(kw in message for kw in self.KEYWORDS):
+                record.levelname = 'DEBUG'
+                record.levelno = logging.DEBUG
+        return 1
 
 
 class CustomPackageFinder(pip_index_module.PackageFinder):

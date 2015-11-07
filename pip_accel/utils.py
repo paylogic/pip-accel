@@ -1,7 +1,7 @@
 # Utility functions for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: October 31, 2015
+# Last Change: November 7, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -14,6 +14,7 @@ with any single module.
 
 # Standard library modules.
 import errno
+import hashlib
 import logging
 import os
 import platform
@@ -162,6 +163,25 @@ def same_directories(path1, path2):
             return os.path.realpath(path1) == os.path.realpath(path2)
     else:
         return False
+
+
+def hash_files(method, *files):
+    """
+    Calculate the hexadecimal digest of one or more local files.
+
+    :param method: The hash method (a string, given to :func:`hashlib.new()`).
+    :param files: The pathname(s) of file(s) to hash (zero or more strings).
+    :returns: The calculated hex digest (a string).
+    """
+    context = hashlib.new(method)
+    for filename in files:
+        with open(filename, 'rb') as handle:
+            while True:
+                chunk = handle.read(4096)
+                if not chunk:
+                    break
+                context.update(chunk)
+    return context.hexdigest()
 
 
 def replace_file(src, dst):
