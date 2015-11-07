@@ -42,7 +42,7 @@ import unittest
 # External dependencies.
 import coloredlogs
 from cached_property import cached_property
-from humanfriendly import coerce_boolean, compact
+from humanfriendly import coerce_boolean, compact, concatenate
 from pip.commands.install import InstallCommand
 from pip.exceptions import DistributionNotFound
 
@@ -892,8 +892,14 @@ def find_one_file(directory, pattern):
              file is matched.
     """
     matches = list(find_files(directory, pattern))
-    assert len(matches) == 1, "Expected to match exactly one pathname!"
-    return matches[0]
+    if len(matches) == 1:
+        return matches[0]
+    elif matches:
+        msg = "More than one file matched %r pattern in directory %r! (matches: %s)"
+        raise Exception(msg % (pattern, directory, concatenate(matches)))
+    else:
+        msg = "Failed to find file matching %r pattern in directory %r! (available files: %s)"
+        raise Exception(msg % (pattern, directory, concatenate(find_files(directory, '*'))))
 
 
 def find_files(directory, pattern):
