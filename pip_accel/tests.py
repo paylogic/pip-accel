@@ -622,6 +622,7 @@ class PipAccelTestCase(unittest.TestCase):
         the default cache invalidation logic (based on modification times of
         files) works as expected.
         """
+        coloredlogs.set_level(logging.DEBUG)
         if not self.pep8_git_repo:
             return self.skipTest("""
                 Skipping default cache invalidation test (git clone of
@@ -658,6 +659,7 @@ class PipAccelTestCase(unittest.TestCase):
         the alternate cache invalidation logic (based on SHA1 checksums of
         files) works as expected.
         """
+        coloredlogs.set_level(logging.DEBUG)
         if not self.pep8_git_repo:
             return self.skipTest("""
                 Skipping alternate cache invalidation test (git clone of
