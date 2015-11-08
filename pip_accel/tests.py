@@ -37,7 +37,6 @@ import stat
 import subprocess
 import sys
 import tempfile
-import time
 import unittest
 
 # External dependencies.
@@ -623,38 +622,7 @@ class PipAccelTestCase(unittest.TestCase):
         the default cache invalidation logic (based on modification times of
         files) works as expected.
         """
-        coloredlogs.set_level(logging.DEBUG)
-        if not self.pep8_git_repo:
-            return self.skipTest("""
-                Skipping default cache invalidation test (git clone of
-                `pep8' repository from GitHub seems to have failed).
-            """)
-        iterations = 2
-        last_modified_times = []
-        accelerator = self.initialize_pip_accel()
-        for _ in range(iterations):
-            # Start with an empty source index on each iteration.
-            wipe_directory(accelerator.config.source_index)
-            # Get the pep8 package from the git repository.
-            num_installed = accelerator.install_from_arguments([
-                '--ignore-installed', self.pep8_git_repo,
-            ])
-            assert num_installed == 1, "Expected pip-accel to install exactly one package!"
-            # Get the last modified time of the cached binary distribution.
-            last_modified_times.extend(map(
-                os.path.getmtime,
-                find_files(accelerator.config.binary_cache, '*pep8*.tar.gz'),
-            ))
-            # Make sure each iteration runs in `its own second'.
-            now = int(time.time())
-            while now == int(time.time()):
-                time.sleep(0.1)
-        # The code above wiped the source index directory but it never
-        # touched the binary index, so if two *pep8* files with unique
-        # `last modified times' are seen in the binary index then the
-        # cache invalidation kicked in!
-        logger.debug("Last modified times: %s", last_modified_times)
-        assert len(set(last_modified_times)) == iterations
+        self.check_cache_invalidation(trust_mod_times=True)
 
     def test_checksum_based_cache_invalidation(self):
         """
@@ -665,47 +633,36 @@ class PipAccelTestCase(unittest.TestCase):
         the alternate cache invalidation logic (based on SHA1 checksums of
         files) works as expected.
         """
+        self.check_cache_invalidation(trust_mod_times=False)
+
+    def check_cache_invalidation(self, **overrides):
+        """Test cache invalidation with the given pip-accel options."""
         if not self.pep8_git_repo:
             return self.skipTest("""
-                Skipping alternate cache invalidation test (git clone of
-                `pep8' repository from GitHub seems to have failed).
+                Skipping cache invalidation test (git clone of `pep8'
+                repository from GitHub seems to have failed).
             """)
-        accelerator = self.initialize_pip_accel(trust_mod_times=False)
-        pep8_sdist = self.create_pep8_sdist()
+        accelerator = self.initialize_pip_accel(**overrides)
         # Install the pep8 package.
-        accelerator.install_from_arguments(['--ignore-installed', pep8_sdist])
-        # Find the modification times of the source and binary distributions.
+        accelerator.install_from_arguments(['--ignore-installed', self.create_pep8_sdist()])
+        # Find the modification time of the source and binary distributions.
         sdist_mtime_1 = os.path.getmtime(find_one_file(accelerator.config.source_index, '*pep8*'))
         bdist_mtime_1 = os.path.getmtime(find_one_file(accelerator.config.binary_cache, '*pep8*.tar.gz'))
-        # Wipe the source distribution index directory.
-        wipe_directory(accelerator.config.source_index)
-        # Install the pep8 package for the second time (using the source
-        # distribution archive that was also used the first time).
-        accelerator.install_from_arguments(['--ignore-installed', pep8_sdist])
-        # Find the modification times of the source and binary distributions.
-        sdist_mtime_2 = os.path.getmtime(find_one_file(accelerator.config.source_index, '*pep8*'))
-        bdist_mtime_2 = os.path.getmtime(find_one_file(accelerator.config.binary_cache, '*pep8*.tar.gz'))
-        # Check that the source distribution's modification time changed
-        # (because we wiped the source index directory).
-        assert sdist_mtime_2 > sdist_mtime_1, "Source distribution should have been refreshed!"
-        # Check that the binary distribution's modification time hasn't changed
-        # (because the source distribution archive contents haven't changed).
-        assert bdist_mtime_2 == bdist_mtime_1, "Binary distribution shouldn't have been refreshed!"
-        # Install the pep8 package for the third time, using a newly created
+        # Install the pep8 package for the second time, using a newly created
         # source distribution archive with different contents.
         with open(os.path.join(self.pep8_git_repo, 'MANIFEST.in'), 'w') as handle:
             handle.write("\n# An innocent comment to change the checksum ..\n")
         accelerator.install_from_arguments(['--ignore-installed', self.create_pep8_sdist()])
-        # Find the modification times of the source and binary distributions.
-        sdist_mtime_3 = os.path.getmtime(find_one_file(accelerator.config.source_index, '*pep8*'))
-        bdist_mtime_3 = os.path.getmtime(find_one_file(accelerator.config.binary_cache, '*pep8*.tar.gz'))
+        # Find the modification time of the source and binary distributions.
+        sdist_mtime_2 = os.path.getmtime(find_one_file(accelerator.config.source_index, '*pep8*'))
+        bdist_mtime_2 = os.path.getmtime(find_one_file(accelerator.config.binary_cache, '*pep8*.tar.gz'))
         # Check that the source distribution's modification time changed
         # (because we created it by running the `python setup.py sdist'
         # command a second time).
-        assert sdist_mtime_3 > sdist_mtime_2, "Source distribution should have been refreshed!"
+        assert sdist_mtime_2 > sdist_mtime_1, "Source distribution should have been refreshed!"
         # Check that the binary distribution's modification time has changed
         # (because we changed the contents of the source distribution).
-        assert bdist_mtime_3 > bdist_mtime_2, "Binary distribution should have been refreshed!"
+        assert bdist_mtime_2 > bdist_mtime_1, "Binary distribution should have been refreshed!"
 
     def test_cli_install(self):
         """
