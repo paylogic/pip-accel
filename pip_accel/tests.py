@@ -636,7 +636,7 @@ class PipAccelTestCase(unittest.TestCase):
         self.check_cache_invalidation(trust_mod_times=False)
 
     def check_cache_invalidation(self, **overrides):
-        """Test cache invalidation with the given pip-accel options."""
+        """Test cache invalidation with the given option(s)."""
         if not self.pep8_git_repo:
             return self.skipTest("""
                 Skipping cache invalidation test (git clone of `pep8'

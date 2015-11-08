@@ -3,7 +3,7 @@
 # Authors:
 #  - Adam Feuer <adam@adamfeuer.com>
 #  - Peter Odding <peter.odding@paylogic.com>
-# Last Change: October 31, 2015
+# Last Change: November 8, 2015
 # URL: https://github.com/paylogic/pip-accel
 #
 # A word of warning: Do *not* use the cached_property decorator here, because
@@ -97,6 +97,7 @@ import os
 from humanfriendly import coerce_boolean, Timer
 
 # Modules included in our package.
+from pip_accel import PatchedAttribute
 from pip_accel.caches import AbstractCacheBackend
 from pip_accel.compat import urlparse
 from pip_accel.exceptions import CacheBackendDisabledError, CacheBackendError
@@ -150,23 +151,24 @@ class S3CacheBackend(AbstractCacheBackend):
         """
         timer = Timer()
         self.check_prerequisites()
-        # Check if the distribution archive is available.
-        raw_key = self.get_cache_key(filename)
-        logger.info("Checking if distribution archive is available in S3 bucket: %s", raw_key)
-        key = self.s3_bucket.get_key(raw_key)
-        if key is None:
-            logger.debug("Distribution archive is not available in S3 bucket.")
-        else:
-            # Download the distribution archive to the local binary index.
-            # TODO Shouldn't this use LocalCacheBackend.put() instead of
-            #      implementing the same steps manually?!
-            logger.info("Downloading distribution archive from S3 bucket ..")
-            file_in_cache = os.path.join(self.config.binary_cache, filename)
-            makedirs(os.path.dirname(file_in_cache))
-            with AtomicReplace(file_in_cache) as temporary_file:
-                key.get_contents_to_filename(temporary_file)
-            logger.debug("Finished downloading distribution archive from S3 bucket in %s.", timer)
-            return file_in_cache
+        with PatchedBotoConfig():
+            # Check if the distribution archive is available.
+            raw_key = self.get_cache_key(filename)
+            logger.info("Checking if distribution archive is available in S3 bucket: %s", raw_key)
+            key = self.s3_bucket.get_key(raw_key)
+            if key is None:
+                logger.debug("Distribution archive is not available in S3 bucket.")
+            else:
+                # Download the distribution archive to the local binary index.
+                # TODO Shouldn't this use LocalCacheBackend.put() instead of
+                #      implementing the same steps manually?!
+                logger.info("Downloading distribution archive from S3 bucket ..")
+                file_in_cache = os.path.join(self.config.binary_cache, filename)
+                makedirs(os.path.dirname(file_in_cache))
+                with AtomicReplace(file_in_cache) as temporary_file:
+                    key.get_contents_to_filename(temporary_file)
+                logger.debug("Finished downloading distribution archive from S3 bucket in %s.", timer)
+                return file_in_cache
 
     def put(self, filename, handle):
         """
@@ -185,18 +187,20 @@ class S3CacheBackend(AbstractCacheBackend):
         else:
             timer = Timer()
             self.check_prerequisites()
-            from boto.s3.key import Key
-            raw_key = self.get_cache_key(filename)
-            logger.info("Uploading distribution archive to S3 bucket: %s", raw_key)
-            key = Key(self.s3_bucket)
-            key.key = raw_key
-            try:
-                key.set_contents_from_file(handle)
-            except Exception as e:
-                logger.info("Encountered error writing to S3 bucket, falling back to read only mode (exception: %s)", e)
-                self.config.s3_cache_readonly = True
-            else:
-                logger.info("Finished uploading distribution archive to S3 bucket in %s.", timer)
+            with PatchedBotoConfig():
+                from boto.s3.key import Key
+                raw_key = self.get_cache_key(filename)
+                logger.info("Uploading distribution archive to S3 bucket: %s", raw_key)
+                key = Key(self.s3_bucket)
+                key.key = raw_key
+                try:
+                    key.set_contents_from_file(handle)
+                except Exception as e:
+                    logger.info("Encountered error writing to S3 bucket, "
+                                "falling back to read only mode (exception: %s)", e)
+                    self.config.s3_cache_readonly = True
+                else:
+                    logger.info("Finished uploading distribution archive to S3 bucket in %s.", timer)
 
     @property
     def s3_bucket(self):
@@ -213,31 +217,33 @@ class S3CacheBackend(AbstractCacheBackend):
                  S3 bucket fails.
         """
         if not hasattr(self, 'cached_bucket'):
-            from boto.exception import BotoClientError, BotoServerError, S3ResponseError
-            # The following try/except block translates unexpected exceptions
-            # raised by Boto into a CacheBackendError exception.
-            try:
-                # The following try/except block handles the expected exception
-                # raised by Boto when an Amazon S3 bucket does not exist.
+            self.check_prerequisites()
+            with PatchedBotoConfig():
+                from boto.exception import BotoClientError, BotoServerError, S3ResponseError
+                # The following try/except block translates unexpected exceptions
+                # raised by Boto into a CacheBackendError exception.
                 try:
-                    logger.debug("Connecting to Amazon S3 bucket: %s", self.config.s3_cache_bucket)
-                    self.cached_bucket = self.s3_connection.get_bucket(self.config.s3_cache_bucket)
-                except S3ResponseError as e:
-                    if e.status == 404 and self.config.s3_cache_create_bucket:
-                        logger.info("Amazon S3 bucket doesn't exist yet, creating it now: %s",
-                                    self.config.s3_cache_bucket)
-                        self.s3_connection.create_bucket(self.config.s3_cache_bucket)
+                    # The following try/except block handles the expected exception
+                    # raised by Boto when an Amazon S3 bucket does not exist.
+                    try:
+                        logger.debug("Connecting to Amazon S3 bucket: %s", self.config.s3_cache_bucket)
                         self.cached_bucket = self.s3_connection.get_bucket(self.config.s3_cache_bucket)
-                    else:
-                        # Don't swallow exceptions we can't handle.
-                        raise
-            except (BotoClientError, BotoServerError):
-                raise CacheBackendError("""
-                    Failed to connect to the configured Amazon S3 bucket
-                    {bucket}! Are you sure the bucket exists and is accessible
-                    using the provided credentials? The Amazon S3 cache backend
-                    will be disabled for now.
-                """, bucket=repr(self.config.s3_cache_bucket))
+                    except S3ResponseError as e:
+                        if e.status == 404 and self.config.s3_cache_create_bucket:
+                            logger.info("Amazon S3 bucket doesn't exist yet, creating it now: %s",
+                                        self.config.s3_cache_bucket)
+                            self.s3_connection.create_bucket(self.config.s3_cache_bucket)
+                            self.cached_bucket = self.s3_connection.get_bucket(self.config.s3_cache_bucket)
+                        else:
+                            # Don't swallow exceptions we can't handle.
+                            raise
+                except (BotoClientError, BotoServerError):
+                    raise CacheBackendError("""
+                        Failed to connect to the configured Amazon S3 bucket
+                        {bucket}! Are you sure the bucket exists and is accessible
+                        using the provided credentials? The Amazon S3 cache backend
+                        will be disabled for now.
+                    """, bucket=repr(self.config.s3_cache_bucket))
         return self.cached_bucket
 
     @property
@@ -255,45 +261,44 @@ class S3CacheBackend(AbstractCacheBackend):
                  S3 API fails.
         """
         if not hasattr(self, 'cached_connection'):
-            import boto
-            from boto.exception import BotoClientError, BotoServerError, NoAuthHandlerFound
-            from boto.s3.connection import S3Connection, SubdomainCallingFormat, OrdinaryCallingFormat
-            try:
-                # Configure the number of retries and the socket timeout used
-                # by Boto. Based on the snippet given in the following email:
-                # https://groups.google.com/d/msg/boto-users/0osmP0cUl5Y/X4NdlMGWKiEJ
-                if not boto.config.has_section(BOTO_CONFIG_SECTION):
-                    boto.config.add_section(BOTO_CONFIG_SECTION)
-                boto.config.set(BOTO_CONFIG_SECTION,
-                                BOTO_CONFIG_NUM_RETRIES_OPTION,
-                                str(self.config.s3_cache_retries))
-                boto.config.set(BOTO_CONFIG_SECTION,
-                                BOTO_CONFIG_SOCKET_TIMEOUT_OPTION,
-                                str(self.config.s3_cache_timeout))
-                logger.debug("Connecting to Amazon S3 API ..")
-                endpoint = urlparse(self.config.s3_cache_url)
-                host, _, port = endpoint.netloc.partition(':')
-                is_secure = (endpoint.scheme == 'https')
-                calling_format = (SubdomainCallingFormat() if host == S3Connection.DefaultHost
-                                  else OrdinaryCallingFormat())
+            self.check_prerequisites()
+            with PatchedBotoConfig():
+                import boto
+                from boto.exception import BotoClientError, BotoServerError, NoAuthHandlerFound
+                from boto.s3.connection import S3Connection, SubdomainCallingFormat, OrdinaryCallingFormat
                 try:
-                    self.cached_connection = S3Connection(host=host,
-                                                          port=int(port) if port else None,
-                                                          is_secure=is_secure,
-                                                          calling_format=calling_format)
-                except NoAuthHandlerFound:
-                    logger.debug("Amazon S3 API credentials missing, retrying with anonymous connection ..")
-                    self.cached_connection = S3Connection(host=host,
-                                                          port=int(port) if port else None,
-                                                          is_secure=is_secure,
-                                                          calling_format=calling_format,
-                                                          anon=True)
-            except (BotoClientError, BotoServerError):
-                raise CacheBackendError("""
-                    Failed to connect to the Amazon S3 API! Most likely your
-                    credentials are not correctly configured. The Amazon S3
-                    cache backend will be disabled for now.
-                """)
+                    # Configure the number of retries and the socket timeout used
+                    # by Boto. Based on the snippet given in the following email:
+                    # https://groups.google.com/d/msg/boto-users/0osmP0cUl5Y/X4NdlMGWKiEJ
+                    if not boto.config.has_section(BOTO_CONFIG_SECTION):
+                        boto.config.add_section(BOTO_CONFIG_SECTION)
+                    boto.config.set(BOTO_CONFIG_SECTION,
+                                    BOTO_CONFIG_NUM_RETRIES_OPTION,
+                                    str(self.config.s3_cache_retries))
+                    boto.config.set(BOTO_CONFIG_SECTION,
+                                    BOTO_CONFIG_SOCKET_TIMEOUT_OPTION,
+                                    str(self.config.s3_cache_timeout))
+                    logger.debug("Connecting to Amazon S3 API ..")
+                    endpoint = urlparse(self.config.s3_cache_url)
+                    host, _, port = endpoint.netloc.partition(':')
+                    kw = dict(
+                        host=host,
+                        port=int(port) if port else None,
+                        is_secure=(endpoint.scheme == 'https'),
+                        calling_format=(SubdomainCallingFormat() if host == S3Connection.DefaultHost
+                                        else OrdinaryCallingFormat()),
+                    )
+                    try:
+                        self.cached_connection = S3Connection(**kw)
+                    except NoAuthHandlerFound:
+                        logger.debug("Amazon S3 API credentials missing, retrying with anonymous connection ..")
+                        self.cached_connection = S3Connection(anon=True, **kw)
+                except (BotoClientError, BotoServerError):
+                    raise CacheBackendError("""
+                        Failed to connect to the Amazon S3 API! Most likely your
+                        credentials are not correctly configured. The Amazon S3
+                        cache backend will be disabled for now.
+                    """)
         return self.cached_connection
 
     def get_cache_key(self, filename):
@@ -330,3 +335,37 @@ class S3CacheBackend(AbstractCacheBackend):
                 pip-accel using the command `pip install pip-accel[s3]'. The
                 Amazon S3 cache backend will be disabled for now.
             """)
+
+
+class PatchedBotoConfig(PatchedAttribute):
+
+    """
+    Monkey patch for Boto's configuration handling.
+
+    Boto's configuration handling is kind of broken on Python 3 `as documented
+    here <https://github.com/boto/boto/issues/2617>`_. The :class:`PatchedBotoConfig`
+    class implements a context manager that temporarily patches Boto to work
+    around the bug.
+
+    Without this monkey patch it is impossible to configure the number of
+    retries on Python 3 which makes the pip-accel test suite horribly slow.
+    """
+
+    def __init__(self):
+        """Initialize a :class:`PatchedBotoConfig` object."""
+        from boto import config
+        from boto.pyami.config import Config, ConfigParser
+        self.instance = config
+        self.unbound_method = ConfigParser.get
+        super(PatchedBotoConfig, self).__init__(
+            object=Config,
+            attribute='get',
+            value=self.get,
+        )
+
+    def get(self, section, name, default=None, **kw):
+        """Replacement for :func:`boto.pyami.config.Config.get()`."""
+        try:
+            return self.unbound_method(self.instance, section, name, **kw)
+        except Exception:
+            return default
