@@ -1,7 +1,7 @@
 # Makefile for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: November 10, 2015
+# Last Change: November 11, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 WORKON_HOME ?= $(HOME)/.virtualenvs
@@ -41,12 +41,19 @@ test: install
 	coverage html
 
 tox: install
-	test -x "$(VIRTUAL_ENV)/bin/flake8" || pip-accel install --quiet tox
-	tox
+	(test -x "$(VIRTUAL_ENV)/bin/tox" \
+		|| pip-accel install --quiet tox) \
+		&& tox
+
+detox: install
+	(test -x "$(VIRTUAL_ENV)/bin/detox" \
+		|| pip-accel install --quiet detox) \
+		&& COVERAGE=no detox
 
 check: install
-	test -x "$(VIRTUAL_ENV)/bin/flake8" || pip-accel install --quiet --requirement requirements-flake8.txt
-	flake8
+	(test -x "$(VIRTUAL_ENV)/bin/flake8" \
+		|| pip-accel install --quiet --requirement requirements-flake8.txt) \
+		&& flake8
 
 docs: install
 	test -x "$(VIRTUAL_ENV)/bin/sphinx-build" || pip-accel install --quiet sphinx
@@ -61,4 +68,4 @@ clean:
 	find -name __pycache__ -exec rm -Rf {} \; &>/dev/null || true
 	find -type f -name '*.py[co]' -delete
 
-.PHONY: default install reset test check docs publish clean
+.PHONY: default install reset test tox detox check docs publish clean

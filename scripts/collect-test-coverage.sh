@@ -3,7 +3,7 @@
 # Shell script to run the pip-accel test suite.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: November 10, 2015
+# Last Change: November 11, 2015
 # URL: https://github.com/paylogic/pip-accel
 #
 # This shell script is used in tox.ini and .travis.yml to run
@@ -23,8 +23,12 @@ main () {
   # deals with FakeS3 dropping out in the middle of the test suite.
   export PIP_ACCEL_SILENCE_BOTO=false
 
-  # Run the test suite under py.test with coverage collection enabled.
-  py.test --cov "$@"
+  # Run the test suite under py.test with coverage collection enabled?
+  if [ "$COVERAGE" != no ]; then
+    py.test --cov "$@"
+  else
+    py.test "$@"
+  fi
 
 }
 

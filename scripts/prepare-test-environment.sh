@@ -53,11 +53,7 @@ install_working_copies () {
       DIRECTORY="$HOME/projects/python/$PROJECT"
       if [ -e "$DIRECTORY" ]; then
         msg "Installing working copy of $PROJECT .."
-        pushd "$DIRECTORY" >/dev/null
-        rm -Rf dist
-        python setup.py sdist &>/dev/null
-        pip install --quiet dist/*
-        popd >/dev/null
+        pip install --quiet "$DIRECTORY"
       fi
     done
   fi

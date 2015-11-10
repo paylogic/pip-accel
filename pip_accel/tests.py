@@ -1,7 +1,7 @@
 # Tests for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: November 10, 2015
+# Last Change: November 11, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -58,6 +58,7 @@ from pip_accel.utils import find_installed_version, uninstall
 # Test dependencies.
 from executor import CommandNotFound
 from executor.ssh.server import EphemeralTCPServer
+from portalocker import Lock
 
 # Initialize a logger for this module.
 logger = logging.getLogger(__name__)
@@ -715,12 +716,12 @@ class PipAccelTestCase(unittest.TestCase):
         """
         Test the (automatic) installation of required system packages.
 
-        This test installs lxml 3.2.1 to confirm that the system packages
-        required by lxml are automatically installed by pip-accel to make the
-        build of lxml succeed.
+        This test installs cffi 0.8.6 to confirm that the system packages
+        required by cffi are automatically installed by pip-accel to make the
+        build of cffi succeed.
 
         .. warning:: This test forces the removal of the system package
-                     ``libxslt1-dev`` before it tries to install lxml, because
+                     ``libffi-dev`` before it tries to install cffi, because
                      without this nasty hack the test would only install
                      required system packages on the first run, because on
                      later runs the required system packages would already be
@@ -733,45 +734,57 @@ class PipAccelTestCase(unittest.TestCase):
                 Skipping system package dependency installation
                 test (not supported on Windows).
             """)
+        elif platform.python_implementation() == 'PyPy':
+            return self.skipTest("""
+                Skipping system package dependency installation test (cffi on
+                PyPy doesn't depend on libffi-dev being installed so this won't
+                work at all).
+            """)
         elif not coerce_boolean(os.environ.get('PIP_ACCEL_TEST_AUTO_INSTALL')):
             return self.skipTest("""
                 Skipping system package dependency installation test because
                 you need to set $PIP_ACCEL_TEST_AUTO_INSTALL=true to allow the
                 test suite to use `sudo'.
             """)
-        # Force the removal of a system package required by `lxml' without
-        # removing any (reverse) dependencies (we don't actually want to
-        # break the system, thank you very much :-). Disclaimer: you opt in
-        # to this with $PIP_ACCEL_TEST_AUTO_INSTALL...
-        lxml_dependency = 'libxslt1-dev'
-        subprocess.call([
-            'sudo', '-p', "\n Please provide sudo access to (temporarily) remove %s: " % lxml_dependency,
-            'dpkg', '--remove', '--force-depends', lxml_dependency,
-        ])
-        # Make sure that when automatic installation is disabled the system
-        # package manager refuses to install the missing dependency.
-        accelerator = self.initialize_pip_accel(auto_install=False)
-        self.assertRaises(DependencyInstallationRefused, accelerator.install_from_arguments, [
-            '--ignore-installed', 'lxml==3.2.1'
-        ])
-
-        # A file-like object that always says no :-).
-        class FakeStandardInput(object):
-            def readline(self):
-                return 'no\n'
-
-        # Try to ask for permission but refuse to give it.
-        with PatchedAttribute(sys, 'stdin', FakeStandardInput()):
-            accelerator = self.initialize_pip_accel(auto_install=None)
-            self.assertRaises(DependencyInstallationRefused, accelerator.install_from_arguments, [
-                '--ignore-installed', 'lxml==3.2.1'
+        # Never allow concurrent execution of this code path, because the last
+        # thing I want is to ruin my system by spawning concurrent dpkg and
+        # apt-get processes. By actually preventing this I get to use detox for
+        # parallel testing :-).
+        with AptLock():
+            # Force the removal of a system package required by `cffi' without
+            # removing any (reverse) dependencies (we don't actually want to
+            # break the system, thank you very much :-). Disclaimer: you opt in
+            # to this with $PIP_ACCEL_TEST_AUTO_INSTALL...
+            cffi_dependency = 'libffi-dev'
+            subprocess.call([
+                'sudo', '-p', "\n Please provide sudo access to (temporarily) remove %s: " % cffi_dependency,
+                'dpkg', '--remove', '--force-depends', cffi_dependency,
             ])
-        # Install lxml while a system dependency is missing and automatic installation is allowed.
-        accelerator = self.initialize_pip_accel(auto_install=True)
-        num_installed = accelerator.install_from_arguments([
-            '--ignore-installed', 'lxml==3.2.1'
-        ])
-        assert num_installed == 1, "Expected pip-accel to install exactly one package!"
+            cffi_requirement = 'cffi==0.8.6'
+            # Make sure that when automatic installation is disabled the system
+            # package manager refuses to install the missing dependency.
+            accelerator = self.initialize_pip_accel(auto_install=False)
+            self.assertRaises(DependencyInstallationRefused, accelerator.install_from_arguments, [
+                '--ignore-installed', cffi_requirement,
+            ])
+
+            # A file-like object that always says no :-).
+            class FakeStandardInput(object):
+                def readline(self):
+                    return 'no\n'
+
+            # Try to ask for permission but refuse to give it.
+            with PatchedAttribute(sys, 'stdin', FakeStandardInput()):
+                accelerator = self.initialize_pip_accel(auto_install=None)
+                self.assertRaises(DependencyInstallationRefused, accelerator.install_from_arguments, [
+                    '--ignore-installed', cffi_requirement,
+                ])
+            # Install cffi while a system dependency is missing and automatic installation is allowed.
+            accelerator = self.initialize_pip_accel(auto_install=True)
+            num_installed = accelerator.install_from_arguments([
+                '--ignore-installed', cffi_requirement,
+            ])
+            assert num_installed >= 1, "Expected pip-accel to install at least one package!"
 
     def test_system_package_dependency_failures(self):
         """Test that unsupported platforms are handled gracefully in system package dependency management."""
@@ -981,6 +994,19 @@ class CaptureOutput(object):
     def __str__(self):
         """Get the text written to :data:`sys.stdout`."""
         return self.stream.getvalue()
+
+
+class AptLock(Lock):
+
+    """Cross-process locking for critical sections to enable parallel execution of the test suite."""
+
+    def __init__(self):
+        """Initialize an :class:`AptLock` object."""
+        super(AptLock, self).__init__(
+            filename=os.path.join(tempfile.gettempdir(), 'pip-accel-test-suite.lock'),
+            fail_when_locked=False,
+            timeout=(60 * 10),
+        )
 
 
 class FakeS3Server(EphemeralTCPServer):

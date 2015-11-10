@@ -4,6 +4,9 @@ boto >= 2.32
 # We use executor to control FakeS3.
 executor >= 7.7
 
+# We use portalocker to avoid concurrent dpkg and apt-get processes.
+portalocker >= 0.5.4
+
 # We use py.test for improved error reporting.
 pytest >= 2.6.4
 
