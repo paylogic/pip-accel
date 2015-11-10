@@ -29,9 +29,9 @@ In addition, since version 0.9 pip-accel contains a simple mechanism that
 detects missing system packages when a build fails and prompts the user whether
 to install the missing dependencies and retry the build.
 
-The pip-accel program is currently tested on cPython 2.6, 2.7 and 3.4 and PyPy
-(2.7). The automated test suite regularly runs on Ubuntu Linux (`Travis CI`_)
-as well as Microsoft Windows (AppVeyor_). In addition to these platforms
+The pip-accel program is currently tested on cPython 2.6, 2.7, 3.4 and 3.5 and
+PyPy (2.7). The automated test suite regularly runs on Ubuntu Linux (`Travis
+CI`_) as well as Microsoft Windows (AppVeyor_). In addition to these platforms
 pip-accel should work fine on most UNIX systems (e.g. Mac OS X).
 
 .. contents::
