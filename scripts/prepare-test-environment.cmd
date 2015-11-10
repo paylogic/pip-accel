@@ -10,6 +10,12 @@
 :: installation, upgrade and/or removal is tested in the test suite to make
 :: sure that the test suite starts from a known state.
 
+:: Install pip-accel in editable mode.
+"%PYTHON%\Scripts\pip.exe" install --quiet --editable .
+
+:: Install the test suite's dependencies.
+"%PYTHON%\Scripts\pip.exe" install --quiet --requirement=requirements-testing.txt
+
 :: Downgrade setuptools so that the test suite can verify that setuptools is
 :: upgraded to >= 0.8 when a binary wheel is installed. Performing this
 :: downgrade inside the test suite process doesn't work as expected because pip

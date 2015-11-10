@@ -12,7 +12,7 @@ environment:
     secure: DCxZQaYFWVR0zWqjTPXhhlRlLdmKNMS2qDUwIR8jRar13clunOqJIaXn+vKInS7g
 install:
   - cmd: 'gem install fakes3'
-  - cmd: '"%PYTHON%\Scripts\pip.exe" install . https://github.com/xolox/coveralls-python/archive/master.zip'
+  - cmd: '"%PYTHON%\Scripts\pip.exe" install --quiet https://github.com/coagulant/coveralls-python/archive/master.zip'
   - cmd: 'scripts\prepare-test-environment.cmd'
 build: off
 test_script:
