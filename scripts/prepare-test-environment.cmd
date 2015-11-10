@@ -13,8 +13,10 @@
 :: Install pip-accel in editable mode.
 "%PYTHON%\Scripts\pip.exe" install --quiet --editable .
 
-:: Install the test suite's dependencies.
-"%PYTHON%\Scripts\pip.exe" install --quiet --requirement=requirements-testing.txt
+:: Install the test suite's dependencies. We ignore py.test wheels because of
+:: an obscure issue that took me hours to debug and I really don't want to get
+:: into it here :-(.
+"%PYTHON%\Scripts\pip.exe" install --no-binary=pytest --quiet --requirement=requirements-testing.txt
 
 :: Downgrade setuptools so that the test suite can verify that setuptools is
 :: upgraded to >= 0.8 when a binary wheel is installed. Performing this
