@@ -3,7 +3,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: October 30, 2015
+# Last Change: November 10, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """Setup script for the `pip-accel` package."""
@@ -16,34 +16,47 @@ import re
 # De-facto standard solution for Python packaging.
 from setuptools import setup, find_packages
 
-# Find the directory where the source distribution was unpacked.
-source_directory = os.path.dirname(os.path.abspath(__file__))
 
-# Find the current version.
-module = os.path.join(source_directory, 'pip_accel', '__init__.py')
-with open(module) as handle:
-    for line in handle:
-        match = re.match(r'^__version__\s*=\s*["\']([^"\']+)["\']$', line)
-        if match:
-            version_string = match.group(1)
-            break
-    else:
-        raise Exception("Failed to extract version from %s!" % module)
+def get_readme():
+    """Get the contents of the ``README.rst`` file as a Unicode string."""
+    with codecs.open(get_absolute_path('README.rst'), 'r', 'utf-8') as handle:
+        return handle.read()
 
-# Fill in the long description (for the benefit of PyPI)
-# with the contents of README.rst (rendered by GitHub).
-readme_file = os.path.join(source_directory, 'README.rst')
-with codecs.open(readme_file, 'r', 'utf-8') as handle:
-    readme_text = handle.read()
 
-# Fill in the "install_requires" field based on requirements.txt.
-with open(os.path.join(source_directory, 'requirements.txt')) as handle:
-    requirements = [line.strip() for line in handle]
+def get_version():
+    """Get the version of `pip-accel` (by extracting it from the source code)."""
+    module_path = get_absolute_path('pip_accel', '__init__.py')
+    with open(module_path) as handle:
+        for line in handle:
+            match = re.match(r'^__version__\s*=\s*["\']([^"\']+)["\']$', line)
+            if match:
+                return match.group(1)
+    raise Exception("Failed to extract version from %s!" % module_path)
+
+
+def get_requirements(*args):
+    """Get requirements from pip requirement files."""
+    requirements = set()
+    with open(get_absolute_path(*args)) as handle:
+        for line in handle:
+            # Strip comments.
+            line = re.sub(r'^#.*|\s#.*', '', line)
+            # Ignore empty lines
+            if line and not line.isspace():
+                requirements.add(line.strip())
+    return sorted(requirements)
+
+
+def get_absolute_path(*args):
+    """Transform relative pathnames into absolute pathnames."""
+    directory = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(directory, *args)
+
 
 setup(name='pip-accel',
-      version=version_string,
+      version=get_version(),
       description='Accelerator for pip, the Python package manager',
-      long_description=readme_text,
+      long_description=get_readme(),
       author='Peter Odding',
       author_email='peter.odding@paylogic.com',
       url='https://github.com/paylogic/pip-accel',
@@ -59,8 +72,9 @@ setup(name='pip-accel',
       },
       extras_require={'s3': 'boto >= 2.32'},
       package_data={'pip_accel.deps': ['*.ini']},
-      install_requires=requirements,
+      install_requires=get_requirements('requirements.txt'),
       test_suite='pip_accel.tests',
+      tests_require=get_requirements('requirements-testing.txt'),
       classifiers=[
           'Development Status :: 5 - Production/Stable',
           'Environment :: Console',

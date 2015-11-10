@@ -1,7 +1,7 @@
 # Tests for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: November 8, 2015
+# Last Change: November 10, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -32,7 +32,6 @@ import platform
 import random
 import re
 import shutil
-import signal
 import stat
 import subprocess
 import sys
@@ -55,6 +54,10 @@ from pip_accel.deps import DependencyInstallationRefused, SystemPackageManager
 from pip_accel.exceptions import EnvironmentMismatchError
 from pip_accel.req import escape_name
 from pip_accel.utils import find_installed_version, uninstall
+
+# Test dependencies.
+from executor import CommandNotFound
+from executor.ssh.server import EphemeralTCPServer
 
 # Initialize a logger for this module.
 logger = logging.getLogger(__name__)
@@ -305,8 +308,9 @@ class PipAccelTestCase(unittest.TestCase):
         """Test installation of older versions over newer version (package downgrades)."""
         if find_installed_version('requests') != '2.6.0':
             return self.skipTest("""
-                Skipping package downgrade test because requests==2.6.0 should
-                be installed beforehand (see scripts/collect-full-coverage).
+                Skipping package downgrade test because requests==2.6.0 should be
+                installed beforehand (see `scripts/prepare-test-environment.sh'
+                in the git repository of pip-accel).
             """)
         accelerator = self.initialize_pip_accel()
         # Downgrade to requests 2.2.1.
@@ -319,9 +323,8 @@ class PipAccelTestCase(unittest.TestCase):
         """
         Verify the successful usage of the S3 cache backend.
 
-        This test downloads, builds and installs pep8 1.6.2 to verify that the
-        S3 cache backend works. It depends on FakeS3 (refer to the shell script
-        ``scripts/collect-full-coverage.sh`` in the pip-accel git repository).
+        This test downloads, builds and installs pep8 1.6.2 several times to
+        verify that the S3 cache backend works. It depends on FakeS3.
 
         This test uses a temporary binary index which it wipes after a
         successful installation and then it installs the exact same package
@@ -340,44 +343,42 @@ class PipAccelTestCase(unittest.TestCase):
                      2. **Then FakeS3 is terminated** to force a failure in the
                         S3 cache backend. This verifies that pip-accel handles
                         the failure of an "optional" cache backend gracefully.
+
         """
-        fakes3_pid = int(os.environ.get('PIP_ACCEL_FAKES3_PID', '0'))
-        fakes3_root = os.environ.get('PIP_ACCEL_FAKES3_ROOT', '')
-        if not (fakes3_pid and fakes3_root):
-            return self.skipTest("""
-                Skipping S3 cache backend test because it looks like FakeS3
-                isn't running (see scripts/collect-full-coverage.sh).
-            """)
-        pip_install_args = ['--ignore-installed', '--no-binary=:all:', 'pep8==1.6.2']
-        # Initialize an instance of pip-accel with an empty cache.
-        accelerator = self.initialize_pip_accel(load_environment_variables=True,
-                                                s3_cache_timeout=10,
-                                                s3_cache_retries=0)
-        # Run the installation three times.
-        for i in [1, 2, 3, 4]:
-            if i > 1:
-                logger.debug("Resetting binary index to force binary distribution download from S3 ..")
-                wipe_directory(accelerator.config.binary_cache)
-            if i == 3:
-                logger.debug("Making FakeS3 root (%s) read only to emulate read only S3 bucket ..", fakes3_root)
-                wipe_directory(fakes3_root)
-                os.chmod(fakes3_root, 0o555)
-            if i == 4:
-                logger.debug("Killing FakeS3 (%i) to force S3 cache backend failure ..", fakes3_pid)
-                os.kill(fakes3_pid, signal.SIGKILL)
-            # Install the pep8 package using the S3 cache backend.
-            num_installed = accelerator.install_from_arguments(pip_install_args)
-            assert num_installed == 1, "Expected pip-accel to install exactly one package!"
-            # Check the state of the S3 cache backend? This test is only valid
-            # if the S3 backend is active (this is why we first check the
-            # $PIP_ACCEL_S3_BUCKET environment variable).
-            if os.environ.get('PIP_ACCEL_S3_BUCKET'):
-                if i < 3:
-                    assert not accelerator.config.s3_cache_readonly, \
-                        "S3 cache backend is unexpectedly in read only state!"
-                else:
-                    assert accelerator.config.s3_cache_readonly, \
-                        "S3 cache backend is unexpectedly not in read only state!"
+        try:
+            # Start a FakeS3 server on a temporary port and make sure we shut
+            # it down before we return to the caller (context manager magic).
+            with FakeS3Server() as fakes3:
+                # Initialize an instance of pip-accel with an empty cache.
+                accelerator = self.initialize_pip_accel(**fakes3.client_options)
+                # Run the installation four times.
+                for i in [1, 2, 3, 4]:
+                    if i > 1:
+                        logger.debug("Resetting binary index to force binary distribution download from S3 ..")
+                        wipe_directory(accelerator.config.binary_cache)
+                    if i == 3:
+                        logger.warning("Making FakeS3 directory (%s) read only"
+                                       " to emulate read only S3 bucket ..",
+                                       fakes3.root)
+                        wipe_directory(fakes3.root)
+                        os.chmod(fakes3.root, 0o555)
+                    if i == 4:
+                        logger.warning("Killing FakeS3 process to force S3 cache backend failure ..")
+                        fakes3.kill()
+                    # Install the pep8 package using the S3 cache backend.
+                    num_installed = accelerator.install_from_arguments([
+                        '--ignore-installed', '--no-binary=:all:', 'pep8==1.6.2',
+                    ])
+                    assert num_installed == 1, "Expected pip-accel to install exactly one package!"
+                    # Check the state of the S3 cache backend.
+                    if i < 3:
+                        assert not accelerator.config.s3_cache_readonly, \
+                            "S3 cache backend is unexpectedly in read only state!"
+                    else:
+                        assert accelerator.config.s3_cache_readonly, \
+                            "S3 cache backend is unexpectedly not in read only state!"
+        except CommandNotFound:
+            self.skipTest("Skipping S3 cache backend test because FakeS3 isn't installed.")
 
     def test_wheel_install(self):
         """
@@ -980,6 +981,39 @@ class CaptureOutput(object):
     def __str__(self):
         """Get the text written to :data:`sys.stdout`."""
         return self.stream.getvalue()
+
+
+class FakeS3Server(EphemeralTCPServer):
+
+    """Subclass of :class:`.ExternalCommand` that manages a temporary FakeS3 server."""
+
+    def __init__(self, **options):
+        """Initialize a :class:`FakeS3Server` object."""
+        self.logger = logging.getLogger('pip_accel.tests.fakes3')
+        self.root = create_temporary_directory(prefix='pip-accel-', suffix='-fakes3')
+        """
+        The pathname of the temporary directory used to store the files
+        required to run the FakeS3 server (a string).
+        """
+        # Initialize the superclass.
+        command = ['fakes3', '--root=%s' % self.root, '--port=%s' % self.port_number]
+        super(FakeS3Server, self).__init__(*command, scheme='s3', logger=logger, **options)
+
+    @property
+    def client_options(self):
+        """
+        Configuration options for pip-accel to connect with the FakeS3 server.
+
+        This is a dictionary of keyword arguments for the :class:`.Config`
+        initializer to make pip-accel connect with the FakeS3 server.
+        """
+        return dict(
+            s3_cache_url=self.render_location(scheme='http'),
+            s3_cache_bucket='pip-accel-test-bucket',
+            s3_cache_create_bucket=True,
+            s3_cache_timeout=10,
+            s3_cache_retries=0,
+        )
 
 
 if __name__ == '__main__':

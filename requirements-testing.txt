@@ -1,2 +1,11 @@
-detox >= 0.10.0
-tox >= 1.7.2
+# We need boto to test the S3 cache backend.
+boto >= 2.32
+
+# We use executor to control FakeS3.
+executor >= 7.7
+
+# We use py.test for improved error reporting.
+pytest >= 2.6.4
+
+# We use a pytest plug-in to collect coverage.
+pytest-cov >= 2.2.0

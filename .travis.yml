@@ -8,17 +8,14 @@ python:
   - "2.7"
   - "3.4"
   - "pypy"
-env:
-  - PIP_ACCEL_S3_BUCKET=
-  - PIP_ACCEL_S3_BUCKET=pip-accel-test-bucket
 before_install:
   - scripts/retry-command sudo apt-get update
 install:
-  - pip install --requirement=requirements-flake8.txt
-  - LC_ALL=C scripts/retry-command pip install coveralls --editable "file://${PWD}[s3]"
   - scripts/retry-command gem install fakes3
+  - scripts/retry-command pip install coveralls --requirement=requirements-flake8.txt
+  - scripts/prepare-test-environment.sh
 script:
   - make check
-  - scripts/collect-full-coverage.sh
+  - scripts/collect-test-coverage.sh
 after_success:
   - scripts/retry-command coveralls
