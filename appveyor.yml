@@ -10,8 +10,11 @@ environment:
   PYTHON: C:\Python27
   COVERALLS_REPO_TOKEN:
     secure: DCxZQaYFWVR0zWqjTPXhhlRlLdmKNMS2qDUwIR8jRar13clunOqJIaXn+vKInS7g
+  PYWIN32_URL: "https://downloads.sourceforge.net/project/pywin32/pywin32/Build%20219/pywin32-219.win32-py2.7.exe"
 install:
   - cmd: 'gem install fakes3'
+  - ps: (new-object net.webclient).DownloadFile($env:PYWIN32_URL, 'c:\\pywin32.exe')
+  - cmd: '"%PYTHON%\Scripts\easy_install.exe" c:\\pywin32.exe'
   - cmd: '"%PYTHON%\Scripts\pip.exe" install --quiet https://github.com/coagulant/coveralls-python/archive/master.zip'
   - cmd: 'scripts\prepare-test-environment.cmd'
 build: off
