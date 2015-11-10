@@ -5,15 +5,18 @@
 # https://github.com/coagulant/coveralls-python/pull/97
 
 version: 1.0.{build}
+clone_depth: 1
 environment:
   PYTHON: C:\Python27
   COVERALLS_REPO_TOKEN:
     secure: DCxZQaYFWVR0zWqjTPXhhlRlLdmKNMS2qDUwIR8jRar13clunOqJIaXn+vKInS7g
 install:
+  - cmd: 'gem install fakes3'
   - cmd: '"%PYTHON%\Scripts\pip.exe" install . https://github.com/xolox/coveralls-python/archive/master.zip'
-  - cmd: 'scripts\collect-full-coverage.cmd'
+  - cmd: 'scripts\prepare-test-environment.cmd'
 build: off
 test_script:
+  - cmd: 'DIR "%PYTHON%\Scripts'
   - cmd: '"%PYTHON%\Scripts\coverage.exe" run setup.py test'
 on_success:
   - cmd: '"%PYTHON%\Scripts\coveralls.exe"'
