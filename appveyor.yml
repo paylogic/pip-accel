@@ -17,6 +17,6 @@ install:
 build: off
 test_script:
   - cmd: 'DIR "%PYTHON%\Scripts'
-  - cmd: '"%PYTHON%\Scripts\coverage.exe" run setup.py test'
+  - cmd: '"%PYTHON%\Scripts\py.test.exe"'
 on_success:
   - cmd: '"%PYTHON%\Scripts\coveralls.exe"'
