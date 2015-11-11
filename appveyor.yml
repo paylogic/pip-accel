@@ -19,8 +19,9 @@ install:
   - cmd: 'scripts\prepare-test-environment.cmd'
 build: off
 test_script:
-  - cmd: '"%PYTHON%\python.exe" scripts\appveyor.py'
-  - cmd: 'DIR "%PYTHON%\Scripts'
-  - cmd: '"%PYTHON%\Scripts\py.test.exe"'
+  - cmd: '"%PYTHON%\Scripts\py.test.exe" --cov'
+  - cmd: 'echo py.test finished'
 on_success:
+  - cmd: 'echo sending coverage'
   - cmd: '"%PYTHON%\Scripts\coveralls.exe"'
+  - cmd: 'echo finished sending coverage'
