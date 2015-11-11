@@ -56,7 +56,7 @@ from pip_accel.req import escape_name
 from pip_accel.utils import find_installed_version, uninstall
 
 # Test dependencies.
-from executor import CommandNotFound
+from executor import CommandNotFound, which
 from executor.ssh.server import EphemeralTCPServer
 from portalocker import Lock
 
@@ -1021,8 +1021,11 @@ class FakeS3Server(EphemeralTCPServer):
         The pathname of the temporary directory used to store the files
         required to run the FakeS3 server (a string).
         """
+        # Find the absolute pathname of FakeS3 (relevant on Windows).
+        matches = which('fakes3')
+        program = matches[0] if matches else ''
         # Initialize the superclass.
-        command = ['fakes3', '--root=%s' % self.root, '--port=%s' % self.port_number]
+        command = [program, '--root=%s' % self.root, '--port=%s' % self.port_number]
         super(FakeS3Server, self).__init__(*command, scheme='s3', logger=logger, **options)
 
     @property
