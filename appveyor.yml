@@ -19,6 +19,7 @@ install:
   - cmd: 'scripts\prepare-test-environment.cmd'
 build: off
 test_script:
+  - cmd: '"%PYTHON%\python.exe" scripts\appveyor.py'
   - cmd: 'DIR "%PYTHON%\Scripts'
   - cmd: '"%PYTHON%\Scripts\py.test.exe"'
 on_success:
