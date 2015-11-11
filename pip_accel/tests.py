@@ -838,7 +838,9 @@ def wipe_directory(pathname):
     :param pathname: The directory's pathname (a string).
     """
     if os.path.isdir(pathname):
-        shutil.rmtree(pathname)
+        def log_warning(action, pathname, exc_info):
+            logger.exception("Failed to remove %s!", pathname, exc_info=exc_info)
+        shutil.rmtree(pathname, onerror=log_warning)
     os.makedirs(pathname)
 
 
