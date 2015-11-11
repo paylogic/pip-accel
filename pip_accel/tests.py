@@ -375,7 +375,8 @@ class PipAccelTestCase(unittest.TestCase):
                         wipe_directory(fakes3.root)
                         if WINDOWS:
                             fakes3.start()
-                        os.chmod(fakes3.root, 0o555)
+                        # Mark the directory as read only.
+                        os.chmod(fakes3.root, stat.S_IRUSR)
                     if i == 4:
                         logger.warning("Killing FakeS3 process to force S3 cache backend failure ..")
                         fakes3.kill()
