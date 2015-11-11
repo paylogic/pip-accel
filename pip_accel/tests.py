@@ -78,7 +78,10 @@ def tearDownModule():
     while TEMPORARY_DIRECTORIES:
         directory = TEMPORARY_DIRECTORIES.pop(0)
         logger.debug("Cleaning up temporary directory: %s", directory)
-        shutil.rmtree(directory, onerror=delete_read_only)
+        try:
+            shutil.rmtree(directory, onerror=delete_read_only)
+        except Exception:
+            logger.exception("Failed to cleanup temporary directory!")
 
 
 def delete_read_only(action, pathname, exc_info):
