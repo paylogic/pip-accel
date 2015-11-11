@@ -361,7 +361,19 @@ class PipAccelTestCase(unittest.TestCase):
                         logger.warning("Making FakeS3 directory (%s) read only"
                                        " to emulate read only S3 bucket ..",
                                        fakes3.root)
+                        if WINDOWS:
+                            # On Windows we can't remove the FakeS3 data
+                            # directory while it is running ("The process
+                            # cannot access the file because it is being used
+                            # by another process"), see also:
+                            # https://ci.appveyor.com/project/xolox/pip-accel/build/1.0.93
+                            # The following nasty hack will hopefully enable us
+                            # to wipe the data directory while having FakeS3
+                            # available again afterwards.
+                            fakes3.kill()
                         wipe_directory(fakes3.root)
+                        if WINDOWS:
+                            fakes3.start()
                         os.chmod(fakes3.root, 0o555)
                     if i == 4:
                         logger.warning("Killing FakeS3 process to force S3 cache backend failure ..")
@@ -838,9 +850,7 @@ def wipe_directory(pathname):
     :param pathname: The directory's pathname (a string).
     """
     if os.path.isdir(pathname):
-        def log_warning(action, pathname, exc_info):
-            logger.exception("Failed to remove %s!", pathname, exc_info=exc_info)
-        shutil.rmtree(pathname, onerror=log_warning)
+        shutil.rmtree(pathname)
     os.makedirs(pathname)
 
 
