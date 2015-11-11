@@ -358,25 +358,12 @@ class PipAccelTestCase(unittest.TestCase):
                     if i > 1:
                         logger.debug("Resetting binary index to force binary distribution download from S3 ..")
                         wipe_directory(accelerator.config.binary_cache)
-                    if i == 3:
+                    if i == 3 and not WINDOWS:
                         logger.warning("Making FakeS3 directory (%s) read only"
                                        " to emulate read only S3 bucket ..",
                                        fakes3.root)
-                        if WINDOWS:
-                            # On Windows we can't remove the FakeS3 data
-                            # directory while it is running ("The process
-                            # cannot access the file because it is being used
-                            # by another process"), see also:
-                            # https://ci.appveyor.com/project/xolox/pip-accel/build/1.0.93
-                            # The following nasty hack will hopefully enable us
-                            # to wipe the data directory while having FakeS3
-                            # available again afterwards.
-                            fakes3.kill()
                         wipe_directory(fakes3.root)
-                        if WINDOWS:
-                            fakes3.start()
-                        # Mark the directory as read only.
-                        os.chmod(fakes3.root, stat.S_IRUSR)
+                        os.chmod(fakes3.root, 0o555)
                     if i == 4:
                         logger.warning("Killing FakeS3 process to force S3 cache backend failure ..")
                         fakes3.kill()
@@ -389,7 +376,7 @@ class PipAccelTestCase(unittest.TestCase):
                     if i < 3:
                         assert not accelerator.config.s3_cache_readonly, \
                             "S3 cache backend is unexpectedly in read only state!"
-                    else:
+                    elif not WINDOWS:
                         assert accelerator.config.s3_cache_readonly, \
                             "S3 cache backend is unexpectedly not in read only state!"
         except CommandNotFound:
@@ -851,19 +838,9 @@ def wipe_directory(pathname):
 
     :param pathname: The directory's pathname (a string).
     """
-    timer = Timer()
-    while True:
-        try:
-            if os.path.isdir(pathname):
-                shutil.rmtree(pathname)
-            os.makedirs(pathname)
-            return
-        except Exception:
-            if timer.elapsed_time < 60:
-                logger.warning("Got error wiping directory (%s), retrying ..", pathname)
-                time.sleep(1)
-            else:
-                raise
+    if os.path.isdir(pathname):
+        shutil.rmtree(pathname)
+    os.makedirs(pathname)
 
 
 def uninstall_through_subprocess(package_name):
