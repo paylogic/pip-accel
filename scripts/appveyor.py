@@ -29,7 +29,7 @@ for program in ['fakes3', 'fakes3.bat'] + which('fakes3'):
     try:
         execute(program, '--help')
     except ExternalCommandFailed:
-        print "%s doesn't work?!" % program
+        print("%s doesn't work?!" % program)
 
 print("Executable search path:\n\n%s" % "\n\n".join(
     "%s:\n%s" % (d, concatenate(sorted(os.listdir(d))))
