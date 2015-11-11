@@ -36,12 +36,13 @@ import stat
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 
 # External dependencies.
 import coloredlogs
 from cached_property import cached_property
-from humanfriendly import coerce_boolean, compact, concatenate
+from humanfriendly import Timer, coerce_boolean, compact, concatenate
 from pip.commands.install import InstallCommand
 from pip.exceptions import DistributionNotFound
 
@@ -849,9 +850,19 @@ def wipe_directory(pathname):
 
     :param pathname: The directory's pathname (a string).
     """
-    if os.path.isdir(pathname):
-        shutil.rmtree(pathname)
-    os.makedirs(pathname)
+    timer = Timer()
+    while True:
+        try:
+            if os.path.isdir(pathname):
+                shutil.rmtree(pathname)
+            os.makedirs(pathname)
+            return
+        except Exception:
+            if timer.elapsed_time < 60:
+                logger.warning("Got error wiping directory (%s), retrying ..", pathname)
+                time.sleep(1)
+            else:
+                raise
 
 
 def uninstall_through_subprocess(package_name):
