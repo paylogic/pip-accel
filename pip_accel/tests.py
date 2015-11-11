@@ -36,13 +36,12 @@ import stat
 import subprocess
 import sys
 import tempfile
-import time
 import unittest
 
 # External dependencies.
 import coloredlogs
 from cached_property import cached_property
-from humanfriendly import Timer, coerce_boolean, compact, concatenate
+from humanfriendly import coerce_boolean, compact, concatenate
 from pip.commands.install import InstallCommand
 from pip.exceptions import DistributionNotFound
 
