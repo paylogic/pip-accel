@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: October 31, 2015
+# Last Change: November 14, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """Sphinx documentation configuration for the `pip-accel` project."""
@@ -68,11 +68,12 @@ pygments_style = 'sphinx'
 
 # Refer to the Python standard library.
 # From: http://twistedmatrix.com/trac/ticket/4582.
-intersphinx_mapping = {
-    'python': ('http://docs.python.org', None),
-    'humanfriendly': ('http://humanfriendly.readthedocs.org/en/latest/', None),
-    'boto': ('http://boto.readthedocs.org/en/latest/', None),
-}
+intersphinx_mapping = dict(
+    boto=('http://boto.readthedocs.org/en/latest/', None),
+    coloredlogs=('http://coloredlogs.readthedocs.org/en/latest/', None),
+    humanfriendly=('http://humanfriendly.readthedocs.org/en/latest/', None),
+    python=('http://docs.python.org', None),
+)
 
 # -- Options for HTML output ---------------------------------------------------
 

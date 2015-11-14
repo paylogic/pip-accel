@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: November 7, 2015
+# Last Change: November 14, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -79,6 +79,7 @@ from pip_accel.compat import configparser
 from pip_accel.utils import is_root, expand_path
 
 # External dependencies.
+from coloredlogs import DEFAULT_LOG_FORMAT
 from cached_property import cached_property
 from humanfriendly import coerce_boolean, parse_path
 
@@ -277,6 +278,34 @@ class Config(object):
                          configuration_option='auto-install')
         if value is not None:
             return coerce_boolean(value)
+
+    @cached_property
+    def log_format(self):
+        """
+        The format of log messages written to the terminal.
+
+        - Environment variable: ``$PIP_ACCEL_LOG_FORMAT``
+        - Configuration option: ``log-format``
+        - Default: :data:`~coloredlogs.DEFAULT_LOG_FORMAT`
+        """
+        return self.get(property_name='log_format',
+                        environment_variable='PIP_ACCEL_LOG_FORMAT',
+                        configuration_option='log-format',
+                        default=DEFAULT_LOG_FORMAT)
+
+    @cached_property
+    def log_verbosity(self):
+        """
+        The verbosity of log messages written to the terminal.
+
+        - Environment variable: ``$PIP_ACCEL_LOG_VERBOSITY``
+        - Configuration option: ``log-verbosity``
+        - Default: 'INFO' (a string).
+        """
+        return self.get(property_name='log_verbosity',
+                        environment_variable='PIP_ACCEL_LOG_VERBOSITY',
+                        configuration_option='log-verbosity',
+                        default='INFO')
 
     @cached_property
     def max_retries(self):

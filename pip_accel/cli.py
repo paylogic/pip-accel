@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: October 31, 2015
+# Last Change: November 14, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """Command line interface for the ``pip-accel`` program."""
@@ -39,8 +39,12 @@ def main():
         os.execvp('pip', ['pip'] + arguments)
     else:
         arguments = [arg for arg in arguments if arg != 'install']
+    config = Config()
     # Initialize logging output.
-    coloredlogs.install()
+    coloredlogs.install(
+        fmt=config.log_format,
+        level=config.log_verbosity,
+    )
     # Adjust verbosity based on -v, -q, --verbose, --quiet options.
     for argument in list(arguments):
         if match_option(argument, '-v', '--verbose'):
@@ -49,7 +53,7 @@ def main():
             coloredlogs.decrease_verbosity()
     # Perform the requested action(s).
     try:
-        accelerator = PipAccelerator(Config())
+        accelerator = PipAccelerator(config)
         accelerator.install_from_arguments(arguments)
     except NothingToDoError as e:
         # Don't print a traceback for this (it's not very user friendly) and
