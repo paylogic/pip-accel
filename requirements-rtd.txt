@@ -1,6 +1,5 @@
 # This pip requirements file is used by Read the Docs to build pip-accel's
-# online documentation available at http://pip-accel.readthedocs.org/. For now
-# it only contains one very specific *hack* documented below.
+# online documentation available at http://pip-accel.readthedocs.org/.
 #
 # On April 5, 2015 I released pip-accel 0.23. The Read the Docs build for
 # release 0.23 went fine [1] but the build of 0.24 [2] later that same day
@@ -22,3 +21,9 @@
 # [2] https://readthedocs.org/builds/pip-accel/2532985/
 
 six >= 1.7.0
+
+# Make sure test requirements are also installed; the documentation includes
+# the test suite and so Sphinx needs to be able to import the test suite, which
+# means the test dependencies must be installed!
+
+--requirement=requirements-testing.txt
