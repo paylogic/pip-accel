@@ -856,10 +856,14 @@ def uninstall_through_subprocess(package_name):
     while avoiding issues caused by stale data in pip and the packages it uses
     internally. Doesn't complain if the package isn't installed to begin with.
     """
-    subprocess.call([
-        find_python_program('pip'),
-        'uninstall', '--yes', package_name,
-    ])
+    while True:
+        returncode = subprocess.call([
+            find_python_program('pip'),
+            'uninstall', '--yes',
+            package_name,
+        ])
+        if returncode != 0:
+            break
 
 
 def find_installed_version(package_name, encoding='UTF-8'):
