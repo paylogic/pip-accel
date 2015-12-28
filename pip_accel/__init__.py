@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: November 14, 2015
+# Last Change: December 28, 2015
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Permanently store logs in the pip-accel directory (think about log rotation).
@@ -76,7 +76,7 @@ from pip.commands.install import InstallCommand
 from pip.exceptions import DistributionNotFound
 
 # Semi-standard module versioning.
-__version__ = '0.37'
+__version__ = '0.37.1'
 
 # Initialize a logger for this module.
 logger = logging.getLogger(__name__)
@@ -525,9 +525,16 @@ class PipAccelerator(object):
             # is not used. We filter out these requirements because pip never
             # unpacks distributions for these requirements, so pip-accel can't
             # do anything useful with such requirements.
-            if not requirement.satisfied_by:
-                filtered_requirements.append(requirement)
-                self.reported_requirements.append(requirement)
+            if requirement.satisfied_by:
+                continue
+            # The `constraint' property marks requirement objects that
+            # constrain the acceptable version(s) of another requirement but
+            # don't define a requirement themselves, so we filter them out.
+            if requirement.constraint:
+                continue
+            # All other requirements are reported to callers.
+            filtered_requirements.append(requirement)
+            self.reported_requirements.append(requirement)
         return sorted([Requirement(self.config, r) for r in filtered_requirements],
                       key=lambda r: r.name.lower())
 

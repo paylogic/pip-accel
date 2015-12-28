@@ -1,7 +1,7 @@
 # Tests for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: November 11, 2015
+# Last Change: December 28, 2015
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -696,6 +696,42 @@ class PipAccelTestCase(unittest.TestCase):
             returncode = test_cli('pip-accel')
             assert returncode == 0, "pip-accel command line interface exited with nonzero return code!"
             assert 'Usage: pip-accel' in str(stream), "pip-accel command line interface didn't report usage message!"
+
+    def test_constraint_file_support(self):
+        """
+        Test support for constraint files.
+
+        With the pip 7.x upgrade support for constraint files was added to pip.
+        Due to the way this was implemented in pip the use of constraint files
+        would break pip-accel as reported in `issue 63`_. The issue was since
+        fixed and this test makes sure constraint files remain supported.
+
+        .. _issue 63: https://github.com/paylogic/pip-accel/issues/63
+        """
+        # Make sure pep8 isn't already installed when this test starts.
+        uninstall_through_subprocess('pep8')
+        # Prepare a temporary constraints file.
+        constraint_file = os.path.join(create_temporary_directory(prefix='pip-accel-', suffix='-constraints-test'),
+                                       'constraints-file.txt')
+        with open(constraint_file, 'w') as handle:
+            # Constrain the version of the pep8 package.
+            handle.write('pep8==1.6.0\n')
+            # Include a constraint that is not a requirement. Before pip-accel
+            # version 0.37.1 this would raise an exception instead of being
+            # ignored.
+            handle.write('paver==1.2.4\n')
+        # Install pep8 based on the constraints file.
+        accelerator = self.initialize_pip_accel()
+        num_installed = accelerator.install_from_arguments([
+            '--ignore-installed',
+            '--no-binary=:all:',
+            '--constraint=%s' % constraint_file,
+            'pep8',
+        ])
+        assert num_installed == 1, "Expected pip-accel to install exactly one package!"
+        # Make sure the correct version was installed.
+        assert find_installed_version('pep8') == '1.6.0', \
+            "pip-accel failed to (properly) install pep8 version 1.6.0!"
 
     def test_empty_requirements_file(self):
         """
