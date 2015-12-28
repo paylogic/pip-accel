@@ -41,7 +41,7 @@ import unittest
 # External dependencies.
 import coloredlogs
 from cached_property import cached_property
-from humanfriendly import coerce_boolean, compact, concatenate
+from humanfriendly import coerce_boolean, compact, concatenate, dedent
 from pip.commands.install import InstallCommand
 from pip.exceptions import DistributionNotFound
 
@@ -53,7 +53,7 @@ from pip_accel.config import Config
 from pip_accel.deps import DependencyInstallationRefused, SystemPackageManager
 from pip_accel.exceptions import EnvironmentMismatchError
 from pip_accel.req import escape_name
-from pip_accel.utils import find_installed_version, uninstall
+from pip_accel.utils import uninstall
 
 # Test dependencies.
 from executor import CommandNotFound, which
@@ -849,17 +849,44 @@ def uninstall_through_subprocess(package_name):
     """
     Remove an installed Python package by running ``pip`` as a subprocess.
 
+    :param package_name: The name of the package (a string).
+
     This function is specifically for use in the pip-accel test suite to
     reliably uninstall a Python package installed in the current environment
     while avoiding issues caused by stale data in pip and the packages it uses
     internally. Doesn't complain if the package isn't installed to begin with.
-
-    :param package_name: The name of the package (a string).
     """
     subprocess.call([
         find_python_program('pip'),
         'uninstall', '--yes', package_name,
     ])
+
+
+def find_installed_version(package_name, encoding='UTF-8'):
+    """
+    Find the version of an installed package (in a subprocess).
+
+    :param package_name: The name of the package (a string).
+    :returns: The package's version (a string) or :data:`None` if the package can't
+              be found.
+
+    This function is specifically for use in the pip-accel test suite to
+    reliably determine the installed version of a Python package in the current
+    environment while avoiding issues caused by stale data in pip and the
+    packages it uses internally.
+    """
+    interpreter = subprocess.Popen([sys.executable], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    snippet = dedent("""
+        import pkg_resources
+        for distribution in pkg_resources.working_set:
+            if distribution.key.lower() == {name}:
+                print(distribution.version)
+                break
+    """, name=repr(package_name.lower()))
+    stdout, stderr = interpreter.communicate(snippet.encode(encoding))
+    output = stdout.decode(encoding)
+    if output and not output.isspace():
+        return output.strip()
 
 
 def find_one_file(directory, pattern):
