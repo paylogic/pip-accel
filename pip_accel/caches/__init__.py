@@ -27,7 +27,7 @@ from pip_accel.utils import get_python_version
 
 # External dependencies.
 from humanfriendly import concatenate, pluralize
-from pkg_resources import get_entry_map
+from pkg_resources import iter_entry_points
 
 # Initialize a logger for this module.
 logger = logging.getLogger(__name__)
@@ -145,7 +145,7 @@ class CacheManager(object):
                        object).
         """
         self.config = config
-        for entry_point in get_entry_map('pip-accel', 'pip_accel.cache_backends').values():
+        for entry_point in iter_entry_points('pip_accel.cache_backends'):
             logger.debug("Importing cache backend: %s", entry_point.module_name)
             __import__(entry_point.module_name)
         # Initialize instances of all registered cache backends (sorted by
