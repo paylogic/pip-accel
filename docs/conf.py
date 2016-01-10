@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: November 14, 2015
+# Last Change: January 10, 2016
 # URL: https://github.com/paylogic/pip-accel
 
 """Sphinx documentation configuration for the `pip-accel` project."""
@@ -34,7 +34,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'pip-accel'
-copyright = u'2015, Peter Odding and Paylogic International'
+copyright = u'2016, Peter Odding and Paylogic International'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
