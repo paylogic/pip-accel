@@ -1,7 +1,7 @@
 # Utility functions for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: December 28, 2015
+# Last Change: January 10, 2016
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -26,7 +26,12 @@ from pip_accel.compat import pathname2url, urljoin, WINDOWS
 # External dependencies.
 from humanfriendly import parse_path
 from pip.commands.uninstall import UninstallCommand
-from pkg_resources import WorkingSet
+from pip._vendor.pkg_resources import (
+    DistributionNotFound,
+    WorkingSet,
+    get_distribution,
+    parse_requirements,
+)
 
 # Initialize a logger for this module.
 logger = logging.getLogger(__name__)
@@ -252,6 +257,23 @@ class AtomicReplace(object):
         if exc_type is None:
             logger.debug("Moving temporary file into place: %s", self.filename)
             replace_file(self.temporary_file, self.filename)
+
+
+def requirement_is_installed(expr):
+    """
+    Check whether a requirement is installed.
+
+    :param expr: A requirement specification similar to those used in pip
+                 requirement files (a string).
+    :returns: :data:`True` if the requirement is available (installed),
+              :data:`False` otherwise.
+    """
+    required_dist = next(parse_requirements(expr))
+    try:
+        installed_dist = get_distribution(required_dist.key)
+        return installed_dist in required_dist
+    except DistributionNotFound:
+        return False
 
 
 def is_installed(package_name):

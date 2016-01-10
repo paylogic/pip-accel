@@ -62,6 +62,7 @@ from pip_accel.utils import (
     makedirs,
     match_option,
     match_option_with_value,
+    requirement_is_installed,
     same_directories,
     uninstall,
 )
@@ -70,7 +71,6 @@ from pip_accel.utils import (
 from humanfriendly import concatenate, Timer, pluralize
 from pip import index as pip_index_module
 from pip import wheel as pip_wheel_module
-from pip._vendor import pkg_resources
 from pip.commands import install as pip_install_module
 from pip.commands.install import InstallCommand
 from pip.exceptions import DistributionNotFound
@@ -247,20 +247,10 @@ class PipAccelerator(object):
         """
         Check whether setuptools should be upgraded to ``>= 0.8`` for wheel support.
 
-        :returns: :data:`True` when setuptools needs to be upgraded, :data:`False` otherwise.
+        :returns: :data:`True` when setuptools 0.8 or higher is already
+                  installed, :data:`False` otherwise (it needs to be upgraded).
         """
-        # Don't use pkg_resources.Requirement.parse, to avoid the override
-        # in distribute, that converts `setuptools' to `distribute'.
-        setuptools_requirement = next(pkg_resources.parse_requirements('setuptools >= 0.8'))
-        try:
-            installed_setuptools = pkg_resources.get_distribution('setuptools')
-            if installed_setuptools in setuptools_requirement:
-                # setuptools >= 0.8 is already installed; nothing to do.
-                return True
-        except pkg_resources.DistributionNotFound:
-            pass
-        # We need to install setuptools >= 0.8.
-        return False
+        return requirement_is_installed('setuptools >= 0.8')
 
     def get_requirements(self, arguments, max_retries=None, use_wheels=False):
         """
