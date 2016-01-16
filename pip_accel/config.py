@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: November 14, 2015
+# Last Change: January 10, 2016
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -209,6 +209,18 @@ class Config(object):
         """
         return self.get(property_name='binary_cache',
                         default=os.path.join(self.data_directory, 'binaries'))
+
+    @cached_property
+    def eggs_cache(self):
+        """
+        The absolute pathname of pip-accel's eggs cache directory (a string).
+
+        This is the ``eggs`` subdirectory of :data:`data_directory`. It is used
+        to cache setup requirements which avoids continuous rebuilding of setup
+        requirements.
+        """
+        return self.get(property_name='eggs_cache',
+                        default=os.path.join(self.data_directory, 'eggs'))
 
     @cached_property
     def data_directory(self):

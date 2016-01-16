@@ -1,7 +1,7 @@
 :: Windows batch script to prepare for the pip-accel test suite.
 ::
 :: Author: Peter Odding <peter.odding@paylogic.com>
-:: Last Change: November 11, 2015
+:: Last Change: January 16, 2016
 :: URL: https://github.com/paylogic/pip-accel
 ::
 :: This Windows batch script is used to run the pip-accel test suite on
@@ -17,13 +17,6 @@
 :: an obscure issue that took me hours to debug and I really don't want to get
 :: into it here :-(.
 "%PYTHON%\Scripts\pip.exe" install --no-binary=pytest --quiet --requirement=requirements-testing.txt
-
-:: Downgrade setuptools so that the test suite can verify that setuptools is
-:: upgraded to >= 0.8 when a binary wheel is installed. Performing this
-:: downgrade inside the test suite process doesn't work as expected because pip
-:: (pkg_resources) will still think the newer version is installed (due to
-:: caching without proper cache invalidation by pkg_resources).
-"%PYTHON%\Scripts\pip.exe" install --quiet --no-binary=:all: "setuptools < 0.8"
 
 :: Install requests==2.6.0 so the test suite can downgrade to requests==2.2.1
 :: (to verify that downgrading of packages works). Ideally the test suite

@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: January 10, 2016
+# Last Change: January 16, 2016
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Permanently store logs in the pip-accel directory (think about log rotation).
@@ -74,9 +74,10 @@ from pip import wheel as pip_wheel_module
 from pip.commands import install as pip_install_module
 from pip.commands.install import InstallCommand
 from pip.exceptions import DistributionNotFound
+from pip.req import InstallRequirement
 
 # Semi-standard module versioning.
-__version__ = '0.38'
+__version__ = '0.39'
 
 # Initialize a logger for this module.
 logger = logging.getLogger(__name__)
@@ -141,8 +142,9 @@ class PipAccelerator(object):
                 """, environment=environment, prefix=sys.prefix)
 
     def initialize_directories(self):
-        """Automatically create the local source distribution index directory."""
+        """Automatically create local directories required by pip-accel."""
         makedirs(self.config.source_index)
+        makedirs(self.config.eggs_cache)
 
     def clean_source_index(self):
         """
@@ -272,43 +274,46 @@ class PipAccelerator(object):
                      pip's ``--ignore-installed`` option.
         """
         arguments = self.decorate_arguments(arguments)
+        # Demote hash sum mismatch log messages from CRITICAL to DEBUG (hiding
+        # implementation details from users unless they want to see them).
         with DownloadLogFilter():
-            # Use a new build directory for each run of get_requirements().
-            self.create_build_directory()
-            # Check whether -U or --upgrade was given.
-            if any(match_option(a, '-U', '--upgrade') for a in arguments):
-                logger.info("Checking index(es) for new version (-U or --upgrade was given) ..")
-            else:
-                # If -U or --upgrade wasn't given and all requirements can be
-                # satisfied using the archives in pip-accel's local source
-                # index we don't need pip to connect to PyPI looking for new
-                # versions (that will just slow us down).
-                try:
-                    return self.unpack_source_dists(arguments, use_wheels=use_wheels)
-                except DistributionNotFound:
-                    logger.info("We don't have all distribution archives yet!")
-            # Get the maximum number of retries from the configuration if the
-            # caller didn't specify a preference.
-            if max_retries is None:
-                max_retries = self.config.max_retries
-            # If not all requirements are available locally we use pip to
-            # download the missing source distribution archives from PyPI (we
-            # retry a couple of times in case pip reports recoverable
-            # errors).
-            for i in range(max_retries):
-                try:
-                    return self.download_source_dists(arguments, use_wheels=use_wheels)
-                except Exception as e:
-                    if i + 1 < max_retries:
-                        # On all but the last iteration we swallow exceptions
-                        # during downloading.
-                        logger.warning("pip raised exception while downloading distributions: %s", e)
-                    else:
-                        # On the last iteration we don't swallow exceptions
-                        # during downloading because the error reported by pip
-                        # is the most sensible error for us to report.
-                        raise
-                logger.info("Retrying after pip failed (%i/%i) ..", i + 1, max_retries)
+            with SetupRequiresPatch(self.config):
+                # Use a new build directory for each run of get_requirements().
+                self.create_build_directory()
+                # Check whether -U or --upgrade was given.
+                if any(match_option(a, '-U', '--upgrade') for a in arguments):
+                    logger.info("Checking index(es) for new version (-U or --upgrade was given) ..")
+                else:
+                    # If -U or --upgrade wasn't given and all requirements can be
+                    # satisfied using the archives in pip-accel's local source
+                    # index we don't need pip to connect to PyPI looking for new
+                    # versions (that will just slow us down).
+                    try:
+                        return self.unpack_source_dists(arguments, use_wheels=use_wheels)
+                    except DistributionNotFound:
+                        logger.info("We don't have all distribution archives yet!")
+                # Get the maximum number of retries from the configuration if the
+                # caller didn't specify a preference.
+                if max_retries is None:
+                    max_retries = self.config.max_retries
+                # If not all requirements are available locally we use pip to
+                # download the missing source distribution archives from PyPI (we
+                # retry a couple of times in case pip reports recoverable
+                # errors).
+                for i in range(max_retries):
+                    try:
+                        return self.download_source_dists(arguments, use_wheels=use_wheels)
+                    except Exception as e:
+                        if i + 1 < max_retries:
+                            # On all but the last iteration we swallow exceptions
+                            # during downloading.
+                            logger.warning("pip raised exception while downloading distributions: %s", e)
+                        else:
+                            # On the last iteration we don't swallow exceptions
+                            # during downloading because the error reported by pip
+                            # is the most sensible error for us to report.
+                            raise
+                    logger.info("Retrying after pip failed (%i/%i) ..", i + 1, max_retries)
 
     def decorate_arguments(self, arguments):
         """
@@ -656,6 +661,63 @@ class DownloadLogFilter(logging.Filter):
         return 1
 
 
+class SetupRequiresPatch(object):
+
+    """
+    Monkey patch to enable caching of setup requirements.
+
+    This context manager monkey patches ``InstallRequirement.run_egg_info()``
+    to enable caching of setup requirements. It works by creating a symbolic
+    link called ``.eggs`` in the source directory of unpacked Python source
+    distributions which points to a shared directory inside the pip-accel
+    data directory. This can only work on platforms that support
+    :func:`os.symlink()`` but should fail gracefully elsewhere.
+
+    For more information about this hack please refer to `issue 49
+    <https://github.com/paylogic/pip-accel/issues/49>`_.
+    """
+
+    def __init__(self, config):
+        """
+        Initialize a :class:`SetupRequiresPatch` object.
+
+        :param config: A :class:`~pip_accel.config.Config` object.
+        """
+        self.config = config
+        self.patch = None
+
+    def __enter__(self):
+        """Enable caching of setup requirements (by patching the ``run_egg_info()`` method)."""
+        if self.patch is None:
+            shared_directory = self.config.eggs_cache
+            original_method = InstallRequirement.run_egg_info
+
+            def run_egg_info_wrapper(self, *args, **kw):
+                # Heads up: self is an `InstallRequirement' object here!
+                link_name = os.path.join(self.source_dir, '.eggs')
+                try:
+                    logger.debug("Creating symbolic link: %s -> %s", link_name, shared_directory)
+                    os.symlink(shared_directory, link_name)
+                except Exception as e:
+                    # Always log the failure, but only include a traceback if
+                    # it looks like symbolic links should be supported on the
+                    # current platform (os.symlink() is available).
+                    logger.debug("Failed to create symbolic link! (continuing without)",
+                                 exc_info=not isinstance(e, AttributeError))
+                # Execute the real run_egg_info() method.
+                return original_method(self, *args, **kw)
+
+            # Install the wrapper method for the duration of the context manager.
+            self.patch = PatchedAttribute(InstallRequirement, 'run_egg_info', run_egg_info_wrapper)
+            self.patch.__enter__()
+
+    def __exit__(self, exc_type=None, exc_value=None, traceback=None):
+        """Undo the changes that enable caching of setup requirements."""
+        if self.patch is not None:
+            self.patch.__exit__(exc_type, exc_value, traceback)
+            self.patch = None
+
+
 class CustomPackageFinder(pip_index_module.PackageFinder):
 
     """
@@ -692,7 +754,7 @@ class CustomPackageFinder(pip_index_module.PackageFinder):
 class PatchedAttribute(object):
 
     """
-    Contact manager to temporarily patch an object attribute.
+    Context manager to temporarily patch an object attribute.
 
     This context manager changes the value of an object attribute when the
     context is entered and restores the original value when the context is
