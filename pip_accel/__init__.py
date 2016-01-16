@@ -77,7 +77,7 @@ from pip.exceptions import DistributionNotFound
 from pip.req import InstallRequirement
 
 # Semi-standard module versioning.
-__version__ = '0.39'
+__version__ = '0.40'
 
 # Initialize a logger for this module.
 logger = logging.getLogger(__name__)
@@ -238,6 +238,9 @@ class PipAccelerator(object):
                 logger.info("Preparing to upgrade to setuptools >= 0.8 to enable wheel support ..")
                 requirements.extend(self.get_requirements(['setuptools >= 0.8']))
             if requirements:
+                if '--user' in arguments:
+                    from site import USER_BASE
+                    kw.setdefault('prefix', USER_BASE)
                 return self.install_requirements(requirements, **kw)
             else:
                 logger.info("Nothing to do! (requirements already installed)")
@@ -557,6 +560,7 @@ class PipAccelerator(object):
             # old version to make sure we don't leave files from old
             # versions around.
             if is_installed(requirement.name):
+                # TODO Verify that this code path is compatible with --user?
                 uninstall(requirement.name)
             # When installing setuptools we need to uninstall distribute,
             # otherwise distribute will shadow setuptools and all sorts of
