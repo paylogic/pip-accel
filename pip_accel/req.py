@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: November 7, 2015
+# Last Change: January 17, 2016
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -38,9 +38,16 @@ from pip_accel.utils import hash_files
 
 # External dependencies.
 from cached_property import cached_property
-from pip._vendor.distlib.util import ARCHIVE_EXTENSIONS
-from pip._vendor.pkg_resources import find_distributions
 from pip.req import InstallRequirement
+
+# The following package(s) are usually bundled with pip but may be unbundled
+# by redistributors and pip-accel should handle this gracefully.
+try:
+    from pip._vendor.distlib.util import ARCHIVE_EXTENSIONS
+    from pip._vendor.pkg_resources import find_distributions
+except ImportError:
+    from distlib.util import ARCHIVE_EXTENSIONS
+    from pkg_resources import find_distributions
 
 
 class Requirement(object):

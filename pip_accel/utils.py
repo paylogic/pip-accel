@@ -1,7 +1,7 @@
 # Utility functions for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: January 10, 2016
+# Last Change: January 17, 2016
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -26,12 +26,13 @@ from pip_accel.compat import pathname2url, urljoin, WINDOWS
 # External dependencies.
 from humanfriendly import parse_path
 from pip.commands.uninstall import UninstallCommand
-from pip._vendor.pkg_resources import (
-    DistributionNotFound,
-    WorkingSet,
-    get_distribution,
-    parse_requirements,
-)
+
+# The following package(s) are usually bundled with pip but may be unbundled
+# by redistributors and pip-accel should handle this gracefully.
+try:
+    from pip._vendor.pkg_resources import DistributionNotFound, WorkingSet, get_distribution, parse_requirements
+except ImportError:
+    from pkg_resources import DistributionNotFound, WorkingSet, get_distribution, parse_requirements
 
 # Initialize a logger for this module.
 logger = logging.getLogger(__name__)
