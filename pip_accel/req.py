@@ -28,6 +28,7 @@ basically undocumented AFAIK).
 
 # Standard library modules.
 import glob
+import logging
 import os
 import re
 import time
@@ -48,6 +49,9 @@ try:
 except ImportError:
     from distlib.util import ARCHIVE_EXTENSIONS
     from pkg_resources import find_distributions
+
+# Initialize a logger for this module.
+logger = logging.getLogger(__name__)
 
 
 class Requirement(object):
@@ -243,6 +247,34 @@ class Requirement(object):
     def __str__(self):
         """Render a human friendly string describing the requirement."""
         return "%s (%s)" % (self.name, self.version)
+
+
+class TransactionalUpdate(object):
+
+    """Context manager that enables transactional package upgrades."""
+
+    def __init__(self, requirement):
+        """
+        Initialize a :class:`PackageUpgrade` object.
+
+        :param requirement: A :class:`Requirement` object.
+        """
+        self.requirement = requirement
+        self.pip_requirement = requirement.pip_requirement
+
+    def __enter__(self):
+        """Prepare package upgrades by removing conflicting installations."""
+        if self.pip_requirement.conflicts_with:
+            logger.info("Found existing installation: %s", self.pip_requirement.conflicts_with)
+            self.pip_requirement.uninstall(auto_confirm=True)
+
+    def __exit__(self, exc_type=None, exc_value=None, traceback=None):
+        """Finalize or rollback a package upgrade."""
+        if self.pip_requirement.conflicts_with:
+            if exc_type is None:
+                self.pip_requirement.commit_uninstall()
+            else:
+                self.pip_requirement.rollback_uninstall()
 
 
 def escape_name(requirement_name):

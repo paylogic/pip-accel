@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: January 16, 2016
+# Last Change: January 17, 2016
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Permanently store logs in the pip-accel directory (think about log rotation).
@@ -54,7 +54,7 @@ import tempfile
 from pip_accel.bdist import BinaryDistributionManager
 from pip_accel.compat import basestring
 from pip_accel.exceptions import EnvironmentMismatchError, NothingToDoError
-from pip_accel.req import Requirement
+from pip_accel.req import Requirement, TransactionalUpdate
 from pip_accel.utils import (
     create_file_url,
     hash_files,
@@ -77,7 +77,7 @@ from pip.exceptions import DistributionNotFound
 from pip.req import InstallRequirement
 
 # Semi-standard module versioning.
-__version__ = '0.40'
+__version__ = '0.41'
 
 # Initialize a logger for this module.
 logger = logging.getLogger(__name__)
@@ -556,33 +556,29 @@ class PipAccelerator(object):
         kw.setdefault('track_installed_files', True)
         num_installed = 0
         for requirement in requirements:
-            # If we're upgrading over an older version, first remove the
-            # old version to make sure we don't leave files from old
-            # versions around.
-            if is_installed(requirement.name):
-                # TODO Verify that this code path is compatible with --user?
-                uninstall(requirement.name)
-            # When installing setuptools we need to uninstall distribute,
-            # otherwise distribute will shadow setuptools and all sorts of
-            # strange issues can occur (e.g. upgrading to the latest
-            # setuptools to gain wheel support and then having everything
-            # blow up because distribute doesn't know about wheels).
-            if requirement.name == 'setuptools' and is_installed('distribute'):
-                uninstall('distribute')
-            if requirement.is_editable:
-                logger.debug("Installing %s in editable form using pip.", requirement)
-                command = InstallCommand()
-                opts, args = command.parse_args(['--no-deps', '--editable', requirement.source_directory])
-                command.run(opts, args)
-            elif requirement.is_wheel:
-                logger.info("Installing %s wheel distribution using pip ..", requirement)
-                wheel_version = pip_wheel_module.wheel_version(requirement.source_directory)
-                pip_wheel_module.check_compatibility(wheel_version, requirement.name)
-                requirement.pip_requirement.move_wheel_files(requirement.source_directory)
-            else:
-                binary_distribution = self.bdists.get_binary_dist(requirement)
-                self.bdists.install_binary_dist(binary_distribution, **kw)
-            num_installed += 1
+            with TransactionalUpdate(requirement):
+                # When installing setuptools we need to uninstall distribute,
+                # otherwise distribute will shadow setuptools and all sorts of
+                # strange issues can occur (e.g. upgrading to the latest
+                # setuptools to gain wheel support and then having everything
+                # blow up because distribute doesn't know about wheels).
+                if requirement.name == 'setuptools' and is_installed('distribute'):
+                    uninstall('distribute')
+                if requirement.is_editable:
+                    logger.debug("Installing %s in editable form using pip.", requirement)
+                    command = InstallCommand()
+                    opts, args = command.parse_args(['--no-deps', '--editable', requirement.source_directory])
+                    command.run(opts, args)
+                elif requirement.is_wheel:
+                    logger.info("Installing %s wheel distribution using pip ..", requirement)
+                    wheel_version = pip_wheel_module.wheel_version(requirement.source_directory)
+                    pip_wheel_module.check_compatibility(wheel_version, requirement.name)
+                    requirement.pip_requirement.move_wheel_files(requirement.source_directory)
+                else:
+                    logger.info("Installing %s binary distribution using pip-accel ..", requirement)
+                    binary_distribution = self.bdists.get_binary_dist(requirement)
+                    self.bdists.install_binary_dist(binary_distribution, **kw)
+                num_installed += 1
         logger.info("Finished installing %s in %s.",
                     pluralize(num_installed, "requirement"),
                     install_timer)
