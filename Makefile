@@ -1,7 +1,7 @@
 # Makefile for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: November 11, 2015
+# Last Change: January 17, 2016
 # URL: https://github.com/paylogic/pip-accel
 
 WORKON_HOME ?= $(HOME)/.virtualenvs
@@ -59,12 +59,22 @@ docs: install
 	test -x "$(VIRTUAL_ENV)/bin/sphinx-build" || pip-accel install --quiet sphinx
 	cd docs && sphinx-build -b html -d build/doctrees . build/html
 
-publish:
+publish: install
 	git push origin && git push --tags origin
-	make clean && python setup.py sdist upload
+	test -x "$(VIRTUAL_ENV)/bin/twine" || pip-accel install --quiet twine
+	make clean && python setup.py sdist && twine upload dist/*
 
 clean:
-	rm -Rf *.egg *.egg-info .cache .coverage .coverage.* .tox build dist docs/build htmlcov
+	rm -Rf \
+		*.egg \
+		.cache/ \
+		.coverage \
+		.coverage.* \
+		.tox/ \
+		build/ \
+		dist/ \
+		docs/build/ \
+		htmlcov/
 	find -name __pycache__ -exec rm -Rf {} \; &>/dev/null || true
 	find -type f -name '*.py[co]' -delete
 
