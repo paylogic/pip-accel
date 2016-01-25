@@ -77,7 +77,7 @@ from pip.exceptions import DistributionNotFound
 from pip.req import InstallRequirement
 
 # Semi-standard module versioning.
-__version__ = '0.42'
+__version__ = '0.42.1'
 
 # Initialize a logger for this module.
 logger = logging.getLogger(__name__)
@@ -714,7 +714,7 @@ class SetupRequiresPatch(object):
                 try:
                     logger.debug("Creating symbolic link: %s -> %s", link_name, shared_directory)
                     os.symlink(shared_directory, link_name)
-                    if created_links:
+                    if created_links is not None:
                         created_links.append(link_name)
                 except Exception as e:
                     # Always log the failure, but only include a traceback if
