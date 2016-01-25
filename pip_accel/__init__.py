@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: January 17, 2016
+# Last Change: January 25, 2016
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Permanently store logs in the pip-accel directory (think about log rotation).
@@ -77,7 +77,7 @@ from pip.exceptions import DistributionNotFound
 from pip.req import InstallRequirement
 
 # Semi-standard module versioning.
-__version__ = '0.41'
+__version__ = '0.42'
 
 # Initialize a logger for this module.
 logger = logging.getLogger(__name__)
@@ -115,6 +115,8 @@ class PipAccelerator(object):
         # We hold on to returned Requirement objects so we can remove their
         # temporary sources after pip-accel has finished.
         self.reported_requirements = []
+        # Keep a list of `.eggs' symbolic links created by pip-accel.
+        self.eggs_links = []
 
     def validate_environment(self):
         """
@@ -280,7 +282,7 @@ class PipAccelerator(object):
         # Demote hash sum mismatch log messages from CRITICAL to DEBUG (hiding
         # implementation details from users unless they want to see them).
         with DownloadLogFilter():
-            with SetupRequiresPatch(self.config):
+            with SetupRequiresPatch(self.config, self.eggs_links):
                 # Use a new build directory for each run of get_requirements().
                 self.create_build_directory()
                 # Check whether -U or --upgrade was given.
@@ -617,6 +619,10 @@ class PipAccelerator(object):
             shutil.rmtree(self.build_directories.pop())
         for requirement in self.reported_requirements:
             requirement.remove_temporary_source()
+        while self.eggs_links:
+            symbolic_link = self.eggs_links.pop()
+            if os.path.islink(symbolic_link):
+                os.unlink(symbolic_link)
 
     @property
     def build_directory(self):
@@ -673,24 +679,34 @@ class SetupRequiresPatch(object):
     data directory. This can only work on platforms that support
     :func:`os.symlink()`` but should fail gracefully elsewhere.
 
+    The :class:`SetupRequiresPatch` context manager doesn't clean up the
+    symbolic links because doing so would remove the link when it is still
+    being used. Instead the context manager builds up a list of created links
+    so that pip-accel can clean these up when it is known that the symbolic
+    links are no longer needed.
+
     For more information about this hack please refer to `issue 49
     <https://github.com/paylogic/pip-accel/issues/49>`_.
     """
 
-    def __init__(self, config):
+    def __init__(self, config, created_links=None):
         """
         Initialize a :class:`SetupRequiresPatch` object.
 
         :param config: A :class:`~pip_accel.config.Config` object.
+        :param created_links: A list where newly created symbolic links are
+                              added to (so they can be cleaned up later).
         """
         self.config = config
         self.patch = None
+        self.created_links = created_links
 
     def __enter__(self):
         """Enable caching of setup requirements (by patching the ``run_egg_info()`` method)."""
         if self.patch is None:
-            shared_directory = self.config.eggs_cache
+            created_links = self.created_links
             original_method = InstallRequirement.run_egg_info
+            shared_directory = self.config.eggs_cache
 
             def run_egg_info_wrapper(self, *args, **kw):
                 # Heads up: self is an `InstallRequirement' object here!
@@ -698,6 +714,8 @@ class SetupRequiresPatch(object):
                 try:
                     logger.debug("Creating symbolic link: %s -> %s", link_name, shared_directory)
                     os.symlink(shared_directory, link_name)
+                    if created_links:
+                        created_links.append(link_name)
                 except Exception as e:
                     # Always log the failure, but only include a traceback if
                     # it looks like symbolic links should be supported on the

@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: January 17, 2016
+# Last Change: January 25, 2016
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -255,7 +255,7 @@ class TransactionalUpdate(object):
 
     def __init__(self, requirement):
         """
-        Initialize a :class:`PackageUpgrade` object.
+        Initialize a :class:`TransactionalUpdate` object.
 
         :param requirement: A :class:`Requirement` object.
         """
