@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: January 25, 2016
+# Last Change: February 2, 2016
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -261,20 +261,30 @@ class TransactionalUpdate(object):
         """
         self.requirement = requirement
         self.pip_requirement = requirement.pip_requirement
+        self.in_transaction = False
 
     def __enter__(self):
         """Prepare package upgrades by removing conflicting installations."""
         if self.pip_requirement.conflicts_with:
+            # Let __exit__() know that it should commit or rollback.
+            self.in_transaction = True
+            # Remove the conflicting installation (and let the user know).
             logger.info("Found existing installation: %s", self.pip_requirement.conflicts_with)
             self.pip_requirement.uninstall(auto_confirm=True)
+            # The uninstall() method has the unfortunate side effect of setting
+            # `satisfied_by' (as a side effect of calling check_if_exists())
+            # which breaks the behavior we expect from pkg_info(). We clear the
+            # `satisfied_by' property to avoid this strange interaction.
+            self.pip_requirement.satisfied_by = None
 
     def __exit__(self, exc_type=None, exc_value=None, traceback=None):
         """Finalize or rollback a package upgrade."""
-        if self.pip_requirement.conflicts_with:
+        if self.in_transaction:
             if exc_type is None:
                 self.pip_requirement.commit_uninstall()
             else:
                 self.pip_requirement.rollback_uninstall()
+            self.in_transaction = False
 
 
 def escape_name(requirement_name):
