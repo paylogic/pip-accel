@@ -3,7 +3,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: November 10, 2015
+# Last Change: February 19, 2016
 # URL: https://github.com/paylogic/pip-accel
 
 """Setup script for the `pip-accel` package."""
@@ -43,7 +43,7 @@ def get_requirements(*args):
             line = re.sub(r'^#.*|\s#.*', '', line)
             # Ignore empty lines
             if line and not line.isspace():
-                requirements.add(line.strip())
+                requirements.add(re.sub(r'\s+', '', line))
     return sorted(requirements)
 
 
