@@ -3,7 +3,7 @@
 # Authors:
 #  - Adam Feuer <adam@adamfeuer.com>
 #  - Peter Odding <peter.odding@paylogic.com>
-# Last Change: November 8, 2015
+# Last Change: March 4, 2016
 # URL: https://github.com/paylogic/pip-accel
 #
 # A word of warning: Do *not* use the cached_property decorator here, because
@@ -99,7 +99,7 @@ from humanfriendly import coerce_boolean, Timer
 # Modules included in our package.
 from pip_accel import PatchedAttribute
 from pip_accel.caches import AbstractCacheBackend
-from pip_accel.compat import urlparse
+from pip_accel.compat import PY3, urlparse
 from pip_accel.exceptions import CacheBackendDisabledError, CacheBackendError
 from pip_accel.utils import AtomicReplace, makedirs
 
@@ -361,6 +361,7 @@ class PatchedBotoConfig(PatchedAttribute):
             object=Config,
             attribute='get',
             value=self.get,
+            enabled=PY3,
         )
 
     def get(self, section, name, default=None, **kw):

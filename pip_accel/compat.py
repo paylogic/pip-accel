@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: November 8, 2015
+# Last Change: March 4, 2016
 # URL: https://github.com/paylogic/pip-accel
 
 """Operating system detection and Python version compatibility."""
@@ -31,6 +31,7 @@ try:
     from StringIO import StringIO
     from urllib import pathname2url
     from urlparse import urljoin, urlparse
+    PY3 = False
 except (ImportError, NameError):
     # Python 3.
     basestring = str
@@ -38,3 +39,4 @@ except (ImportError, NameError):
     from io import StringIO
     from urllib.parse import urljoin, urlparse
     from urllib.request import pathname2url
+    PY3 = True

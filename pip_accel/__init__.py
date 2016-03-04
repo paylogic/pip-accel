@@ -1,7 +1,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: February 19, 2016
+# Last Change: March 4, 2016
 # URL: https://github.com/paylogic/pip-accel
 #
 # TODO Permanently store logs in the pip-accel directory (think about log rotation).
@@ -77,7 +77,7 @@ from pip.exceptions import DistributionNotFound
 from pip.req import InstallRequirement
 
 # Semi-standard module versioning.
-__version__ = '0.42.4'
+__version__ = '0.42.5'
 
 # Initialize a logger for this module.
 logger = logging.getLogger(__name__)
@@ -781,27 +781,34 @@ class PatchedAttribute(object):
     exited.
     """
 
-    def __init__(self, object, attribute, value):
+    def __init__(self, object, attribute, value, enabled=True):
         """
         Initialize a :class:`PatchedAttribute` object.
 
         :param object: The object whose attribute should be patched.
         :param attribute: The name of the attribute to be patched (a string).
         :param value: The temporary value for the attribute.
+        :param enabled: :data:`True` to patch the attribute, :data:`False` to
+                        do nothing instead. This enables conditional attribute
+                        patching while unconditionally using the
+                        :keyword:`with` statement.
         """
         self.object = object
         self.attribute = attribute
         self.patched_value = value
         self.original_value = None
+        self.enabled = enabled
 
     def __enter__(self):
         """Change the object attribute when entering the context."""
-        self.original_value = getattr(self.object, self.attribute)
-        setattr(self.object, self.attribute, self.patched_value)
+        if self.enabled:
+            self.original_value = getattr(self.object, self.attribute)
+            setattr(self.object, self.attribute, self.patched_value)
 
     def __exit__(self, exc_type=None, exc_value=None, traceback=None):
         """Restore the object attribute when leaving the context."""
-        setattr(self.object, self.attribute, self.original_value)
+        if self.enabled:
+            setattr(self.object, self.attribute, self.original_value)
 
 
 class AttributeOverrides(object):
