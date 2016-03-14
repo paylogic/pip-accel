@@ -68,6 +68,13 @@ example:
 
    $ pip-accel install -r requirements.txt
 
+Alternatively you can also run pip-accel as follows, but note that this
+requires Python 2.7 or higher (it specifically doesn't work on Python 2.6):
+
+.. code-block:: bash
+
+   $ python -m pip_accel install -r requirements.txt
+
 If you pass a ``-v`` or ``--verbose`` option then pip and pip-accel will both
 use verbose output. The ``-q`` or ``--quiet`` option is also supported.
 

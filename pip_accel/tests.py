@@ -1,7 +1,7 @@
 # Tests for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: January 16, 2016
+# Last Change: March 14, 2016
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -57,7 +57,7 @@ from pip_accel.req import escape_name
 from pip_accel.utils import create_file_url, makedirs, requirement_is_installed, uninstall
 
 # Test dependencies.
-from executor import CommandNotFound, which
+from executor import CommandNotFound, execute, which
 from executor.ssh.server import EphemeralTCPServer
 from portalocker import Lock
 
@@ -803,6 +803,18 @@ class PipAccelTestCase(unittest.TestCase):
             returncode = test_cli('pip-accel')
             assert returncode == 0, "pip-accel command line interface exited with nonzero return code!"
             assert 'Usage: pip-accel' in str(stream), "pip-accel command line interface didn't report usage message!"
+
+    def test_cli_as_module(self):
+        """Make sure ``python -m pip_accel ...`` works."""
+        if sys.version_info[:2] <= (2, 6):
+            return self.skipTest("""
+                Skipping 'python -m pip_accel ...' test because this feature
+                became supported on Python 2.7 while you are running an older
+                version.
+            """)
+        else:
+            output = execute(sys.executable, '-m', 'pip_accel', capture=True)
+            assert 'Usage: pip-accel' in output, "'python -m pip_accel' didn't report usage message!"
 
     def test_constraint_file_support(self):
         """
