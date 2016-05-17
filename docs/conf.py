@@ -1,14 +1,13 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: January 10, 2016
+# Last Change: May 18, 2016
 # URL: https://github.com/paylogic/pip-accel
 
 """Sphinx documentation configuration for the `pip-accel` project."""
 
 import os
 import sys
-import types
 
 # Add the pip_accel source distribution's root directory to the module path.
 sys.path.insert(0, os.path.abspath('..'))
@@ -21,6 +20,7 @@ extensions = [
     'sphinx.ext.graphviz',
     'sphinx.ext.inheritance_diagram',
     'sphinx.ext.intersphinx',
+    'humanfriendly.sphinx',
 ]
 
 # Paths that contain templates, relative to this directory.
@@ -83,22 +83,3 @@ html_theme = 'default'
 
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'pip-acceldoc'
-
-
-def setup(app):
-    """Sphinx customizations applied through the API."""
-    app.connect('autodoc-skip-member', custom_skip_member)
-
-
-def custom_skip_member(app, what, name, obj, skip, options):
-    """Inspired by http://stackoverflow.com/a/5599712/788200."""
-    if skip and obj.__doc__:
-        # If Sphinx would skip this object but it concerns a function or method
-        # that does have documentation we tell Sphinx to reconsider. This
-        # enables documentation of e.g. __init__(), __str__(), __unicode__(),
-        # __enter__(), __exit__(), etc. The isinstance() check makes sure we
-        # don't include things like __doc__, __module__ and __weakref__ in the
-        # documentation.
-        return not isinstance(obj, (types.FunctionType, types.MethodType))
-    else:
-        return skip
