@@ -3,7 +3,7 @@
 # Accelerator for pip, the Python package manager.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: February 19, 2016
+# Last Change: May 17, 2016
 # URL: https://github.com/paylogic/pip-accel
 
 """Setup script for the `pip-accel` package."""
@@ -23,9 +23,9 @@ def get_readme():
         return handle.read()
 
 
-def get_version():
-    """Get the version of `pip-accel` (by extracting it from the source code)."""
-    module_path = get_absolute_path('pip_accel', '__init__.py')
+def get_version(*args):
+    """Get the package's version (by extracting it from the source code)."""
+    module_path = get_absolute_path(*args)
     with open(module_path) as handle:
         for line in handle:
             match = re.match(r'^__version__\s*=\s*["\']([^"\']+)["\']$', line)
@@ -54,7 +54,7 @@ def get_absolute_path(*args):
 
 
 setup(name='pip-accel',
-      version=get_version(),
+      version=get_version('pip_accel', '__init__.py'),
       description='Accelerator for pip, the Python package manager',
       long_description=get_readme(),
       author='Peter Odding',
