@@ -1,7 +1,7 @@
 # Tests for the pip accelerator.
 #
 # Author: Peter Odding <peter.odding@paylogic.com>
-# Last Change: March 14, 2016
+# Last Change: June 6, 2016
 # URL: https://github.com/paylogic/pip-accel
 
 """
@@ -571,13 +571,13 @@ class PipAccelTestCase(unittest.TestCase):
         """
         Test the installation of editable packages using ``pip install --editable``.
 
-        This test clones the git repository of the Python package `pep8` and
-        installs the package as an editable package.
+        This test clones the git repository of the Python package `pycodestyle`
+        and installs the package as an editable package.
 
-        We want to import the `pep8` module to confirm that it was
+        We want to import the `pycodestyle` module to confirm that it was
         properly installed but we can't do that in the process that's running
         the test suite because it will fail with an import error. Python
-        subprocesses however will import the `pep8` module just fine.
+        subprocesses however will import the `pycodestyle` module just fine.
 
         This happens because ``easy-install.pth`` (used for editable packages)
         is loaded once during startup of the Python interpreter and never
@@ -587,37 +587,39 @@ class PipAccelTestCase(unittest.TestCase):
 
         .. _issue 402 in the Gunicorn issue tracker: https://github.com/benoitc/gunicorn/issues/402
         """
-        # Make sure pep8 isn't already installed when this test starts.
-        uninstall_through_subprocess('pep8')
-        if not self.pep8_git_repo:
+        # Make sure pycodestyle isn't already installed when this test starts.
+        uninstall_through_subprocess('pycodestyle')
+        if not self.pycodestyle_git_repo:
             return self.skipTest("""
-                Skipping editable installation test (git clone of pep8
+                Skipping editable installation test (git clone of pycodestyle
                 repository from GitHub seems to have failed).
             """)
         # Install the package from the checkout as an editable package.
         accelerator = self.initialize_pip_accel()
         num_installed = accelerator.install_from_arguments([
-            '--ignore-installed', '--editable', self.pep8_git_repo,
+            '--ignore-installed', '--editable', self.pycodestyle_git_repo,
         ])
         assert num_installed == 1, "Expected pip-accel to install exactly one package!"
-        # Importing pep8 here fails even though the package is properly
+        # Importing pycodestyle here fails even though the package is properly
         # installed. We start a Python interpreter in a subprocess to verify
-        # that pep8 is properly installed to work around this.
-        python = subprocess.Popen([sys.executable, '-c', 'print(__import__("pep8").__file__)'],
-                                  stdout=subprocess.PIPE)
+        # that pycodestyle is properly installed to work around this.
+        python = subprocess.Popen(
+            [sys.executable, '-c', 'print(__import__("pycodestyle").__file__)'],
+            stdout=subprocess.PIPE,
+        )
         stdout, stderr = python.communicate()
         python_module = stdout.decode().strip()
         # Under Mac OS X the following startswith() check will fail if we don't
         # resolve symbolic links (under Mac OS X /var is a symbolic link to
         # /private/var).
-        git_checkout = os.path.realpath(self.pep8_git_repo)
+        git_checkout = os.path.realpath(self.pycodestyle_git_repo)
         python_module = os.path.realpath(python_module)
         assert python_module.startswith(git_checkout), \
             "Editable Python module not located under git checkout of project!"
         # Cleanup after ourselves so that unrelated tests involving the
-        # pep8 package don't get confused when they're run after
+        # pycodestyle package don't get confused when they're run after
         # this test and encounter an editable package.
-        uninstall_through_subprocess('pep8')
+        uninstall_through_subprocess('pycodestyle')
 
     def test_setup_requires_caching(self):
         """
@@ -749,25 +751,25 @@ class PipAccelTestCase(unittest.TestCase):
 
     def check_cache_invalidation(self, **overrides):
         """Test cache invalidation with the given option(s)."""
-        if not self.pep8_git_repo:
+        if not self.pycodestyle_git_repo:
             return self.skipTest("""
-                skipping cache invalidation test (git clone of `pep8'
+                skipping cache invalidation test (git clone of `pycodestyle'
                 repository from github seems to have failed).
             """)
         accelerator = self.initialize_pip_accel(**overrides)
-        # Install the pep8 package.
-        accelerator.install_from_arguments(['--ignore-installed', create_source_dist(self.pep8_git_repo)])
+        # Install the pycodestyle package.
+        accelerator.install_from_arguments(['--ignore-installed', create_source_dist(self.pycodestyle_git_repo)])
         # Find the modification time of the source and binary distributions.
-        sdist_mtime_1 = os.path.getmtime(find_one_file(accelerator.config.source_index, '*pep8*'))
-        bdist_mtime_1 = os.path.getmtime(find_one_file(accelerator.config.binary_cache, '*pep8*.tar.gz'))
-        # Install the pep8 package for the second time, using a newly created
-        # source distribution archive with different contents.
-        with open(os.path.join(self.pep8_git_repo, 'MANIFEST.in'), 'w') as handle:
+        sdist_mtime_1 = os.path.getmtime(find_one_file(accelerator.config.source_index, '*pycodestyle*'))
+        bdist_mtime_1 = os.path.getmtime(find_one_file(accelerator.config.binary_cache, '*pycodestyle*.tar.gz'))
+        # Install the pycodestyle package for the second time, using a newly
+        # created source distribution archive with different contents.
+        with open(os.path.join(self.pycodestyle_git_repo, 'MANIFEST.in'), 'w') as handle:
             handle.write("\n# An innocent comment to change the checksum ..\n")
-        accelerator.install_from_arguments(['--ignore-installed', create_source_dist(self.pep8_git_repo)])
+        accelerator.install_from_arguments(['--ignore-installed', create_source_dist(self.pycodestyle_git_repo)])
         # Find the modification time of the source and binary distributions.
-        sdist_mtime_2 = os.path.getmtime(find_one_file(accelerator.config.source_index, '*pep8*'))
-        bdist_mtime_2 = os.path.getmtime(find_one_file(accelerator.config.binary_cache, '*pep8*.tar.gz'))
+        sdist_mtime_2 = os.path.getmtime(find_one_file(accelerator.config.source_index, '*pycodestyle*'))
+        bdist_mtime_2 = os.path.getmtime(find_one_file(accelerator.config.binary_cache, '*pycodestyle*.tar.gz'))
         # Check that the source distribution's modification time changed
         # (because we created it by running the `python setup.py sdist'
         # command a second time).
@@ -966,10 +968,10 @@ class PipAccelTestCase(unittest.TestCase):
             os.remove(dummy_deps_config)
 
     @cached_property
-    def pep8_git_repo(self):
-        """The pathname of a git clone of the `pep8` package (:data:`None` if git fails)."""
-        git_checkout = create_temporary_directory(prefix='pip-accel-', suffix='-pep8-checkout')
-        git_remote = 'https://github.com/PyCQA/pep8.git'
+    def pycodestyle_git_repo(self):
+        """The pathname of a git clone of the `pycodestyle` (formerly `pep8`) package (:data:`None` if git fails)."""
+        git_checkout = create_temporary_directory(prefix='pip-accel-', suffix='-pycodestyle-checkout')
+        git_remote = 'https://github.com/PyCQA/pycodestyle.git'
         if subprocess.call(['git', 'clone', '--depth=1', git_remote, git_checkout]) == 0:
             return git_checkout
         else:
